@@ -52,9 +52,9 @@ export const validateManifest = (content: string): ValidationResult => {
       errors.push("Manifest missing required field: 'version'");
     }
 
-    // Validate id format (alphanumeric with hyphens)
-    if (manifest.id && !/^[a-z0-9-]+$/.test(manifest.id)) {
-      errors.push("Game 'id' must be lowercase alphanumeric with hyphens only");
+    // Validate id format (alphanumeric with hyphens and dots)
+    if (manifest.id && !/^[a-z0-9.-]+$/.test(manifest.id)) {
+      errors.push("Game 'id' phải là chữ thường, số, dấu gạch ngang (-) hoặc dấu chấm (.)");
     }
 
     // Validate version format (semver-like)
