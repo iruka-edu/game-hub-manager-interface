@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",
+    "@astrojs/vercel": "^9.0.2",
     "@google-cloud/storage": "^7.18.0",
     "@tailwindcss/vite": "^4.1.17",
     "astro": "^5.16.4",

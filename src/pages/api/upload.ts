@@ -59,7 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully uploaded ${manifest.title || id} v${version}!`,
+        message: `Đã tải lên thành công ${manifest.title || id} v${version}!`,
         gameId: id,
         version: version,
         entryUrl: `https://storage.googleapis.com/${process.env.GCLOUD_BUCKET_NAME}/games/${id}/${version}/index.html`,
