@@ -1,0 +1,901 @@
+---
+// Server-side component - all logic happens on client
+---
+
+<div class="card overflow-hidden animate-fade-in">
+  <div class="p-8">
+    <div class="flex items-center gap-4 mb-6">
+      <div
+        class="w-14 h-14 rounded-lg bg-indigo-100 flex items-center justify-center"
+      >
+        <svg
+          class="w-7 h-7 text-indigo-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+          ></path>
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-xl font-bold text-slate-900">Tải Game Mới</h2>
+        <p class="text-slate-500 text-sm">Chọn file hoặc thư mục để tải lên</p>
+      </div>
+    </div>
+
+    <!-- File Input Options -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-slate-700 mb-3">
+        Chọn File hoặc Thư mục
+        <span class="text-slate-400 font-normal"
+          >(phải chứa index.html & manifest.json)</span
+        >
+      </label>
+
+      <div class="flex gap-3 mb-4">
+        <button
+          type="button"
+          id="selectFilesBtn"
+          class="flex-1 py-3 px-4 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all flex items-center justify-center gap-2"
+        >
+          <svg
+            class="w-5 h-5 text-slate-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            ></path>
+          </svg>
+          <span class="text-slate-700 text-sm font-medium">Chọn File</span>
+        </button>
+        <button
+          type="button"
+          id="selectFolderBtn"
+          class="flex-1 py-3 px-4 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all flex items-center justify-center gap-2"
+        >
+          <svg
+            class="w-5 h-5 text-slate-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            ></path>
+          </svg>
+          <span class="text-slate-700 text-sm font-medium">Chọn Thư mục</span>
+        </button>
+      </div>
+
+      <!-- Hidden file inputs -->
+      <input type="file" id="fileInput" multiple class="hidden" />
+      <input type="file" id="folderInput" multiple class="hidden" />
+
+      <!-- Drop Zone -->
+      <div
+        id="dropZone"
+        class="relative border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer
+               hover:border-indigo-400 hover:bg-slate-50 transition-all"
+      >
+        <svg
+          class="w-12 h-12 text-slate-400 mb-3 mx-auto"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+          ></path>
+        </svg>
+        <p class="text-slate-600 font-medium">
+          Kéo thả file hoặc thư mục vào đây
+        </p>
+        <p class="text-slate-400 text-sm mt-1">
+          Hoặc sử dụng các nút phía trên
+        </p>
+      </div>
+    </div>
+
+    <!-- File List -->
+    <div id="fileListContainer" class="hidden mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3
+          class="text-sm font-semibold text-slate-700 flex items-center gap-2"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            ></path>
+          </svg>
+          <span id="fileCountLabel">0 file đã chọn</span>
+        </h3>
+        <button
+          type="button"
+          id="clearFilesBtn"
+          class="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors font-medium"
+        >
+          Xóa tất cả
+        </button>
+      </div>
+
+      <div id="fileList" class="max-h-64 overflow-y-auto space-y-2 pr-2">
+        <!-- File items will be rendered here -->
+      </div>
+    </div>
+
+    <!-- Manifest Editor -->
+    <div id="manifestEditor" class="hidden mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3
+          class="text-sm font-semibold text-indigo-700 flex items-center gap-2"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            ></path>
+          </svg>
+          Cấu hình Manifest
+        </h3>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            id="toggleManifestView"
+            class="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors font-medium"
+          >
+            Xem JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- Manifest Form Fields -->
+      <div
+        id="manifestFields"
+        class="p-5 rounded-lg bg-slate-50 border border-slate-200 space-y-4"
+      >
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5"
+              >Game ID *</label
+            >
+            <input
+              type="text"
+              id="manifestId"
+              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="com.example.game"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5"
+              >Phiên bản *</label
+            >
+            <input
+              type="text"
+              id="manifestVersion"
+              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="1.0.0"
+            />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5"
+              >Tên game</label
+            >
+            <input
+              type="text"
+              id="manifestTitle"
+              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Game tuyệt vời của tôi"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5"
+              >Runtime</label
+            >
+            <select
+              id="manifestRuntime"
+              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="html5">HTML5</option>
+              <option value="unity">Unity</option>
+              <option value="phaser">Phaser</option>
+              <option value="pixi">PixiJS</option>
+              <option value="other">Khác</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1.5"
+            >Khả năng (phân cách bằng dấu phẩy)</label
+          >
+          <input
+            type="text"
+            id="manifestCapabilities"
+            class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="audio, fullscreen, gamepad"
+          />
+        </div>
+      </div>
+
+      <!-- Raw JSON View (hidden by default) -->
+      <div id="manifestJsonView" class="hidden">
+        <textarea
+          id="manifestJsonText"
+          class="w-full h-48 bg-white border border-slate-200 rounded-lg p-4 text-sm text-slate-700 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          placeholder='{"id": "...", "version": "..."}'></textarea>
+      </div>
+    </div>
+
+    <!-- Status Message -->
+    <div
+      id="statusMessage"
+      class="hidden mb-6 p-4 rounded-lg text-sm font-medium"
+    >
+    </div>
+
+    <!-- Progress Bar -->
+    <div id="progressContainer" class="hidden mb-6">
+      <div class="flex justify-between text-sm text-slate-500 mb-2">
+        <span id="progressLabel">Đang tải lên...</span>
+        <span id="progressPercent">0%</span>
+      </div>
+      <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+        <div
+          id="progressBar"
+          class="h-full bg-indigo-600 rounded-full transition-all duration-300"
+          style="width: 0%"
+        >
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <button
+      id="uploadBtn"
+      type="button"
+      disabled
+      class="w-full py-3.5 rounded-lg font-semibold text-white text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed
+             bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow-md"
+    >
+      <span id="uploadBtnText">Chọn file trước</span>
+    </button>
+  </div>
+
+  <!-- Instructions -->
+  <div class="px-8 pb-8">
+    <div class="p-5 rounded-lg bg-slate-50 border border-slate-200">
+      <h3
+        class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"
+      >
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          ></path>
+        </svg>
+        Yêu cầu tải lên
+      </h3>
+      <ul class="space-y-2 text-sm text-slate-600">
+        <li class="flex items-start gap-2">
+          <span class="text-emerald-600 mt-0.5">✓</span>
+          <span
+            >Phải chứa file <code
+              class="bg-slate-200 px-1.5 py-0.5 rounded text-xs"
+              >index.html</code
+            > làm điểm vào</span
+          >
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-emerald-600 mt-0.5">✓</span>
+          <span
+            >Có file <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs"
+              >manifest.json</code
+            > hợp lệ với id và version</span
+          >
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-emerald-600 mt-0.5">✓</span>
+          <span
+            >Version phải là duy nhất hoặc cao hơn (ví dụ: <code
+              class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">1.0.0</code
+            >)</span
+          >
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  interface FileItem {
+    file: File;
+    name: string;
+    path: string;
+    type: "file" | "folder";
+    size: number;
+    status: "pending" | "uploading" | "success" | "error";
+    errorMessage?: string;
+  }
+
+  // DOM Elements
+  const fileInput = document.getElementById("fileInput") as HTMLInputElement;
+  const folderInput = document.getElementById(
+    "folderInput"
+  ) as HTMLInputElement;
+  const selectFilesBtn = document.getElementById(
+    "selectFilesBtn"
+  ) as HTMLButtonElement;
+  const selectFolderBtn = document.getElementById(
+    "selectFolderBtn"
+  ) as HTMLButtonElement;
+  const dropZone = document.getElementById("dropZone") as HTMLDivElement;
+  const fileListContainer = document.getElementById(
+    "fileListContainer"
+  ) as HTMLDivElement;
+  const fileList = document.getElementById("fileList") as HTMLDivElement;
+  const fileCountLabel = document.getElementById(
+    "fileCountLabel"
+  ) as HTMLSpanElement;
+  const clearFilesBtn = document.getElementById(
+    "clearFilesBtn"
+  ) as HTMLButtonElement;
+  const manifestEditor = document.getElementById(
+    "manifestEditor"
+  ) as HTMLDivElement;
+  const manifestFields = document.getElementById(
+    "manifestFields"
+  ) as HTMLDivElement;
+  const manifestJsonView = document.getElementById(
+    "manifestJsonView"
+  ) as HTMLDivElement;
+  const manifestJsonText = document.getElementById(
+    "manifestJsonText"
+  ) as HTMLTextAreaElement;
+  const toggleManifestView = document.getElementById(
+    "toggleManifestView"
+  ) as HTMLButtonElement;
+  const uploadBtn = document.getElementById("uploadBtn") as HTMLButtonElement;
+  const uploadBtnText = document.getElementById(
+    "uploadBtnText"
+  ) as HTMLSpanElement;
+  const statusMessage = document.getElementById(
+    "statusMessage"
+  ) as HTMLDivElement;
+  const progressContainer = document.getElementById(
+    "progressContainer"
+  ) as HTMLDivElement;
+  const progressBar = document.getElementById("progressBar") as HTMLDivElement;
+  const progressPercent = document.getElementById(
+    "progressPercent"
+  ) as HTMLSpanElement;
+  const progressLabel = document.getElementById(
+    "progressLabel"
+  ) as HTMLSpanElement;
+
+  // State
+  let fileItems: FileItem[] = [];
+  let manifestData: any = null;
+  let isJsonView = false;
+
+  // Utility functions
+  function formatFileSize(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  }
+
+  function getFileIcon(fileName: string): string {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    if (["html", "htm"].includes(ext || "")) return "📄";
+    if (["js", "mjs", "ts"].includes(ext || "")) return "📜";
+    if (["css", "scss", "less"].includes(ext || "")) return "🎨";
+    if (["json"].includes(ext || "")) return "📋";
+    if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext || ""))
+      return "🖼️";
+    if (["mp3", "wav", "ogg"].includes(ext || "")) return "🔊";
+    if (["mp4", "webm"].includes(ext || "")) return "🎬";
+    if (["woff", "woff2", "ttf", "otf"].includes(ext || "")) return "🔤";
+    return "📁";
+  }
+
+  function getStatusBadge(status: FileItem["status"]): string {
+    switch (status) {
+      case "pending":
+        return '<span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 font-medium">Chờ xử lý</span>';
+      case "uploading":
+        return '<span class="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 font-medium animate-pulse">Đang tải...</span>';
+      case "success":
+        return '<span class="px-2 py-0.5 rounded text-xs bg-emerald-50 text-emerald-700 font-medium">✓ Đã tải</span>';
+      case "error":
+        return '<span class="px-2 py-0.5 rounded text-xs bg-red-50 text-red-700 font-medium">✗ Lỗi</span>';
+      default:
+        return "";
+    }
+  }
+
+  function showStatus(
+    message: string,
+    type: "error" | "success" | "info" | "warning"
+  ) {
+    statusMessage.classList.remove("hidden");
+    statusMessage.className = `mb-6 p-4 rounded-lg text-sm font-medium ${
+      type === "error"
+        ? "bg-red-50 text-red-700 border border-red-200"
+        : type === "success"
+          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+          : type === "warning"
+            ? "bg-amber-50 text-amber-700 border border-amber-200"
+            : "bg-blue-50 text-blue-700 border border-blue-200"
+    }`;
+    statusMessage.textContent = message;
+  }
+
+  function hideStatus() {
+    statusMessage.classList.add("hidden");
+  }
+
+  function renderFileList() {
+    if (fileItems.length === 0) {
+      fileListContainer.classList.add("hidden");
+      return;
+    }
+
+    fileListContainer.classList.remove("hidden");
+    fileCountLabel.textContent = `${fileItems.length} file đã chọn`;
+
+    fileList.innerHTML = fileItems
+      .map(
+        (item, index) => `
+      <div class="flex items-center justify-between py-2.5 px-4 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors group" data-index="${index}">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <span class="text-lg">${getFileIcon(item.name)}</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-slate-900 truncate" title="${item.path || item.name}">${item.name}</p>
+            <p class="text-xs text-slate-500">${formatFileSize(item.size)}${item.path ? ` • ${item.path}` : ""}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          ${getStatusBadge(item.status)}
+          <button 
+            class="remove-file-btn opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-red-500 hover:text-red-600 hover:bg-red-50 transition-all"
+            data-index="${index}"
+            title="Xóa file"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    // Attach remove handlers
+    fileList.querySelectorAll(".remove-file-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const index = parseInt(
+          (e.currentTarget as HTMLElement).dataset.index || "0"
+        );
+        removeFile(index);
+      });
+    });
+  }
+
+  function removeFile(index: number) {
+    fileItems.splice(index, 1);
+    renderFileList();
+    validateAndUpdateUI();
+  }
+
+  function clearAllFiles() {
+    fileItems = [];
+    manifestData = null;
+    renderFileList();
+    manifestEditor.classList.add("hidden");
+    uploadBtn.disabled = true;
+    uploadBtnText.textContent = "Chọn file trước";
+    hideStatus();
+  }
+
+  async function processFiles(files: File[]) {
+    const newItems: FileItem[] = files.map((file) => ({
+      file,
+      name: file.name,
+      path: (file as any).webkitRelativePath || "",
+      type: "file" as const,
+      size: file.size,
+      status: "pending" as const,
+    }));
+
+    fileItems = [...fileItems, ...newItems];
+    renderFileList();
+    await validateAndUpdateUI();
+  }
+
+  async function validateAndUpdateUI() {
+    hideStatus();
+
+    if (fileItems.length === 0) {
+      manifestEditor.classList.add("hidden");
+      uploadBtn.disabled = true;
+      uploadBtnText.textContent = "Chọn file trước";
+      return;
+    }
+
+    const hasIndex = fileItems.some(
+      (f) => f.name === "index.html" || f.path?.endsWith("/index.html")
+    );
+    const manifestFile = fileItems.find(
+      (f) => f.name === "manifest.json" || f.path?.endsWith("/manifest.json")
+    );
+
+    if (!hasIndex) {
+      showStatus(
+        "Thiếu file 'index.html'. Đây là điểm vào bắt buộc.",
+        "warning"
+      );
+      manifestEditor.classList.add("hidden");
+      uploadBtn.disabled = true;
+      uploadBtnText.textContent = "Thiếu index.html";
+      return;
+    }
+
+    if (!manifestFile) {
+      showStatus(
+        "Không tìm thấy manifest.json. Vui lòng điền thông tin bên dưới.",
+        "info"
+      );
+      manifestEditor.classList.remove("hidden");
+      manifestData = null;
+      updateManifestFromFields();
+      return;
+    }
+
+    try {
+      const content = await manifestFile.file.text();
+      const manifest = JSON.parse(content);
+      manifestData = manifest;
+
+      manifestEditor.classList.remove("hidden");
+      populateManifestFields(manifest);
+      updateManifestJson();
+
+      if (!manifest.id || !manifest.version) {
+        showStatus(
+          "Manifest thiếu các trường bắt buộc. Vui lòng hoàn thành form.",
+          "warning"
+        );
+        uploadBtn.disabled = true;
+        uploadBtnText.textContent = "Hoàn thành manifest trước";
+        return;
+      }
+
+      showStatus(`Sẵn sàng tải lên ${fileItems.length} file`, "info");
+      uploadBtn.disabled = false;
+      uploadBtnText.textContent = `Tải lên ${manifest.title || manifest.id} v${manifest.version}`;
+    } catch (err) {
+      showStatus(
+        "JSON trong manifest.json không hợp lệ. Vui lòng sửa hoặc chỉnh sửa bên dưới.",
+        "error"
+      );
+      manifestEditor.classList.remove("hidden");
+      uploadBtn.disabled = true;
+      uploadBtnText.textContent = "Sửa manifest";
+    }
+  }
+
+  function populateManifestFields(manifest: any) {
+    (document.getElementById("manifestId") as HTMLInputElement).value =
+      manifest.id || "";
+    (document.getElementById("manifestVersion") as HTMLInputElement).value =
+      manifest.version || "";
+    (document.getElementById("manifestTitle") as HTMLInputElement).value =
+      manifest.title || "";
+    (document.getElementById("manifestRuntime") as HTMLSelectElement).value =
+      manifest.runtime || "html5";
+    (
+      document.getElementById("manifestCapabilities") as HTMLInputElement
+    ).value = Array.isArray(manifest.capabilities)
+      ? manifest.capabilities.join(", ")
+      : "";
+  }
+
+  function getManifestFromFields(): any {
+    const id = (
+      document.getElementById("manifestId") as HTMLInputElement
+    ).value.trim();
+    const version = (
+      document.getElementById("manifestVersion") as HTMLInputElement
+    ).value.trim();
+    const title = (
+      document.getElementById("manifestTitle") as HTMLInputElement
+    ).value.trim();
+    const runtime = (
+      document.getElementById("manifestRuntime") as HTMLSelectElement
+    ).value;
+    const capabilitiesStr = (
+      document.getElementById("manifestCapabilities") as HTMLInputElement
+    ).value.trim();
+    const capabilities = capabilitiesStr
+      ? capabilitiesStr
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    return { id, version, title, runtime, capabilities };
+  }
+
+  function updateManifestFromFields() {
+    manifestData = getManifestFromFields();
+    updateManifestJson();
+
+    if (manifestData.id && manifestData.version) {
+      uploadBtn.disabled = false;
+      uploadBtnText.textContent = `Tải lên ${manifestData.title || manifestData.id} v${manifestData.version}`;
+      showStatus(`Sẵn sàng tải lên ${fileItems.length} file`, "info");
+    } else {
+      uploadBtn.disabled = true;
+      uploadBtnText.textContent = "Hoàn thành manifest trước";
+    }
+  }
+
+  function updateManifestJson() {
+    manifestJsonText.value = JSON.stringify(manifestData, null, 2);
+  }
+
+  function updateManifestFromJson() {
+    try {
+      manifestData = JSON.parse(manifestJsonText.value);
+      populateManifestFields(manifestData);
+
+      if (manifestData.id && manifestData.version) {
+        uploadBtn.disabled = false;
+        uploadBtnText.textContent = `Tải lên ${manifestData.title || manifestData.id} v${manifestData.version}`;
+        showStatus(`Sẵn sàng tải lên ${fileItems.length} file`, "info");
+      } else {
+        uploadBtn.disabled = true;
+        uploadBtnText.textContent = "Hoàn thành manifest trước";
+      }
+    } catch (err) {
+      showStatus("Định dạng JSON không hợp lệ", "error");
+      uploadBtn.disabled = true;
+    }
+  }
+
+  // Event Listeners
+  selectFilesBtn.addEventListener("click", () => fileInput.click());
+  selectFolderBtn.addEventListener("click", () => folderInput.click());
+
+  fileInput.addEventListener("change", (e) => {
+    const files = Array.from((e.target as HTMLInputElement).files || []);
+    if (files.length > 0) processFiles(files);
+  });
+
+  folderInput.addEventListener("change", (e) => {
+    const files = Array.from((e.target as HTMLInputElement).files || []);
+    if (files.length > 0) processFiles(files);
+  });
+
+  clearFilesBtn.addEventListener("click", clearAllFiles);
+
+  // Drag and drop
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("border-indigo-400", "bg-indigo-50");
+  });
+
+  dropZone.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("border-indigo-400", "bg-indigo-50");
+  });
+
+  dropZone.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("border-indigo-400", "bg-indigo-50");
+
+    const items = e.dataTransfer?.items;
+    if (!items) return;
+
+    const files: File[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === "file") {
+        const entry = item.webkitGetAsEntry?.();
+        if (entry) {
+          await traverseFileTree(entry, files);
+        } else {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+    }
+
+    if (files.length > 0) processFiles(files);
+  });
+
+  async function traverseFileTree(
+    entry: FileSystemEntry,
+    files: File[],
+    path = ""
+  ) {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve) => {
+        (entry as FileSystemFileEntry).file(resolve);
+      });
+      Object.defineProperty(file, "webkitRelativePath", {
+        value: path + file.name,
+        writable: false,
+      });
+      files.push(file);
+    } else if (entry.isDirectory) {
+      const dirReader = (entry as FileSystemDirectoryEntry).createReader();
+      const entries = await new Promise<FileSystemEntry[]>((resolve) => {
+        dirReader.readEntries(resolve);
+      });
+      for (const childEntry of entries) {
+        await traverseFileTree(childEntry, files, path + entry.name + "/");
+      }
+    }
+  }
+
+  // Manifest editor toggle
+  toggleManifestView.addEventListener("click", () => {
+    isJsonView = !isJsonView;
+    if (isJsonView) {
+      manifestFields.classList.add("hidden");
+      manifestJsonView.classList.remove("hidden");
+      toggleManifestView.textContent = "Xem Form";
+      updateManifestJson();
+    } else {
+      manifestFields.classList.remove("hidden");
+      manifestJsonView.classList.add("hidden");
+      toggleManifestView.textContent = "Xem JSON";
+    }
+  });
+
+  // Manifest field change handlers
+  [
+    "manifestId",
+    "manifestVersion",
+    "manifestTitle",
+    "manifestRuntime",
+    "manifestCapabilities",
+  ].forEach((id) => {
+    document
+      .getElementById(id)
+      ?.addEventListener("input", updateManifestFromFields);
+    document
+      .getElementById(id)
+      ?.addEventListener("change", updateManifestFromFields);
+  });
+
+  manifestJsonText.addEventListener("input", updateManifestFromJson);
+
+  // Upload handler
+  uploadBtn.addEventListener("click", async () => {
+    if (
+      fileItems.length === 0 ||
+      !manifestData ||
+      !manifestData.id ||
+      !manifestData.version
+    )
+      return;
+
+    uploadBtn.disabled = true;
+    uploadBtnText.textContent = "Đang tải lên...";
+    progressContainer.classList.remove("hidden");
+
+    fileItems.forEach((item) => (item.status = "uploading"));
+    renderFileList();
+
+    const formData = new FormData();
+
+    const manifestBlob = new Blob([JSON.stringify(manifestData, null, 2)], {
+      type: "application/json",
+    });
+    const manifestFile = new File([manifestBlob], "manifest.json", {
+      type: "application/json",
+    });
+    formData.append("files", manifestFile);
+
+    fileItems.forEach((item) => {
+      if (
+        item.name !== "manifest.json" &&
+        !item.path?.endsWith("/manifest.json")
+      ) {
+        formData.append("files", item.file);
+      }
+    });
+
+    try {
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress = Math.min(progress + Math.random() * 15, 90);
+        progressBar.style.width = `${progress}%`;
+        progressPercent.textContent = `${Math.round(progress)}%`;
+        progressLabel.textContent = `Đang tải lên ${Math.round(progress)}%...`;
+      }, 200);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      progressBar.style.width = "100%";
+      progressPercent.textContent = "100%";
+
+      const data = await res.json();
+
+      if (res.ok) {
+        fileItems.forEach((item) => (item.status = "success"));
+        renderFileList();
+
+        showStatus(data.message || "Tải lên thành công!", "success");
+        uploadBtnText.textContent = "Thành công! Đang chuyển hướng...";
+        progressLabel.textContent = "Hoàn tất!";
+
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 1500);
+      } else {
+        throw new Error(data.error || "Tải lên thất bại");
+      }
+    } catch (err: any) {
+      fileItems.forEach((item) => {
+        item.status = "error";
+        item.errorMessage = err.message;
+      });
+      renderFileList();
+
+      showStatus(err.message || "Tải lên thất bại", "error");
+      uploadBtn.disabled = false;
+      uploadBtnText.textContent = "Thử lại";
+      progressContainer.classList.add("hidden");
+    }
+  });
+</script>

@@ -1,0 +1,139 @@
+---
+import { RegistryManager } from '../../lib/registry';
+
+const { id } = Astro.params;
+const version = Astro.url.searchParams.get('v');
+
+// Find game in registry
+let game = null;
+let gameVersion = version;
+let entryUrl = '';
+
+try {
+  const registry = await RegistryManager.get();
+  game = registry.games.find(g => g.id === id);
+  
+  if (game) {
+    gameVersion = version || game.latest;
+    const CDN_BASE = `https://storage.googleapis.com/${import.meta.env.GCLOUD_BUCKET_NAME || 'iruka-edu-mini-game'}`;
+    entryUrl = `${CDN_BASE}/games/${id}/${gameVersion}/index.html`;
+  }
+} catch (error) {
+  console.error('Failed to load game:', error);
+}
+---
+
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{game?.title || id} - Game Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style is:global>
+      @import "tailwindcss";
+      
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 m-0 overflow-hidden h-screen flex flex-col">
+    {game ? (
+      <>
+        <!-- Top Bar -->
+        <div class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between z-10">
+          <div class="flex items-center gap-4">
+            <a href="/" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-2 text-sm font-medium">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span class="hidden sm:inline">Quay lại</span>
+            </a>
+            <div class="w-px h-6 bg-slate-200"></div>
+            <div>
+              <h1 class="text-slate-900 font-semibold text-sm">{game.title}</h1>
+              <p class="text-slate-500 text-xs">Phiên bản {gameVersion}</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-2">
+            {/* Version Selector */}
+            {game.versions.length > 1 && (
+              <select 
+                id="versionSelect"
+                class="bg-white border border-slate-200 rounded-md px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {game.versions.slice().reverse().map((v: string) => (
+                  <option value={v} selected={v === gameVersion}>{v}</option>
+                ))}
+              </select>
+            )}
+            
+            <button 
+              id="fullscreenBtn"
+              class="p-2 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+              title="Toàn màn hình"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Game Frame -->
+        <iframe 
+          id="gameFrame"
+          src={entryUrl}
+          class="w-full flex-1 border-none bg-white"
+          allow="fullscreen; autoplay; gamepad"
+        ></iframe>
+        
+        <script define:vars={{ id }}>
+          // Version selector
+          const versionSelect = document.getElementById('versionSelect');
+          if (versionSelect) {
+            versionSelect.addEventListener('change', (e) => {
+              const version = (e.target).value;
+              window.location.href = `/play/${id}?v=${version}`;
+            });
+          }
+          
+          // Fullscreen toggle
+          const fullscreenBtn = document.getElementById('fullscreenBtn');
+          const gameFrame = document.getElementById('gameFrame');
+          
+          fullscreenBtn?.addEventListener('click', () => {
+            if (gameFrame) {
+              if (document.fullscreenElement) {
+                document.exitFullscreen();
+              } else {
+                gameFrame.requestFullscreen();
+              }
+            }
+          });
+        </script>
+      </>
+    ) : (
+      <div class="flex-1 flex items-center justify-center bg-slate-50">
+        <div class="text-center">
+          <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900 mb-2">Không tìm thấy Game</h2>
+          <p class="text-slate-500 mb-6">Game "{id}" không tồn tại trong registry</p>
+          <a 
+            href="/" 
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors text-sm"
+          >
+            Quay lại Bảng điều khiển
+          </a>
+        </div>
+      </div>
+    )}
+  </body>
+</html>

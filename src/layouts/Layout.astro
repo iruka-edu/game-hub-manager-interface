@@ -1,0 +1,157 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Iruka Game Hub Manager - Quản lý mini-games trên Google Cloud Storage"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+    <style is:global>
+      @import "tailwindcss";
+
+      :root {
+        --color-primary: 79 70 229;
+        --color-primary-hover: 67 56 202;
+      }
+
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+
+      .animate-pulse {
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      .btn-primary {
+        background-color: rgb(var(--color-primary));
+        transition: all 0.2s ease;
+      }
+
+      .btn-primary:hover {
+        background-color: rgb(var(--color-primary-hover));
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.3);
+      }
+
+      .card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+      }
+
+      .card:hover {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-6 py-4">
+        <div class="flex items-center justify-between">
+          <a href="/" class="flex items-center gap-3 group">
+            <div
+              class="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm"
+            >
+              <svg
+                class="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                ></path>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <span class="text-xl font-bold text-slate-900"
+              >Game Hub Manager</span
+            >
+          </a>
+
+          <div class="flex items-center gap-4">
+            <a
+              href="/"
+              class="px-4 py-2 text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium"
+            >
+              Trang chủ
+            </a>
+            <a
+              href="/upload"
+              class="btn-primary px-5 py-2.5 rounded-lg font-semibold text-white text-sm"
+            >
+              + Tải game lên
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 mt-16 bg-white">
+      <div class="max-w-7xl mx-auto px-6 py-8">
+        <p class="text-center text-slate-500 text-sm">
+          Game Hub Manager • Được hỗ trợ bởi Astro & Google Cloud Storage
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
