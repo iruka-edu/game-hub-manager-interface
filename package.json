@@ -6,15 +6,23 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "validate:manifest": "ajv -s schema/manifest.schema.json -d \"games-dist/games/**/manifest.json\" --spec=draft7 --errors=text",
+    "iruka-game:validate": "node scripts/validate-game.js"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",
     "@astrojs/vercel": "^9.0.2",
     "@google-cloud/storage": "^7.18.0",
     "@tailwindcss/vite": "^4.1.17",
-    "astro": "^5.16.4",
+    "astro": "^5.16.5",
     "dotenv": "^17.2.3",
+    "jszip": "^3.10.1",
     "tailwindcss": "^4.1.17"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-cli": "^5.0.0",
+    "ajv-formats": "^3.0.1"
   }
 }

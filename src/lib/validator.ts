@@ -1,8 +1,11 @@
 import type { GameManifest } from './registry';
+import { enhancedValidator } from './enhanced-validator';
 
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
+  warnings?: string[];
+  suggestions?: string[];
   manifest?: GameManifest;
 }
 
@@ -24,10 +27,10 @@ export const validateGameFiles = (files: File[]): { valid: boolean; errors: stri
   );
 
   if (!hasIndex) {
-    errors.push("Missing 'index.html'. This is the required entry point.");
+    errors.push("Thiếu file 'index.html' - đây là điểm vào bắt buộc của game");
   }
   if (!hasManifest) {
-    errors.push("Missing 'manifest.json'. This file contains game metadata.");
+    errors.push("Thiếu file 'manifest.json' - file này chứa thông tin metadata của game");
   }
 
   return {
@@ -37,29 +40,45 @@ export const validateGameFiles = (files: File[]): { valid: boolean; errors: stri
 };
 
 /**
- * Parse and validate manifest content
+ * Enhanced manifest validation with detailed rules and suggestions
  */
 export const validateManifest = (content: string): ValidationResult => {
+  const result = enhancedValidator.validateManifest(content);
+  
+  return {
+    valid: result.valid,
+    errors: result.errors,
+    warnings: result.warnings,
+    suggestions: result.suggestions,
+    manifest: result.manifest as GameManifest,
+  };
+};
+
+/**
+ * Legacy validation for backward compatibility
+ * @deprecated Use validateManifest instead
+ */
+export const validateManifestLegacy = (content: string): ValidationResult => {
   const errors: string[] = [];
 
   try {
     const manifest = JSON.parse(content) as GameManifest;
 
     if (!manifest.id) {
-      errors.push("Manifest missing required field: 'id'");
+      errors.push("Manifest thiếu trường bắt buộc: 'id'");
     }
     if (!manifest.version) {
-      errors.push("Manifest missing required field: 'version'");
+      errors.push("Manifest thiếu trường bắt buộc: 'version'");
     }
 
-    // Validate id format (alphanumeric with hyphens and dots)
+    // Basic id format validation
     if (manifest.id && !/^[a-z0-9.-]+$/.test(manifest.id)) {
       errors.push("Game 'id' phải là chữ thường, số, dấu gạch ngang (-) hoặc dấu chấm (.)");
     }
 
-    // Validate version format (semver-like)
+    // Basic version format validation
     if (manifest.version && !/^\d+\.\d+\.\d+/.test(manifest.version)) {
-      errors.push("Version should follow semantic versioning (e.g., 1.0.0)");
+      errors.push("Version phải theo chuẩn semantic versioning (ví dụ: 1.0.0)");
     }
 
     return {
@@ -70,7 +89,7 @@ export const validateManifest = (content: string): ValidationResult => {
   } catch (e) {
     return {
       valid: false,
-      errors: ['Invalid JSON in manifest.json'],
+      errors: ['JSON không hợp lệ trong manifest.json'],
     };
   }
 };

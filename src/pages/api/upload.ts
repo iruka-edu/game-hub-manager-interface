@@ -3,6 +3,20 @@ import { uploadBuffer } from '../../lib/gcs';
 import { RegistryManager, type GameManifest } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
 
+interface FileUploadProgress {
+  fileName: string;
+  folder: string;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  error?: string;
+}
+
+interface UploadProgress {
+  totalFiles: number;
+  completedFiles: number;
+  currentFile: string;
+  folders: Record<string, { total: number; completed: number; files: FileUploadProgress[] }>;
+}
+
 export const POST: APIRoute = async ({ request }) => {
   // Check credentials early
   if (!process.env.GCLOUD_PROJECT_ID || (!process.env.GCLOUD_CLIENT_EMAIL && !process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
@@ -31,9 +45,42 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // 1. Parse and validate manifest
+    // 1. Parse and enhance manifest with server-generated fields
     const manifestContent = await manifestFile.text();
-    const validation = validateManifest(manifestContent);
+    let manifest;
+    try {
+      manifest = JSON.parse(manifestContent);
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Manifest JSON không hợp lệ' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { id, version } = manifest;
+    
+    // Generate entryUrl automatically
+    const bucketName = process.env.GCLOUD_BUCKET_NAME || 'iruka-edu-mini-game';
+    manifest.entryUrl = `https://storage.googleapis.com/${bucketName}/games/${id}/${version}/index.html`;
+    
+    // Add default iconUrl if not provided
+    if (!manifest.iconUrl) {
+      manifest.iconUrl = `https://storage.googleapis.com/${bucketName}/games/${id}/icon.png`;
+    }
+    
+    // Add default minHubVersion if not provided
+    if (!manifest.minHubVersion) {
+      manifest.minHubVersion = '1.0.0';
+    }
+    
+    // Add default disabled if not provided
+    if (manifest.disabled === undefined) {
+      manifest.disabled = false;
+    }
+
+    // Now validate the complete manifest
+    const enhancedManifestContent = JSON.stringify(manifest);
+    const validation = validateManifest(enhancedManifestContent);
 
     if (!validation.valid || !validation.manifest) {
       return new Response(
@@ -42,30 +89,123 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    const manifest = validation.manifest;
-    const { id, version } = manifest;
+    // 2. Organize files by folder structure
+    const filesByFolder: Record<string, File[]> = {};
+    const progress: UploadProgress = {
+      totalFiles: files.length,
+      completedFiles: 0,
+      currentFile: '',
+      folders: {}
+    };
 
-    // 2. Upload all files to GCS
-    const uploadPromises = files.map(async (file) => {
-      // webkitRelativePath: "dist/assets/image.png"
-      // We need: "games/<id>/<version>/assets/image.png"
+    files.forEach((file) => {
       const relativePath = (file as any).webkitRelativePath || file.name;
       const pathParts = relativePath.split('/');
       
-      // Remove top-level folder (e.g., 'dist') from path
+      // Remove top-level folder (e.g., 'dist') from path if it exists
       const cleanPath = pathParts.length > 1 ? pathParts.slice(1).join('/') : file.name;
-      const destination = `games/${id}/${version}/${cleanPath}`;
+      const folderPath = cleanPath.includes('/') ? cleanPath.split('/').slice(0, -1).join('/') : 'root';
       
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const isHtml = cleanPath === 'index.html' || cleanPath.endsWith('.html');
+      if (!filesByFolder[folderPath]) {
+        filesByFolder[folderPath] = [];
+        progress.folders[folderPath] = {
+          total: 0,
+          completed: 0,
+          files: []
+        };
+      }
       
-      await uploadBuffer(destination, buffer, file.type || 'application/octet-stream', isHtml);
+      filesByFolder[folderPath].push(file);
+      progress.folders[folderPath].total++;
+      progress.folders[folderPath].files.push({
+        fileName: file.name,
+        folder: folderPath,
+        status: 'pending'
+      });
     });
 
-    await Promise.all(uploadPromises);
+    // 3. Upload files folder by folder for better organization
+    const uploadResults: Array<{ success: boolean; file: string; error?: string }> = [];
+    
+    for (const [folderPath, folderFiles] of Object.entries(filesByFolder)) {
+      console.log(`[Upload] Processing folder: ${folderPath} (${folderFiles.length} files)`);
+      
+      // Upload files in this folder
+      for (const file of folderFiles) {
+        try {
+          const relativePath = (file as any).webkitRelativePath || file.name;
+          const pathParts = relativePath.split('/');
+          const cleanPath = pathParts.length > 1 ? pathParts.slice(1).join('/') : file.name;
+          const destination = `games/${id}/${version}/${cleanPath}`;
+          
+          progress.currentFile = file.name;
+          
+          // Update file status to uploading
+          const fileProgress = progress.folders[folderPath].files.find(f => f.fileName === file.name);
+          if (fileProgress) fileProgress.status = 'uploading';
+          
+          let buffer: Buffer;
+          let contentType = file.type || 'application/octet-stream';
+          
+          // Special handling for manifest.json - use enhanced version
+          if (cleanPath === 'manifest.json' || file.name === 'manifest.json') {
+            buffer = Buffer.from(enhancedManifestContent, 'utf-8');
+            contentType = 'application/json';
+          } else {
+            buffer = Buffer.from(await file.arrayBuffer());
+          }
+          
+          const isHtml = cleanPath === 'index.html' || cleanPath.endsWith('.html');
+          
+          await uploadBuffer(destination, buffer, contentType, isHtml);
+          
+          // Update progress
+          progress.completedFiles++;
+          progress.folders[folderPath].completed++;
+          if (fileProgress) fileProgress.status = 'success';
+          
+          uploadResults.push({ success: true, file: cleanPath });
+          
+          console.log(`[Upload] ✓ ${cleanPath} (${progress.completedFiles}/${progress.totalFiles})`);
+          
+        } catch (error: any) {
+          console.error(`[Upload] ✗ Failed to upload ${file.name}:`, error);
+          
+          const fileProgress = progress.folders[folderPath].files.find(f => f.fileName === file.name);
+          if (fileProgress) {
+            fileProgress.status = 'error';
+            fileProgress.error = error.message;
+          }
+          
+          uploadResults.push({ 
+            success: false, 
+            file: file.name, 
+            error: error.message 
+          });
+        }
+      }
+    }
 
-    // 3. Update registry
+    // Check if any uploads failed
+    const failedUploads = uploadResults.filter(r => !r.success);
+    if (failedUploads.length > 0) {
+      console.error(`[Upload] ${failedUploads.length} files failed to upload`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Một số file tải lên thất bại: ${failedUploads.map(f => f.file).join(', ')}`,
+          details: failedUploads
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 4. Update registry
     await RegistryManager.updateGame(id, version, manifest);
+
+    // 5. Generate summary
+    const folderSummary = Object.entries(progress.folders).map(([folder, info]) => 
+      `${folder}: ${info.completed}/${info.total} files`
+    ).join(', ');
 
     return new Response(
       JSON.stringify({
@@ -74,6 +214,11 @@ export const POST: APIRoute = async ({ request }) => {
         gameId: id,
         version: version,
         entryUrl: `https://storage.googleapis.com/${process.env.GCLOUD_BUCKET_NAME}/games/${id}/${version}/index.html`,
+        summary: {
+          totalFiles: progress.totalFiles,
+          folders: Object.keys(progress.folders).length,
+          folderBreakdown: folderSummary
+        }
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );

@@ -22,26 +22,40 @@
           ></path>
         </svg>
       </div>
-      <div>
+      <div class="flex-1">
         <h2 class="text-xl font-bold text-slate-900">Tải Game Mới</h2>
-        <p class="text-slate-500 text-sm">Chọn file hoặc thư mục để tải lên</p>
+        <p class="text-slate-500 text-sm">Chọn file, thư mục hoặc file ZIP để tải lên</p>
+      </div>
+    </div>
+
+    <!-- 3-Step Flow -->
+    <div class="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200">
+      <div class="flex items-start gap-3 text-sm text-blue-800">
+        <svg class="w-5 h-5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+          <p class="font-semibold mb-1">Quy trình tải lên:</p>
+          <ol class="space-y-1 text-blue-700">
+            <li><span class="font-medium">1.</span> Chọn kiểu tải lên (File / Thư mục / ZIP - khuyên dùng)</li>
+            <li><span class="font-medium">2.</span> Chọn gói build (kéo thả hoặc bấm nút chọn)</li>
+            <li><span class="font-medium">3.</span> Hệ thống kiểm tra & xác nhận → Đăng bản build</li>
+          </ol>
+        </div>
       </div>
     </div>
 
     <!-- File Input Options -->
     <div class="mb-6">
       <label class="block text-sm font-medium text-slate-700 mb-3">
-        Chọn File hoặc Thư mục
-        <span class="text-slate-400 font-normal"
-          >(có thể chọn nhiều lần để thêm file/folder)</span
-        >
+        Chọn phương thức tải lên
       </label>
 
-      <div class="flex gap-3 mb-4">
+      <div class="grid grid-cols-3 gap-3 mb-4">
         <button
           type="button"
           id="selectFilesBtn"
-          class="flex-1 py-3 px-4 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all flex items-center justify-center gap-2"
+          class="py-3 px-4 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all flex items-center justify-center gap-2"
         >
           <svg
             class="w-5 h-5 text-slate-500"
@@ -53,14 +67,15 @@
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2"
-              d="M12 4v16m8-8H4"></path>
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            ></path>
           </svg>
-          <span class="text-slate-700 text-sm font-medium">+ Thêm File</span>
+          <span class="text-slate-700 text-sm font-medium">+ File</span>
         </button>
         <button
           type="button"
           id="selectFolderBtn"
-          class="flex-1 py-3 px-4 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all flex items-center justify-center gap-2"
+          class="py-3 px-4 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all flex items-center justify-center gap-2"
         >
           <svg
             class="w-5 h-5 text-slate-500"
@@ -72,22 +87,38 @@
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2"
-              d="M12 4v16m8-8H4"></path>
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            ></path>
           </svg>
-          <span class="text-slate-700 text-sm font-medium">+ Thêm Thư mục</span>
+          <span class="text-slate-700 text-sm font-medium">+ Thư mục</span>
+        </button>
+        <button
+          type="button"
+          id="selectZipBtn"
+          class="relative py-3 px-4 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 transition-all flex items-center justify-center gap-2"
+        >
+          <span class="absolute -top-2 -right-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-600 text-white">Khuyên dùng</span>
+          <svg
+            class="w-5 h-5 text-emerald-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l2 2 4-4"
+            ></path>
+          </svg>
+          <span class="text-emerald-700 text-sm font-medium">📦 ZIP</span>
         </button>
       </div>
 
       <!-- Hidden file inputs -->
       <input type="file" id="fileInput" multiple class="hidden" />
-      <input
-        type="file"
-        id="folderInput"
-        multiple
-        webkitdirectory
-        directory
-        class="hidden"
-      />
+      <input type="file" id="folderInput" multiple class="hidden" />
+      <input type="file" id="zipInput" accept=".zip" class="hidden" />
 
       <!-- Drop Zone -->
       <div
@@ -108,10 +139,10 @@
             d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
           ></path>
         </svg>
-        <p class="text-slate-600 font-medium">
-          Kéo thả file hoặc thư mục vào đây
+        <p id="dropZoneText" class="text-slate-600 font-medium">
+          Kéo thả file, thư mục hoặc ZIP vào đây
         </p>
-        <p class="text-slate-400 text-sm mt-1">
+        <p id="dropZoneHint" class="text-slate-400 text-sm mt-1">
           Hoặc sử dụng các nút phía trên
         </p>
       </div>
@@ -155,29 +186,32 @@
     <!-- Manifest Editor -->
     <div id="manifestEditor" class="hidden mb-6">
       <div class="flex items-center justify-between mb-3">
-        <h3
-          class="text-sm font-semibold text-indigo-700 flex items-center gap-2"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div>
+          <h3
+            class="text-sm font-semibold text-indigo-700 flex items-center gap-2"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            ></path>
-          </svg>
-          Cấu hình Manifest
-        </h3>
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              ></path>
+            </svg>
+            Cấu hình Manifest
+          </h3>
+          <p id="manifestSource" class="text-xs text-slate-500 mt-1"></p>
+        </div>
         <div class="flex items-center gap-2">
           <button
             type="button"
             id="toggleManifestView"
-            class="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors font-medium"
+            class="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-200 transition-colors font-medium"
           >
             Xem JSON
           </button>
@@ -187,70 +221,89 @@
       <!-- Manifest Form Fields -->
       <div
         id="manifestFields"
-        class="p-5 rounded-lg bg-slate-50 border border-slate-200 space-y-4"
+        class="p-5 rounded-lg bg-slate-50 border border-slate-200 space-y-5"
       >
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1.5"
-              >Game ID *</label
-            >
-            <input
-              type="text"
-              id="manifestId"
-              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="com.example.game"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1.5"
-              >Phiên bản *</label
-            >
-            <input
-              type="text"
-              id="manifestVersion"
-              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="1.0.0"
-            />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1.5"
-              >Tên game</label
-            >
-            <input
-              type="text"
-              id="manifestTitle"
-              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Game tuyệt vời của tôi"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1.5"
-              >Runtime</label
-            >
-            <select
-              id="manifestRuntime"
-              class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="html5">HTML5</option>
-              <option value="unity">Unity</option>
-              <option value="phaser">Phaser</option>
-              <option value="pixi">PixiJS</option>
-              <option value="other">Khác</option>
-            </select>
-          </div>
-        </div>
+        <!-- Thông tin cơ bản -->
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1.5"
-            >Khả năng (phân cách bằng dấu phẩy)</label
-          >
-          <input
-            type="text"
-            id="manifestCapabilities"
-            class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="audio, fullscreen, gamepad"
-          />
+          <h4 class="text-xs font-semibold text-slate-700 mb-3 uppercase tracking-wide">Thông tin cơ bản</h4>
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5"
+                  >Game ID *</label
+                >
+                <input
+                  type="text"
+                  id="manifestId"
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="com.iruka.my-awesome-game"
+                />
+                <p class="text-xs text-slate-500 mt-1">Format: com.iruka.&lt;slug&gt; với kebab-case</p>
+                <p id="gameIdWarning" class="hidden text-xs text-amber-600 mt-1 flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-.834-1.964-.834-2.732 0L3.732 16c-.77 1.333.192 3 1.732 3z"></path>
+                  </svg>
+                  <span>Với game đã tồn tại, không nên đổi Game ID</span>
+                </p>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5"
+                  >Phiên bản *</label
+                >
+                <input
+                  type="text"
+                  id="manifestVersion"
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="1.0.0"
+                />
+                <p class="text-xs text-slate-500 mt-1">Mỗi lần đăng bản build mới, bắt buộc tăng version (SemVer: x.y.z)</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5"
+                  >Tên game *</label
+                >
+                <input
+                  type="text"
+                  id="manifestTitle"
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="My Awesome Game"
+                />
+                <p class="text-xs text-slate-500 mt-1">Tên này sẽ hiển thị trên Game Hub và cho phụ huynh/học sinh</p>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5"
+                  >Runtime *</label
+                >
+                <select
+                  id="manifestRuntime"
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="iframe-html">iframe-html - Game web thông thường</option>
+                  <option value="esm-module">esm-module - Module JavaScript</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tính năng & tích hợp -->
+        <div class="pt-4 border-t border-slate-200">
+          <h4 class="text-xs font-semibold text-slate-700 mb-3 uppercase tracking-wide">Tính năng & tích hợp</h4>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-2"
+              >Khả năng (Capabilities)</label
+            >
+            <div id="capabilitiesSelector" class="flex flex-wrap gap-2 mb-2">
+              <!-- Capability tags will be rendered here -->
+            </div>
+            <input
+              type="hidden"
+              id="manifestCapabilities"
+            />
+            <p class="text-xs text-slate-500">Chọn các khả năng game sử dụng (có thể chọn nhiều)</p>
+          </div>
         </div>
       </div>
 
@@ -270,19 +323,60 @@
     >
     </div>
 
+    <!-- Validation Details -->
+    <div id="validationDetails" class="hidden mb-6">
+      <!-- Errors -->
+      <div id="validationErrors" class="hidden mb-4 p-4 rounded-lg bg-red-50 border border-red-200">
+        <h4 class="text-sm font-semibold text-red-800 mb-2 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          Lỗi cần sửa
+        </h4>
+        <ul id="errorsList" class="text-sm text-red-700 space-y-1"></ul>
+      </div>
+
+      <!-- Warnings -->
+      <div id="validationWarnings" class="hidden mb-4 p-4 rounded-lg bg-amber-50 border border-amber-200">
+        <h4 class="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+          Cảnh báo
+        </h4>
+        <ul id="warningsList" class="text-sm text-amber-700 space-y-1"></ul>
+      </div>
+
+      <!-- Suggestions -->
+      <div id="validationSuggestions" class="hidden mb-4 p-4 rounded-lg bg-blue-50 border border-blue-200">
+        <h4 class="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+          </svg>
+          Gợi ý cải thiện
+        </h4>
+        <ul id="suggestionsList" class="text-sm text-blue-700 space-y-1"></ul>
+      </div>
+    </div>
+
     <!-- Progress Bar -->
     <div id="progressContainer" class="hidden mb-6">
       <div class="flex justify-between text-sm text-slate-500 mb-2">
         <span id="progressLabel">Đang tải lên...</span>
         <span id="progressPercent">0%</span>
       </div>
-      <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+      <div class="h-2 bg-slate-200 rounded-full overflow-hidden mb-3">
         <div
           id="progressBar"
           class="h-full bg-indigo-600 rounded-full transition-all duration-300"
           style="width: 0%"
         >
         </div>
+      </div>
+      
+      <!-- Folder Progress Details -->
+      <div id="folderProgress" class="space-y-2 text-xs">
+        <!-- Folder progress items will be inserted here -->
       </div>
     </div>
 
@@ -319,9 +413,9 @@
         </svg>
         Yêu cầu tải lên
       </h3>
-      <ul class="space-y-2 text-sm text-slate-600">
-        <li class="flex items-start gap-2">
-          <span class="text-emerald-600 mt-0.5">✓</span>
+      <ul id="requirementsList" class="space-y-2 text-sm text-slate-600">
+        <li class="flex items-start gap-2" data-check="index-html">
+          <span class="check-icon text-slate-400 mt-0.5">○</span>
           <span
             >Phải chứa file <code
               class="bg-slate-200 px-1.5 py-0.5 rounded text-xs"
@@ -329,23 +423,63 @@
             > làm điểm vào</span
           >
         </li>
-        <li class="flex items-start gap-2">
-          <span class="text-emerald-600 mt-0.5">✓</span>
+        <li class="flex items-start gap-2" data-check="manifest-json">
+          <span class="check-icon text-slate-400 mt-0.5">○</span>
           <span
-            >Có file <code class="bg-slate-200 px-1.5 py-0.5 rounded text-xs"
+            >Phải có <code
+              class="bg-slate-200 px-1.5 py-0.5 rounded text-xs"
               >manifest.json</code
-            > hợp lệ với id và version</span
+            > ở thư mục gốc, chứa đủ: id, title, version, runtime</span
+          >
+        </li>
+        <li class="flex items-start gap-2" data-check="game-id">
+          <span class="check-icon text-slate-400 mt-0.5">○</span>
+          <span
+            >Game ID theo format <code
+              class="bg-slate-200 px-1.5 py-0.5 rounded text-xs"
+              >com.iruka.&lt;slug&gt;</code
+            > với kebab-case</span
+          >
+        </li>
+        <li class="flex items-start gap-2" data-check="game-title">
+          <span class="check-icon text-slate-400 mt-0.5">○</span>
+          <span
+            >Tên game 3-40 ký tự, Title Case, không emoji</span
+          >
+        </li>
+        <li class="flex items-start gap-2" data-check="version">
+          <span class="check-icon text-slate-400 mt-0.5">○</span>
+          <span
+            >Version theo SemVer (ví dụ: <code
+              class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">1.0.0</code
+            >), khuyến nghị stable cho production</span
+          >
+        </li>
+        <li class="flex items-start gap-2" data-check="file-size">
+          <span class="check-icon text-slate-400 mt-0.5">○</span>
+          <span
+            >Dung lượng ZIP: khuyến nghị &lt; 3 MB để tải nhanh cho vùng mạng yếu</span
           >
         </li>
         <li class="flex items-start gap-2">
-          <span class="text-emerald-600 mt-0.5">✓</span>
+          <span class="text-blue-600 mt-0.5">📦</span>
           <span
-            >Version phải là duy nhất hoặc cao hơn (ví dụ: <code
-              class="bg-slate-200 px-1.5 py-0.5 rounded text-xs">1.0.0</code
-            >)</span
+            >File ZIP được tự động giải nén & validate theo chuẩn Iruka</span
+          >
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="text-purple-600 mt-0.5">🛠️</span>
+          <span
+            >Dành cho dev: dùng <code
+              class="bg-slate-200 px-1.5 py-0.5 rounded text-xs"
+              >pnpm iruka-game:validate &lt;folder&gt;</code
+            > để kiểm tra trước khi upload</span
           >
         </li>
       </ul>
+      <div id="requirementsSummary" class="hidden mt-3 pt-3 border-t border-slate-200 text-sm font-medium">
+        <!-- Summary will be inserted here -->
+      </div>
     </div>
   </div>
 </div>
@@ -355,6 +489,7 @@
     file: File;
     name: string;
     path: string;
+    folder: string;
     type: "file" | "folder";
     size: number;
     status: "pending" | "uploading" | "success" | "error";
@@ -363,63 +498,48 @@
 
   // DOM Elements
   const fileInput = document.getElementById("fileInput") as HTMLInputElement;
-  const folderInput = document.getElementById(
-    "folderInput"
-  ) as HTMLInputElement;
-  const selectFilesBtn = document.getElementById(
-    "selectFilesBtn"
-  ) as HTMLButtonElement;
-  const selectFolderBtn = document.getElementById(
-    "selectFolderBtn"
-  ) as HTMLButtonElement;
+  const folderInput = document.getElementById("folderInput") as HTMLInputElement;
+  const zipInput = document.getElementById("zipInput") as HTMLInputElement;
+  const selectFilesBtn = document.getElementById("selectFilesBtn") as HTMLButtonElement;
+  const selectFolderBtn = document.getElementById("selectFolderBtn") as HTMLButtonElement;
+  const selectZipBtn = document.getElementById("selectZipBtn") as HTMLButtonElement;
   const dropZone = document.getElementById("dropZone") as HTMLDivElement;
-  const fileListContainer = document.getElementById(
-    "fileListContainer"
-  ) as HTMLDivElement;
+  const fileListContainer = document.getElementById("fileListContainer") as HTMLDivElement;
   const fileList = document.getElementById("fileList") as HTMLDivElement;
-  const fileCountLabel = document.getElementById(
-    "fileCountLabel"
-  ) as HTMLSpanElement;
-  const clearFilesBtn = document.getElementById(
-    "clearFilesBtn"
-  ) as HTMLButtonElement;
-  const manifestEditor = document.getElementById(
-    "manifestEditor"
-  ) as HTMLDivElement;
-  const manifestFields = document.getElementById(
-    "manifestFields"
-  ) as HTMLDivElement;
-  const manifestJsonView = document.getElementById(
-    "manifestJsonView"
-  ) as HTMLDivElement;
-  const manifestJsonText = document.getElementById(
-    "manifestJsonText"
-  ) as HTMLTextAreaElement;
-  const toggleManifestView = document.getElementById(
-    "toggleManifestView"
-  ) as HTMLButtonElement;
+  const fileCountLabel = document.getElementById("fileCountLabel") as HTMLSpanElement;
+  const clearFilesBtn = document.getElementById("clearFilesBtn") as HTMLButtonElement;
+  const manifestEditor = document.getElementById("manifestEditor") as HTMLDivElement;
+  const manifestFields = document.getElementById("manifestFields") as HTMLDivElement;
+  const manifestJsonView = document.getElementById("manifestJsonView") as HTMLDivElement;
+  const manifestJsonText = document.getElementById("manifestJsonText") as HTMLTextAreaElement;
+  const toggleManifestView = document.getElementById("toggleManifestView") as HTMLButtonElement;
   const uploadBtn = document.getElementById("uploadBtn") as HTMLButtonElement;
-  const uploadBtnText = document.getElementById(
-    "uploadBtnText"
-  ) as HTMLSpanElement;
-  const statusMessage = document.getElementById(
-    "statusMessage"
-  ) as HTMLDivElement;
-  const progressContainer = document.getElementById(
-    "progressContainer"
-  ) as HTMLDivElement;
+  const uploadBtnText = document.getElementById("uploadBtnText") as HTMLSpanElement;
+  const statusMessage = document.getElementById("statusMessage") as HTMLDivElement;
+  const progressContainer = document.getElementById("progressContainer") as HTMLDivElement;
   const progressBar = document.getElementById("progressBar") as HTMLDivElement;
-  const progressPercent = document.getElementById(
-    "progressPercent"
-  ) as HTMLSpanElement;
-  const progressLabel = document.getElementById(
-    "progressLabel"
-  ) as HTMLSpanElement;
+  const progressPercent = document.getElementById("progressPercent") as HTMLSpanElement;
+  const progressLabel = document.getElementById("progressLabel") as HTMLSpanElement;
 
   // State
   let fileItems: FileItem[] = [];
   let manifestData: any = null;
   let isJsonView = false;
+  let isZipMode = false;
+  let zipFile: File | null = null;
+  let selectedCapabilities: string[] = [];
+  let manifestFromFile = false;
+
+  // Available capabilities
+  const AVAILABLE_CAPABILITIES = [
+    { id: 'score', label: 'Score', icon: '🎯' },
+    { id: 'save-progress', label: 'Save Progress', icon: '💾' },
+    { id: 'levels', label: 'Levels', icon: '🎮' },
+    { id: 'hints', label: 'Hints', icon: '💡' },
+    { id: 'audio', label: 'Audio', icon: '🔊' },
+    { id: 'telemetry', label: 'Telemetry', icon: '📊' },
+    { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' }
+  ];
 
   // Utility functions
   function formatFileSize(bytes: number): string {
@@ -436,33 +556,158 @@
     if (["js", "mjs", "ts"].includes(ext || "")) return "📜";
     if (["css", "scss", "less"].includes(ext || "")) return "🎨";
     if (["json"].includes(ext || "")) return "📋";
-    if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext || ""))
-      return "🖼️";
+    if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext || "")) return "🖼️";
     if (["mp3", "wav", "ogg"].includes(ext || "")) return "🔊";
     if (["mp4", "webm"].includes(ext || "")) return "🎬";
     if (["woff", "woff2", "ttf", "otf"].includes(ext || "")) return "🔤";
+    if (["zip"].includes(ext || "")) return "📦";
     return "📁";
   }
 
-  function getStatusBadge(status: FileItem["status"]): string {
+  function getStatusBadge(status: FileItem["status"], isValidating: boolean = false): string {
+    if (isValidating && status === "pending") {
+      return '<span class="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 font-medium flex items-center gap-1"><svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Đang kiểm tra...</span>';
+    }
     switch (status) {
       case "pending":
-        return '<span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 font-medium">Chờ xử lý</span>';
+        return '<span class="px-2 py-0.5 rounded text-xs bg-slate-200 text-slate-600 font-medium">Chờ xử lý</span>';
       case "uploading":
         return '<span class="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 font-medium animate-pulse">Đang tải...</span>';
       case "success":
-        return '<span class="px-2 py-0.5 rounded text-xs bg-emerald-50 text-emerald-700 font-medium">✓ Đã tải</span>';
+        return '<span class="px-2 py-0.5 rounded text-xs bg-emerald-50 text-emerald-700 font-medium">✅ Hợp lệ</span>';
       case "error":
-        return '<span class="px-2 py-0.5 rounded text-xs bg-red-50 text-red-700 font-medium">✗ Lỗi</span>';
+        return '<span class="px-2 py-0.5 rounded text-xs bg-red-50 text-red-700 font-medium">❌ Lỗi</span>';
       default:
         return "";
     }
   }
 
-  function showStatus(
-    message: string,
-    type: "error" | "success" | "info" | "warning"
-  ) {
+  function renderCapabilitiesSelector() {
+    const container = document.getElementById('capabilitiesSelector');
+    if (!container) return;
+
+    container.innerHTML = AVAILABLE_CAPABILITIES.map(cap => {
+      const isSelected = selectedCapabilities.includes(cap.id);
+      return `
+        <button
+          type="button"
+          class="capability-tag px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+            isSelected
+              ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300'
+              : 'bg-white text-slate-600 border border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
+          }"
+          data-capability="${cap.id}"
+        >
+          <span class="mr-1">${cap.icon}</span>
+          ${cap.label}
+        </button>
+      `;
+    }).join('');
+
+    // Attach click handlers
+    container.querySelectorAll('.capability-tag').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const capId = (btn as HTMLElement).dataset.capability!;
+        toggleCapability(capId);
+      });
+    });
+  }
+
+  function toggleCapability(capId: string) {
+    const index = selectedCapabilities.indexOf(capId);
+    if (index > -1) {
+      selectedCapabilities.splice(index, 1);
+    } else {
+      selectedCapabilities.push(capId);
+    }
+    renderCapabilitiesSelector();
+    updateManifestFromFields();
+  }
+
+  function updateRequirementsChecklist() {
+    const checks = {
+      'index-html': false,
+      'manifest-json': false,
+      'game-id': false,
+      'game-title': false,
+      'version': false,
+      'file-size': false
+    };
+
+    // Check index.html
+    if (fileItems.some(f => f.name === 'index.html' || f.path?.endsWith('/index.html'))) {
+      checks['index-html'] = true;
+    }
+
+    // Check manifest data
+    if (manifestData) {
+      if (manifestData.id && manifestData.id.startsWith('com.iruka.')) {
+        checks['game-id'] = true;
+      }
+      if (manifestData.title && manifestData.title.length >= 3 && manifestData.title.length <= 40) {
+        checks['game-title'] = true;
+      }
+      if (manifestData.version && /^\d+\.\d+\.\d+/.test(manifestData.version)) {
+        checks['version'] = true;
+      }
+      checks['manifest-json'] = true;
+    }
+
+    // Check file size
+    const totalSize = fileItems.reduce((sum, item) => sum + item.size, 0);
+    let fileSizeCheck: boolean | string = false;
+    if (totalSize > 0 && totalSize < 3 * 1024 * 1024) {
+      fileSizeCheck = true;
+    } else if (totalSize > 0) {
+      // Show warning but don't fail
+      fileSizeCheck = 'warning';
+    }
+    checks['file-size'] = fileSizeCheck as any;
+
+    // Update UI
+    Object.entries(checks).forEach(([checkId, passed]) => {
+      const li = document.querySelector(`[data-check="${checkId}"]`);
+      if (!li) return;
+
+      const icon = li.querySelector('.check-icon');
+      if (!icon) return;
+
+      if (passed === true) {
+        icon.textContent = '✅';
+        icon.className = 'check-icon text-emerald-600 mt-0.5';
+      } else if (typeof passed === 'string' && passed === 'warning') {
+        icon.textContent = '⚠️';
+        icon.className = 'check-icon text-amber-600 mt-0.5';
+      } else if (fileItems.length > 0 || manifestData) {
+        icon.textContent = '❌';
+        icon.className = 'check-icon text-red-600 mt-0.5';
+      } else {
+        icon.textContent = '○';
+        icon.className = 'check-icon text-slate-400 mt-0.5';
+      }
+    });
+
+    // Update summary
+    const summary = document.getElementById('requirementsSummary');
+    if (summary && (fileItems.length > 0 || manifestData)) {
+      const passedCount = Object.values(checks).filter(v => v === true).length;
+      const totalCount = Object.keys(checks).length;
+      const hasErrors = Object.values(checks).some(v => v === false && (fileItems.length > 0 || manifestData));
+
+      summary.classList.remove('hidden');
+      if (hasErrors) {
+        summary.className = 'mt-3 pt-3 border-t border-slate-200 text-sm font-medium text-red-700';
+        summary.innerHTML = `Kết quả kiểm tra: ${passedCount}/${totalCount} yêu cầu đạt – Vui lòng sửa các lỗi ở trên`;
+      } else {
+        summary.className = 'mt-3 pt-3 border-t border-slate-200 text-sm font-medium text-emerald-700';
+        summary.innerHTML = `✅ Kết quả kiểm tra: ${passedCount}/${totalCount} yêu cầu đạt`;
+      }
+    } else if (summary) {
+      summary.classList.add('hidden');
+    }
+  }
+
+  function showStatus(message: string, type: "error" | "success" | "info" | "warning") {
     statusMessage.classList.remove("hidden");
     statusMessage.className = `mb-6 p-4 rounded-lg text-sm font-medium ${
       type === "error"
@@ -487,45 +732,50 @@
     }
 
     fileListContainer.classList.remove("hidden");
-    fileCountLabel.textContent = `${fileItems.length} file đã chọn`;
+    
+    if (isZipMode) {
+      fileCountLabel.textContent = `File ZIP: ${zipFile?.name || 'Unknown'}`;
+    } else {
+      fileCountLabel.textContent = `${fileItems.length} file đã chọn`;
+    }
 
     fileList.innerHTML = fileItems
-      .map(
-        (item, index) => `
-      <div class="flex items-center justify-between py-2.5 px-4 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors group" data-index="${index}">
-        <div class="flex items-center gap-3 min-w-0 flex-1">
-          <span class="text-lg">${getFileIcon(item.name)}</span>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm text-slate-900 truncate" title="${item.path || item.name}">${item.name}</p>
-            <p class="text-xs text-slate-500">${formatFileSize(item.size)}${item.path ? ` • ${item.path}` : ""}</p>
+      .map((item, index) => `
+        <div class="flex items-center justify-between py-2.5 px-4 rounded-lg bg-slate-50 hover:bg-slate-200 transition-colors group" data-index="${index}">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <span class="text-lg">${getFileIcon(item.name)}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm text-slate-900 truncate" title="${item.path || item.name}">${item.name}</p>
+              <p class="text-xs text-slate-500">${formatFileSize(item.size)}${isZipMode ? ' • Sẽ được giải nén' : (item.path ? ` • ${item.path}` : "")}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            ${getStatusBadge(item.status)}
+            ${!isZipMode ? `
+              <button 
+                class="remove-file-btn opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-red-500 hover:text-red-600 hover:bg-red-50 transition-all"
+                data-index="${index}"
+                title="Xóa file"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            ` : ''}
           </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          ${getStatusBadge(item.status)}
-          <button 
-            class="remove-file-btn opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-red-500 hover:text-red-600 hover:bg-red-50 transition-all"
-            data-index="${index}"
-            title="Xóa file"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-    `
-      )
+      `)
       .join("");
 
-    // Attach remove handlers
-    fileList.querySelectorAll(".remove-file-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const index = parseInt(
-          (e.currentTarget as HTMLElement).dataset.index || "0"
-        );
-        removeFile(index);
+    // Attach remove handlers for non-ZIP mode
+    if (!isZipMode) {
+      fileList.querySelectorAll(".remove-file-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const index = parseInt((e.currentTarget as HTMLElement).dataset.index || "0");
+          removeFile(index);
+        });
       });
-    });
+    }
   }
 
   function removeFile(index: number) {
@@ -535,37 +785,133 @@
   }
 
   function clearAllFiles() {
+    if (!confirm('Bạn có chắc muốn xóa gói upload hiện tại không?')) {
+      return;
+    }
+    
     fileItems = [];
     manifestData = null;
+    isZipMode = false;
+    zipFile = null;
+    manifestFromFile = false;
+    selectedCapabilities = [];
     renderFileList();
+    renderCapabilitiesSelector();
     manifestEditor.classList.add("hidden");
     uploadBtn.disabled = true;
     uploadBtnText.textContent = "Chọn file trước";
     hideStatus();
+    updateRequirementsChecklist();
   }
 
   async function processFiles(files: File[]) {
-    const newItems: FileItem[] = files.map((file) => ({
-      file,
-      name: file.name,
-      path: (file as any).webkitRelativePath || "",
-      type: "file" as const,
-      size: file.size,
-      status: "pending" as const,
-    }));
+    const newItems: FileItem[] = files.map((file) => {
+      const relativePath = (file as any).webkitRelativePath || "";
+      const pathParts = relativePath.split('/');
+      
+      // Determine folder: remove top-level folder (e.g., 'dist') and get folder structure
+      let folder = "root";
+      if (pathParts.length > 1) {
+        const cleanPath = pathParts.slice(1).join('/');
+        if (cleanPath.includes('/')) {
+          folder = cleanPath.split('/').slice(0, -1).join('/');
+        }
+      }
+
+      return {
+        file,
+        name: file.name,
+        path: relativePath,
+        folder,
+        type: "file" as const,
+        size: file.size,
+        status: "pending" as const,
+      };
+    });
 
     fileItems = [...fileItems, ...newItems];
     renderFileList();
     await validateAndUpdateUI();
   }
 
+  async function processZipFile(file: File) {
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      showStatus('Vui lòng chọn file ZIP hợp lệ', 'error');
+      return;
+    }
+
+    // Clear existing files and switch to ZIP mode
+    fileItems = [];
+    isZipMode = true;
+    zipFile = file;
+    manifestFromFile = false;
+
+    // Create a virtual file item for the ZIP
+    const zipItem: FileItem = {
+      file,
+      name: file.name,
+      path: file.name,
+      folder: "root",
+      type: "file" as const,
+      size: file.size,
+      status: "pending" as const,
+    };
+
+    fileItems = [zipItem];
+    renderFileList();
+
+    // Check file size
+    const sizeMB = file.size / (1024 * 1024);
+    if (sizeMB > 3) {
+      showStatus(
+        `⚠️ File ZIP có dung lượng ${sizeMB.toFixed(1)} MB (khuyến nghị < 3 MB). Game có thể tải chậm trên mạng yếu.`,
+        'warning'
+      );
+    } else {
+      showStatus(
+        `Đã chọn file ZIP: ${file.name} (${formatFileSize(file.size)}). Đang kiểm tra...`,
+        'info'
+      );
+    }
+
+    // Show manifest editor for ZIP mode
+    manifestEditor.classList.remove("hidden");
+    manifestData = null;
+    selectedCapabilities = [];
+    renderCapabilitiesSelector();
+    updateManifestSourceIndicator();
+    updateManifestFromFields();
+    updateRequirementsChecklist();
+  }
+
   async function validateAndUpdateUI() {
     hideStatus();
+    hideValidationDetails();
+    updateRequirementsChecklist();
 
     if (fileItems.length === 0) {
       manifestEditor.classList.add("hidden");
       uploadBtn.disabled = true;
       uploadBtnText.textContent = "Chọn file trước";
+      return;
+    }
+
+    if (isZipMode) {
+      // ZIP mode - always show manifest editor
+      manifestEditor.classList.remove("hidden");
+      updateManifestSourceIndicator();
+      
+      if (manifestData && manifestData.id && manifestData.version) {
+        // Validate manifest data for ZIP mode
+        const manifestContent = JSON.stringify(manifestData);
+        await validateManifestContent(manifestContent);
+        
+        uploadBtn.disabled = false;
+        uploadBtnText.textContent = `Tải lên ZIP: ${manifestData.title || manifestData.id} v${manifestData.version}`;
+      } else {
+        uploadBtn.disabled = true;
+        uploadBtnText.textContent = "Hoàn thành manifest trước";
+      }
       return;
     }
 
@@ -577,10 +923,7 @@
     );
 
     if (!hasIndex) {
-      showStatus(
-        "Thiếu file 'index.html'. Đây là điểm vào bắt buộc.",
-        "warning"
-      );
+      showStatus("❌ Thiếu file 'index.html'. Đây là điểm vào bắt buộc.", "warning");
       manifestEditor.classList.add("hidden");
       uploadBtn.disabled = true;
       uploadBtnText.textContent = "Thiếu index.html";
@@ -588,102 +931,269 @@
     }
 
     if (!manifestFile) {
-      showStatus(
-        "Không tìm thấy manifest.json. Vui lòng điền thông tin bên dưới.",
-        "info"
-      );
+      showStatus("Không tìm thấy manifest.json. Vui lòng điền thông tin bên dưới.", "info");
       manifestEditor.classList.remove("hidden");
+      manifestFromFile = false;
       manifestData = null;
+      selectedCapabilities = [];
+      renderCapabilitiesSelector();
+      updateManifestSourceIndicator();
       updateManifestFromFields();
       return;
     }
 
     try {
+      manifestFromFile = true;
       const content = await manifestFile.file.text();
-      const manifest = JSON.parse(content);
-      manifestData = manifest;
-
-      manifestEditor.classList.remove("hidden");
-      populateManifestFields(manifest);
-      updateManifestJson();
-
-      if (!manifest.id || !manifest.version) {
-        showStatus(
-          "Manifest thiếu các trường bắt buộc. Vui lòng hoàn thành form.",
-          "warning"
-        );
-        uploadBtn.disabled = true;
-        uploadBtnText.textContent = "Hoàn thành manifest trước";
-        return;
-      }
-
-      showStatus(`Sẵn sàng tải lên ${fileItems.length} file`, "info");
-      uploadBtn.disabled = false;
-      uploadBtnText.textContent = `Tải lên ${manifest.title || manifest.id} v${manifest.version}`;
+      await validateManifestContent(content);
+      updateManifestSourceIndicator();
     } catch (err) {
-      showStatus(
-        "JSON trong manifest.json không hợp lệ. Vui lòng sửa hoặc chỉnh sửa bên dưới.",
-        "error"
-      );
+      showStatus("Không thể đọc file manifest.json", "error");
       manifestEditor.classList.remove("hidden");
       uploadBtn.disabled = true;
       uploadBtnText.textContent = "Sửa manifest";
     }
   }
 
+  async function validateManifestContent(content: string) {
+    try {
+      // Import enhanced validator dynamically (since it's not available in browser)
+      // For now, use basic validation and enhance later
+      const manifest = JSON.parse(content);
+      manifestData = manifest;
+
+      manifestEditor.classList.remove("hidden");
+      populateManifestFields(manifest);
+      updateManifestJson();
+      updateRequirementsChecklist();
+
+      // Enhanced validation
+      const validation = await performEnhancedValidation(content);
+      
+      if (validation.errors.length > 0) {
+        showValidationDetails(validation);
+        uploadBtn.disabled = true;
+        uploadBtnText.textContent = "Sửa lỗi manifest";
+        return;
+      }
+
+      if (validation.warnings.length > 0 || validation.suggestions.length > 0) {
+        showValidationDetails(validation);
+      }
+
+      if (!manifest.id || !manifest.version) {
+        showStatus("Manifest thiếu các trường bắt buộc. Vui lòng hoàn thành form.", "warning");
+        uploadBtn.disabled = true;
+        uploadBtnText.textContent = "Hoàn thành manifest trước";
+        return;
+      }
+
+      showStatus(`✅ Sẵn sàng tải lên ${isZipMode ? 'file ZIP' : `${fileItems.length} file`}`, "info");
+      uploadBtn.disabled = false;
+      uploadBtnText.textContent = `Tải lên ${manifest.title || manifest.id} v${manifest.version}`;
+    } catch (err) {
+      showStatus("JSON trong manifest.json không hợp lệ. Vui lòng sửa hoặc chỉnh sửa bên dưới.", "error");
+      manifestEditor.classList.remove("hidden");
+      uploadBtn.disabled = true;
+      uploadBtnText.textContent = "Sửa manifest";
+    }
+  }
+
+  async function performEnhancedValidation(content: string) {
+    // Basic client-side validation (enhanced validation will be done on server)
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const suggestions: string[] = [];
+
+    try {
+      const manifest = JSON.parse(content);
+
+      // ID validation
+      if (!manifest.id) {
+        errors.push("Thiếu trường bắt buộc: id");
+      } else if (!manifest.id.startsWith('com.iruka.')) {
+        errors.push("ID phải bắt đầu với 'com.iruka.'");
+        suggestions.push("Ví dụ: com.iruka.my-awesome-game");
+      } else {
+        const slug = manifest.id.replace('com.iruka.', '');
+        if (slug.includes('--')) {
+          errors.push("ID không được có hai dấu gạch ngang liền nhau");
+        }
+        if (slug.includes('_')) {
+          errors.push("ID không được có dấu gạch dưới, sử dụng dấu gạch ngang");
+        }
+        if (!/^[a-z0-9-]+$/.test(slug)) {
+          errors.push("Slug chỉ được chứa chữ thường, số và dấu gạch ngang");
+        }
+      }
+
+      // Title validation
+      if (!manifest.title) {
+        errors.push("Thiếu trường bắt buộc: title");
+      } else {
+        if (manifest.title.length < 3 || manifest.title.length > 40) {
+          errors.push("Tên game phải có độ dài 3-40 ký tự");
+        }
+        if (manifest.title !== manifest.title.trim()) {
+          errors.push("Tên game không được có khoảng trắng ở đầu hoặc cuối");
+        }
+        if (manifest.title === manifest.title.toUpperCase() && manifest.title.length > 1) {
+          errors.push("Tên game không được viết toàn chữ HOA");
+          suggestions.push(`Gợi ý: "${toTitleCase(manifest.title)}"`);
+        }
+        // Check for emojis (basic)
+        if (/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]/gu.test(manifest.title)) {
+          errors.push("Tên game không được chứa emoji");
+        }
+      }
+
+      // Version validation
+      if (!manifest.version) {
+        errors.push("Thiếu trường bắt buộc: version");
+      } else if (!/^\d+\.\d+\.\d+/.test(manifest.version)) {
+        errors.push("Version phải theo chuẩn Semantic Versioning (x.y.z)");
+        suggestions.push("Ví dụ: 1.0.0");
+      } else {
+        if (manifest.version.includes('-') || manifest.version.includes('+')) {
+          warnings.push("Version có prerelease/build metadata. Khuyến nghị sử dụng stable cho production");
+        }
+        if (manifest.version.startsWith('0.')) {
+          warnings.push("Version 0.x.x cho thấy game đang phát triển. Cân nhắc 1.0.0+ cho production");
+        }
+      }
+
+      // Runtime validation
+      if (!manifest.runtime) {
+        errors.push("Thiếu trường bắt buộc: runtime");
+      } else if (!['iframe-html', 'esm-module'].includes(manifest.runtime)) {
+        errors.push("Runtime phải là 'iframe-html' hoặc 'esm-module'");
+      }
+
+      // Capabilities validation
+      if (manifest.capabilities && Array.isArray(manifest.capabilities)) {
+        const validCaps = ['score', 'save-progress', 'levels', 'hints', 'audio', 'telemetry', 'leaderboard'];
+        const invalid = manifest.capabilities.filter((cap: string) => !validCaps.includes(cap));
+        if (invalid.length > 0) {
+          errors.push(`Capabilities không hợp lệ: ${invalid.join(', ')}`);
+          suggestions.push(`Chỉ sử dụng: ${validCaps.join(', ')}`);
+        }
+      }
+
+    } catch (e) {
+      errors.push("JSON không hợp lệ");
+    }
+
+    return { errors, warnings, suggestions };
+  }
+
+  function toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, (txt) => 
+      txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
+  }
+
+  function showValidationDetails(validation: {errors: string[], warnings: string[], suggestions: string[]}) {
+    const validationDetails = document.getElementById('validationDetails');
+    const errorsDiv = document.getElementById('validationErrors');
+    const warningsDiv = document.getElementById('validationWarnings');
+    const suggestionsDiv = document.getElementById('validationSuggestions');
+    const errorsList = document.getElementById('errorsList');
+    const warningsList = document.getElementById('warningsList');
+    const suggestionsList = document.getElementById('suggestionsList');
+
+    if (!validationDetails) return;
+
+    validationDetails.classList.remove('hidden');
+
+    // Show errors
+    if (validation.errors.length > 0 && errorsDiv && errorsList) {
+      errorsDiv.classList.remove('hidden');
+      errorsList.innerHTML = validation.errors.map(error => `<li>• ${error}</li>`).join('');
+    } else if (errorsDiv) {
+      errorsDiv.classList.add('hidden');
+    }
+
+    // Show warnings
+    if (validation.warnings.length > 0 && warningsDiv && warningsList) {
+      warningsDiv.classList.remove('hidden');
+      warningsList.innerHTML = validation.warnings.map(warning => `<li>• ${warning}</li>`).join('');
+    } else if (warningsDiv) {
+      warningsDiv.classList.add('hidden');
+    }
+
+    // Show suggestions
+    if (validation.suggestions.length > 0 && suggestionsDiv && suggestionsList) {
+      suggestionsDiv.classList.remove('hidden');
+      suggestionsList.innerHTML = validation.suggestions.map(suggestion => `<li>• ${suggestion}</li>`).join('');
+    } else if (suggestionsDiv) {
+      suggestionsDiv.classList.add('hidden');
+    }
+  }
+
+  function hideValidationDetails() {
+    const validationDetails = document.getElementById('validationDetails');
+    if (validationDetails) {
+      validationDetails.classList.add('hidden');
+    }
+  }
+
   function populateManifestFields(manifest: any) {
-    (document.getElementById("manifestId") as HTMLInputElement).value =
-      manifest.id || "";
-    (document.getElementById("manifestVersion") as HTMLInputElement).value =
-      manifest.version || "";
-    (document.getElementById("manifestTitle") as HTMLInputElement).value =
-      manifest.title || "";
-    (document.getElementById("manifestRuntime") as HTMLSelectElement).value =
-      manifest.runtime || "html5";
-    (
-      document.getElementById("manifestCapabilities") as HTMLInputElement
-    ).value = Array.isArray(manifest.capabilities)
-      ? manifest.capabilities.join(", ")
-      : "";
+    (document.getElementById("manifestId") as HTMLInputElement).value = manifest.id || "";
+    (document.getElementById("manifestVersion") as HTMLInputElement).value = manifest.version || "";
+    (document.getElementById("manifestTitle") as HTMLInputElement).value = manifest.title || "";
+    (document.getElementById("manifestRuntime") as HTMLSelectElement).value = manifest.runtime || "iframe-html";
+    
+    // Set capabilities
+    selectedCapabilities = Array.isArray(manifest.capabilities) ? manifest.capabilities : [];
+    renderCapabilitiesSelector();
   }
 
   function getManifestFromFields(): any {
-    const id = (
-      document.getElementById("manifestId") as HTMLInputElement
-    ).value.trim();
-    const version = (
-      document.getElementById("manifestVersion") as HTMLInputElement
-    ).value.trim();
-    const title = (
-      document.getElementById("manifestTitle") as HTMLInputElement
-    ).value.trim();
-    const runtime = (
-      document.getElementById("manifestRuntime") as HTMLSelectElement
-    ).value;
-    const capabilitiesStr = (
-      document.getElementById("manifestCapabilities") as HTMLInputElement
-    ).value.trim();
-    const capabilities = capabilitiesStr
-      ? capabilitiesStr
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [];
+    const id = (document.getElementById("manifestId") as HTMLInputElement).value.trim();
+    const version = (document.getElementById("manifestVersion") as HTMLInputElement).value.trim();
+    const title = (document.getElementById("manifestTitle") as HTMLInputElement).value.trim();
+    const runtime = (document.getElementById("manifestRuntime") as HTMLSelectElement).value;
 
-    return { id, version, title, runtime, capabilities };
+    return { 
+      id, 
+      version, 
+      title, 
+      runtime, 
+      capabilities: selectedCapabilities.length > 0 ? selectedCapabilities : undefined 
+    };
   }
 
   function updateManifestFromFields() {
     manifestData = getManifestFromFields();
     updateManifestJson();
+    updateRequirementsChecklist();
 
     if (manifestData.id && manifestData.version) {
       uploadBtn.disabled = false;
-      uploadBtnText.textContent = `Tải lên ${manifestData.title || manifestData.id} v${manifestData.version}`;
-      showStatus(`Sẵn sàng tải lên ${fileItems.length} file`, "info");
+      const buttonText = isZipMode 
+        ? `Tải lên ZIP: ${manifestData.title || manifestData.id} v${manifestData.version}`
+        : `Tải lên ${manifestData.title || manifestData.id} v${manifestData.version}`;
+      uploadBtnText.textContent = buttonText;
+      showStatus(`Sẵn sàng tải lên ${isZipMode ? 'file ZIP' : `${fileItems.length} file`}`, "info");
     } else {
       uploadBtn.disabled = true;
       uploadBtnText.textContent = "Hoàn thành manifest trước";
+    }
+  }
+
+  function updateManifestSourceIndicator() {
+    const sourceEl = document.getElementById('manifestSource');
+    if (!sourceEl) return;
+
+    if (manifestFromFile) {
+      sourceEl.innerHTML = '✅ Đã đọc tự động từ manifest.json trong file ZIP';
+      sourceEl.className = 'text-xs text-emerald-600 mt-1';
+    } else if (isZipMode) {
+      sourceEl.innerHTML = '⚠️ Không tìm thấy manifest.json. Vui lòng nhập cấu hình mới cho game.';
+      sourceEl.className = 'text-xs text-amber-600 mt-1';
+    } else {
+      sourceEl.innerHTML = 'Vui lòng điền thông tin manifest cho game';
+      sourceEl.className = 'text-xs text-slate-500 mt-1';
     }
   }
 
@@ -698,8 +1208,11 @@
 
       if (manifestData.id && manifestData.version) {
         uploadBtn.disabled = false;
-        uploadBtnText.textContent = `Tải lên ${manifestData.title || manifestData.id} v${manifestData.version}`;
-        showStatus(`Sẵn sàng tải lên ${fileItems.length} file`, "info");
+        const buttonText = isZipMode 
+          ? `Tải lên ZIP: ${manifestData.title || manifestData.id} v${manifestData.version}`
+          : `Tải lên ${manifestData.title || manifestData.id} v${manifestData.version}`;
+        uploadBtnText.textContent = buttonText;
+        showStatus(`Sẵn sàng tải lên ${isZipMode ? 'file ZIP' : `${fileItems.length} file`}`, "info");
       } else {
         uploadBtn.disabled = true;
         uploadBtnText.textContent = "Hoàn thành manifest trước";
@@ -712,13 +1225,16 @@
 
   // Event Listeners
   selectFilesBtn.addEventListener("click", () => fileInput.click());
-  selectFolderBtn.addEventListener("click", () => folderInput.click());
+  selectFolderBtn.addEventListener("click", () => {
+    (folderInput as any).webkitdirectory = true;
+    folderInput.click();
+  });
+  selectZipBtn.addEventListener("click", () => zipInput.click());
 
   fileInput.addEventListener("change", (e) => {
     const files = Array.from((e.target as HTMLInputElement).files || []);
     if (files.length > 0) {
       processFiles(files);
-      // Reset input để có thể chọn lại
       (e.target as HTMLInputElement).value = "";
     }
   });
@@ -727,7 +1243,14 @@
     const files = Array.from((e.target as HTMLInputElement).files || []);
     if (files.length > 0) {
       processFiles(files);
-      // Reset input để có thể chọn lại
+      (e.target as HTMLInputElement).value = "";
+    }
+  });
+
+  zipInput.addEventListener("change", (e) => {
+    const files = Array.from((e.target as HTMLInputElement).files || []);
+    if (files.length > 0 && files[0]) {
+      processZipFile(files[0]);
       (e.target as HTMLInputElement).value = "";
     }
   });
@@ -749,51 +1272,13 @@
     e.preventDefault();
     dropZone.classList.remove("border-indigo-400", "bg-indigo-50");
 
-    const items = e.dataTransfer?.items;
-    if (!items) return;
-
-    const files: File[] = [];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.kind === "file") {
-        const entry = item.webkitGetAsEntry?.();
-        if (entry) {
-          await traverseFileTree(entry, files);
-        } else {
-          const file = item.getAsFile();
-          if (file) files.push(file);
-        }
-      }
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
+      processZipFile(files[0]);
+    } else if (files.length > 0) {
+      processFiles(files);
     }
-
-    if (files.length > 0) processFiles(files);
   });
-
-  async function traverseFileTree(
-    entry: FileSystemEntry,
-    files: File[],
-    path = ""
-  ) {
-    if (entry.isFile) {
-      const file = await new Promise<File>((resolve) => {
-        (entry as FileSystemFileEntry).file(resolve);
-      });
-      Object.defineProperty(file, "webkitRelativePath", {
-        value: path + file.name,
-        writable: false,
-      });
-      files.push(file);
-    } else if (entry.isDirectory) {
-      const dirReader = (entry as FileSystemDirectoryEntry).createReader();
-      const entries = await new Promise<FileSystemEntry[]>((resolve) => {
-        dirReader.readEntries(resolve);
-      });
-      for (const childEntry of entries) {
-        await traverseFileTree(childEntry, files, path + entry.name + "/");
-      }
-    }
-  }
 
   // Manifest editor toggle
   toggleManifestView.addEventListener("click", () => {
@@ -811,97 +1296,128 @@
   });
 
   // Manifest field change handlers
-  [
-    "manifestId",
-    "manifestVersion",
-    "manifestTitle",
-    "manifestRuntime",
-    "manifestCapabilities",
-  ].forEach((id) => {
-    document
-      .getElementById(id)
-      ?.addEventListener("input", updateManifestFromFields);
-    document
-      .getElementById(id)
-      ?.addEventListener("change", updateManifestFromFields);
+  ["manifestId", "manifestVersion", "manifestTitle", "manifestRuntime", "manifestCapabilities"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", updateManifestFromFields);
+    document.getElementById(id)?.addEventListener("change", updateManifestFromFields);
   });
 
   manifestJsonText.addEventListener("input", updateManifestFromJson);
 
+  // Initialize capabilities selector
+  renderCapabilitiesSelector();
+
   // Upload handler
   uploadBtn.addEventListener("click", async () => {
-    if (
-      fileItems.length === 0 ||
-      !manifestData ||
-      !manifestData.id ||
-      !manifestData.version
-    )
-      return;
+    if (fileItems.length === 0 || !manifestData || !manifestData.id || !manifestData.version) return;
 
     uploadBtn.disabled = true;
     uploadBtnText.textContent = "Đang tải lên...";
     progressContainer.classList.remove("hidden");
 
-    fileItems.forEach((item) => (item.status = "uploading"));
+    fileItems.forEach((item) => (item.status = "pending"));
     renderFileList();
 
-    const formData = new FormData();
-
-    const manifestBlob = new Blob([JSON.stringify(manifestData, null, 2)], {
-      type: "application/json",
-    });
-    const manifestFile = new File([manifestBlob], "manifest.json", {
-      type: "application/json",
-    });
-    formData.append("files", manifestFile);
-
-    fileItems.forEach((item) => {
-      if (
-        item.name !== "manifest.json" &&
-        !item.path?.endsWith("/manifest.json")
-      ) {
-        formData.append("files", item.file);
-      }
-    });
-
     try {
-      let progress = 0;
-      const progressInterval = setInterval(() => {
-        progress = Math.min(progress + Math.random() * 15, 90);
-        progressBar.style.width = `${progress}%`;
-        progressPercent.textContent = `${Math.round(progress)}%`;
-        progressLabel.textContent = `Đang tải lên ${Math.round(progress)}%...`;
-      }, 200);
+      let res: Response;
+      let data: any;
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+      if (isZipMode && zipFile) {
+        // ZIP upload mode
+        progressLabel.textContent = "Đang giải nén và tải lên file ZIP...";
+        
+        const formData = new FormData();
+        formData.append("zipFile", zipFile);
+        formData.append("manifest", JSON.stringify(manifestData, null, 2));
 
-      clearInterval(progressInterval);
-      progressBar.style.width = "100%";
-      progressPercent.textContent = "100%";
+        // Simulate ZIP extraction progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress = Math.min(progress + Math.random() * 10, 85);
+          progressBar.style.width = `${progress}%`;
+          progressPercent.textContent = `${Math.round(progress)}%`;
+          
+          if (progress < 30) {
+            progressLabel.textContent = "Đang giải nén file ZIP...";
+          } else if (progress < 70) {
+            progressLabel.textContent = "Đang tải lên các file...";
+            fileItems[0].status = "uploading";
+            renderFileList();
+          }
+        }, 200);
 
-      const data = await res.json();
+        res = await fetch("/api/upload-zip", {
+          method: "POST",
+          body: formData,
+        });
+
+        clearInterval(progressInterval);
+        data = await res.json();
+
+      } else {
+        // Regular file upload mode
+        const formData = new FormData();
+        const manifestBlob = new Blob([JSON.stringify(manifestData, null, 2)], { type: "application/json" });
+        const manifestFile = new File([manifestBlob], "manifest.json", { type: "application/json" });
+        formData.append("files", manifestFile);
+
+        fileItems.forEach((item) => {
+          if (item.name !== "manifest.json" && !item.path?.endsWith("/manifest.json")) {
+            formData.append("files", item.file);
+          }
+        });
+
+        // Simulate upload progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress = Math.min(progress + Math.random() * 15, 90);
+          progressBar.style.width = `${progress}%`;
+          progressPercent.textContent = `${Math.round(progress)}%`;
+          progressLabel.textContent = `Đang tải lên ${Math.round(progress)}%...`;
+        }, 200);
+
+        res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        clearInterval(progressInterval);
+        data = await res.json();
+      }
 
       if (res.ok) {
         fileItems.forEach((item) => (item.status = "success"));
+        
+        progressBar.style.width = "100%";
+        progressPercent.textContent = "100%";
+        progressLabel.textContent = "Hoàn tất!";
+        
         renderFileList();
 
-        showStatus(data.message || "Tải lên thành công!", "success");
+        const summary = data.summary;
+        let successMessage = data.message;
+        if (summary) {
+          if (isZipMode) {
+            successMessage += ` (${summary.totalFiles} file được giải nén từ ${summary.zipFile})`;
+          } else {
+            successMessage += ` (${summary.totalFiles} file trong ${summary.folders} thư mục)`;
+          }
+        }
+
+        showStatus(successMessage, "success");
         uploadBtnText.textContent = "Thành công! Đang chuyển hướng...";
-        progressLabel.textContent = "Hoàn tất!";
 
         setTimeout(() => {
           window.location.href = "/";
-        }, 1500);
+        }, 2000);
       } else {
         throw new Error(data.error || "Tải lên thất bại");
       }
     } catch (err: any) {
       fileItems.forEach((item) => {
-        item.status = "error";
-        item.errorMessage = err.message;
+        if (item.status === "uploading" || item.status === "pending") {
+          item.status = "error";
+          item.errorMessage = err.message;
+        }
       });
       renderFileList();
 

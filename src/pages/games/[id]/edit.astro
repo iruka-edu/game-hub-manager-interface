@@ -1,0 +1,396 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { RegistryManager } from '../../../lib/registry';
+
+const { id } = Astro.params;
+
+// Find game in registry
+let game = null;
+let error = null;
+
+try {
+  const registry = await RegistryManager.get();
+  game = registry.games.find(g => g.id === id);
+  
+  if (!game) {
+    error = `Game "${id}" không tồn tại trong registry`;
+  }
+} catch (err) {
+  console.error('Failed to load game:', err);
+  error = 'Không thể tải thông tin game';
+}
+
+// Available capabilities
+const AVAILABLE_CAPABILITIES = [
+  { id: 'score', label: 'Score', icon: '🎯' },
+  { id: 'save-progress', label: 'Save Progress', icon: '💾' },
+  { id: 'levels', label: 'Levels', icon: '🎮' },
+  { id: 'hints', label: 'Hints', icon: '💡' },
+  { id: 'audio', label: 'Audio', icon: '🔊' },
+  { id: 'telemetry', label: 'Telemetry', icon: '📊' },
+  { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' }
+];
+---
+
+<Layout title={game ? `Sửa ${game.title}` : 'Game không tìm thấy'}>
+  <div class="min-h-screen bg-slate-50 py-8">
+    <div class="max-w-4xl mx-auto px-4">
+      <!-- Header -->
+      <div class="mb-8">
+        <div class="flex items-center gap-4 mb-4">
+          <a 
+            href={game ? `/games/${game.id}` : '/'} 
+            class="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-2 text-sm font-medium"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            {game ? 'Quay lại thông tin game' : 'Quay lại Dashboard'}
+          </a>
+        </div>
+        
+        {game ? (
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">Sửa thông tin Game</h1>
+            <p class="text-slate-500 font-mono text-sm">{game.id}</p>
+          </div>
+        ) : (
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">Game không tìm thấy</h1>
+            <p class="text-slate-500">{error}</p>
+          </div>
+        )}
+      </div>
+
+      {game ? (
+        <form id="editGameForm" class="space-y-6">
+          <!-- Basic Information -->
+          <div class="card p-6">
+            <h2 class="text-xl font-semibold text-slate-900 mb-4">Thông tin cơ bản</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">Game ID *</label>
+                <input
+                  type="text"
+                  id="gameId"
+                  value={game.id}
+                  disabled
+                  class="w-full bg-slate-100 border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
+                />
+                <p class="text-xs text-slate-500 mt-1">Game ID không thể thay đổi</p>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">Tên hiển thị *</label>
+                <input
+                  type="text"
+                  id="gameTitle"
+                  value={game.title}
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Tên game hiển thị"
+                />
+                <p class="text-xs text-slate-500 mt-1">3-40 ký tự, Title Case, không emoji</p>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">Runtime *</label>
+                <select
+                  id="gameRuntime"
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="iframe-html" selected={game.manifest?.runtime === 'iframe-html' || !game.manifest?.runtime}>iframe-html - Game web thông thường</option>
+                  <option value="esm-module" selected={game.manifest?.runtime === 'esm-module'}>esm-module - Module JavaScript</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">Người phụ trách</label>
+                <input
+                  type="text"
+                  id="gameOwner"
+                  value={game.owner || ''}
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Tên người phụ trách"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Capabilities -->
+          <div class="card p-6">
+            <h2 class="text-xl font-semibold text-slate-900 mb-4">Tính năng Game</h2>
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-slate-600 mb-2">Capabilities</label>
+              <div id="capabilitiesSelector" class="flex flex-wrap gap-2">
+                <!-- Capability tags will be rendered here -->
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Chọn các khả năng game sử dụng (có thể chọn nhiều)</p>
+              
+              <!-- Hidden elements to store initial capabilities -->
+              {game.capabilities && game.capabilities.map((cap) => (
+                <span data-initial-capability={cap} class="hidden"></span>
+              ))}
+            </div>
+          </div>
+
+          <!-- URLs -->
+          <div class="card p-6">
+            <h2 class="text-xl font-semibold text-slate-900 mb-4">Liên kết</h2>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">Entry URL</label>
+                <input
+                  type="url"
+                  id="entryUrl"
+                  value={game.entryUrl}
+                  disabled
+                  class="w-full bg-slate-100 border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-500 cursor-not-allowed font-mono"
+                />
+                <p class="text-xs text-slate-500 mt-1">Entry URL được tự động tạo dựa trên Game ID và phiên bản</p>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">Icon URL</label>
+                <input
+                  type="url"
+                  id="iconUrl"
+                  value={game?.manifest?.iconUrl ?? ''}
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                  placeholder="https://example.com/icon.png"
+                />
+                <p class="text-xs text-slate-500 mt-1">URL đến icon game (PNG, JPG, WebP, SVG)</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Settings -->
+          <div class="card p-6">
+            <h2 class="text-xl font-semibold text-slate-900 mb-4">Cài đặt nâng cao</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">Min Hub Version</label>
+                <input
+                  type="text"
+                  id="minHubVersion"
+                  value={game.manifest?.minHubVersion || '1.0.0'}
+                  class="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                  placeholder="1.0.0"
+                />
+                <p class="text-xs text-slate-500 mt-1">Phiên bản Hub tối thiểu cần thiết</p>
+              </div>
+              
+              <div class="flex items-center">
+                <label class="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="gameDisabled"
+                    checked={game.manifest?.disabled === true}
+                    class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-slate-700">Tạm thời vô hiệu hóa game</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <a
+                href={`/games/${game.id}`}
+                class="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium transition-colors text-sm"
+              >
+                Hủy
+              </a>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                id="previewBtn"
+                class="px-4 py-2 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-medium transition-colors text-sm"
+              >
+                Xem trước
+              </button>
+              <button
+                type="submit"
+                id="saveBtn"
+                class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors text-sm"
+              >
+                Lưu thay đổi
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : (
+        <div class="card p-8 text-center">
+          <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-200 flex items-center justify-center">
+            <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900 mb-2">Game không tồn tại</h2>
+          <p class="text-slate-500 mb-6">{error}</p>
+          <a 
+            href="/" 
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors text-sm"
+          >
+            Quay lại Dashboard
+          </a>
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // Get initial capabilities from hidden elements
+  const capabilityElements = document.querySelectorAll('[data-initial-capability]');
+  let selectedCapabilities: string[] = [];
+  capabilityElements.forEach(el => {
+    const htmlEl = el as HTMLElement;
+    if (htmlEl.dataset.initialCapability) {
+      selectedCapabilities.push(htmlEl.dataset.initialCapability);
+    }
+  });
+
+  const AVAILABLE_CAPABILITIES = [
+    { id: 'score', label: 'Score', icon: '🎯' },
+    { id: 'save-progress', label: 'Save Progress', icon: '💾' },
+    { id: 'levels', label: 'Levels', icon: '🎮' },
+    { id: 'hints', label: 'Hints', icon: '💡' },
+    { id: 'audio', label: 'Audio', icon: '🔊' },
+    { id: 'telemetry', label: 'Telemetry', icon: '📊' },
+    { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' }
+  ];
+
+  function renderCapabilitiesSelector() {
+    const container = document.getElementById('capabilitiesSelector');
+    if (!container) return;
+
+    container.innerHTML = AVAILABLE_CAPABILITIES.map(cap => {
+      const isSelected = selectedCapabilities.includes(cap.id);
+      return `
+        <button
+          type="button"
+          class="capability-tag px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+            isSelected
+              ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300'
+              : 'bg-white text-slate-600 border border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
+          }"
+          data-capability="${cap.id}"
+        >
+          <span class="mr-1">${cap.icon}</span>
+          ${cap.label}
+        </button>
+      `;
+    }).join('');
+
+    // Attach click handlers
+    container.querySelectorAll('.capability-tag').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const htmlBtn = btn as HTMLElement;
+        const capId = htmlBtn.dataset.capability;
+        if (capId) {
+          toggleCapability(capId);
+        }
+      });
+    });
+  }
+
+  function toggleCapability(capId: string) {
+    const index = selectedCapabilities.indexOf(capId);
+    if (index > -1) {
+      selectedCapabilities.splice(index, 1);
+    } else {
+      selectedCapabilities.push(capId);
+    }
+    renderCapabilitiesSelector();
+  }
+
+  // Initialize capabilities selector
+  renderCapabilitiesSelector();
+
+  // Preview button
+  const previewBtn = document.getElementById('previewBtn');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', () => {
+      const gameIdEl = document.getElementById('gameId') as HTMLInputElement;
+      if (gameIdEl && gameIdEl.value) {
+        window.open(`/play/${gameIdEl.value}`, '_blank');
+      }
+    });
+  }
+
+  // Form submission
+  const editForm = document.getElementById('editGameForm');
+  if (editForm) {
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const saveBtn = document.getElementById('saveBtn') as HTMLButtonElement;
+      if (!saveBtn) return;
+      
+      const originalText = saveBtn.textContent;
+      saveBtn.textContent = 'Đang lưu...';
+      saveBtn.disabled = true;
+
+      try {
+        const gameIdEl = document.getElementById('gameId') as HTMLInputElement;
+        const gameTitleEl = document.getElementById('gameTitle') as HTMLInputElement;
+        const gameRuntimeEl = document.getElementById('gameRuntime') as HTMLSelectElement;
+        const gameOwnerEl = document.getElementById('gameOwner') as HTMLInputElement;
+        const iconUrlEl = document.getElementById('iconUrl') as HTMLInputElement;
+        const minHubVersionEl = document.getElementById('minHubVersion') as HTMLInputElement;
+        const gameDisabledEl = document.getElementById('gameDisabled') as HTMLInputElement;
+
+        if (!gameIdEl || !gameTitleEl || !gameRuntimeEl) {
+          alert('Thiếu thông tin bắt buộc');
+          return;
+        }
+
+        const formData = {
+          id: gameIdEl.value,
+          title: gameTitleEl.value.trim(),
+          runtime: gameRuntimeEl.value,
+          owner: gameOwnerEl ? gameOwnerEl.value.trim() : '',
+          capabilities: selectedCapabilities,
+          iconUrl: iconUrlEl ? iconUrlEl.value.trim() : '',
+          minHubVersion: minHubVersionEl ? minHubVersionEl.value.trim() : '1.0.0',
+          disabled: gameDisabledEl ? gameDisabledEl.checked : false
+        };
+
+        // Basic validation
+        if (!formData.title || formData.title.length < 3 || formData.title.length > 40) {
+          alert('Tên game phải có độ dài 3-40 ký tự');
+          return;
+        }
+
+        const response = await fetch('/api/games/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          alert('Cập nhật thông tin game thành công!');
+          window.location.href = `/games/${formData.id}`;
+        } else {
+          alert('Lỗi: ' + (result.error || 'Không thể cập nhật game'));
+        }
+      } catch (error) {
+        console.error('Error updating game:', error);
+        alert('Lỗi kết nối mạng. Vui lòng thử lại.');
+      } finally {
+        if (saveBtn) {
+          saveBtn.textContent = originalText;
+          saveBtn.disabled = false;
+        }
+      }
+    });
+  }
+</script>

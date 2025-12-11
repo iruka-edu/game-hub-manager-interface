@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Iruka Game Manifest",
+  "type": "object",
+  "required": ["id", "title", "version", "runtime", "entryUrl"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^com\\.iruka\\.[a-z](?:[a-z0-9]*)(?:-[a-z0-9]+)*$",
+      "description": "Định danh duy nhất theo format com.iruka.<slug> với kebab-case"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 40,
+      "pattern": "^(?!\\s)(?!.*\\s$)(?![A-Z\\s]+$)[^\\p{Cc}\\p{Cs}\\p{So}]{3,40}$",
+      "description": "Tên hiển thị: 3-40 ký tự, không emoji/ký tự điều khiển, không space đầu/cuối, không toàn chữ HOA"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(?:0|[1-9]\\d*|\\d*[a-zA-Z-][\\da-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][\\da-zA-Z-]*))*)?(?:\\+[\\da-zA-Z-]+(\\.[\\da-zA-Z-]+)*)?$",
+      "description": "Semantic Versioning (SemVer). Production khuyến nghị không có prerelease"
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["iframe-html", "esm-module"],
+      "description": "Loại runtime để chạy game"
+    },
+    "entryUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://.+/games/com\\.iruka\\.[a-z](?:[a-z0-9]*)(?:-[a-z0-9]+)*/(0|[1-9]\\d*\\.\\d+\\.\\d+)/index\\.html$",
+      "description": "URL entry point phải khớp với id và version, kết thúc bằng /index.html"
+    },
+    "iconUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://.+\\.(png|jpg|jpeg|webp|svg)$",
+      "description": "URL icon game (PNG, JPG, JPEG, WebP, SVG)"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["score", "save-progress", "levels", "hints", "audio", "telemetry", "leaderboard"]
+      },
+      "uniqueItems": true,
+      "description": "Danh sách khả năng của game"
+    },
+    "minHubVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
+      "description": "Phiên bản Hub tối thiểu cần thiết"
+    },
+    "disabled": {
+      "type": "boolean",
+      "description": "Tạm thời vô hiệu hóa game"
+    }
+  }
+}

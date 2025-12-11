@@ -59,12 +59,15 @@ import GameUploadForm from "../components/GameUploadForm.astro";
       </h3>
       <pre
         class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-700 overflow-x-auto"><code>{`{
-  "id": "my-awesome-game",
+  "id": "com.iruka.bubbles-game",
+  "title": "Bubbles Game",
   "version": "1.0.0",
-  "title": "Game Tuyệt Vời Của Tôi",
-  "runtime": "html5",
-  "capabilities": ["audio", "fullscreen"],
-  "minHubVersion": "2.0.0"
+  "runtime": "iframe-html",
+  "entryUrl": "https://storage.googleapis.com/.../index.html",
+  "iconUrl": "https://storage.googleapis.com/.../icon.png",
+  "capabilities": ["score", "audio", "save-progress"],
+  "minHubVersion": "1.0.0",
+  "disabled": false
 }`}</code></pre>
     </div>
   </div>

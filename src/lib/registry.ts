@@ -28,6 +28,7 @@ export interface GameEntry {
   entryUrl: string;             // URL đến active version
   manifest: GameManifest;       // Manifest của active version
   updatedAt: string;
+  owner?: string;               // Người phụ trách game
   capabilities?: string[];
   minHubVersion?: string;
 }

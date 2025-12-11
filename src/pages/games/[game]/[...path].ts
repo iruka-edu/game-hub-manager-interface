@@ -9,8 +9,6 @@ export const GET: APIRoute = async ({ params }) => {
   const gcsPath = `games/${game}/${path}`;
 
   try {
-    const stream = getFileStream(gcsPath);
-    
     // Basic MIME type inference (add a library like 'mime-types' for production)
     let contentType = 'application/octet-stream';
     if (path.endsWith('.html')) contentType = 'text/html';
@@ -19,11 +17,23 @@ export const GET: APIRoute = async ({ params }) => {
     if (path.endsWith('.png')) contentType = 'image/png';
     if (path.endsWith('.json')) contentType = 'application/json';
 
-    // @ts-ignore - ReadableStream type mismatch between Node/Web standard
-    return new Response(stream, {
-      headers: { 'Content-Type': contentType }
+    // Create the stream and handle potential errors
+    const stream = getFileStream(gcsPath);
+    
+    // Add error handling for the stream
+    return new Promise<Response>((resolve, reject) => {
+      stream.on('error', (error) => {
+        console.error(`Error streaming file ${gcsPath}:`, error);
+        resolve(new Response('File not found', { status: 404 }));
+      });
+
+      // @ts-ignore - ReadableStream type mismatch between Node/Web standard
+      resolve(new Response(stream, {
+        headers: { 'Content-Type': contentType }
+      }));
     });
-  } catch (e) {
+  } catch (error) {
+    console.error(`Error accessing file ${gcsPath}:`, error);
     return new Response('File not found', { status: 404 });
   }
 };
