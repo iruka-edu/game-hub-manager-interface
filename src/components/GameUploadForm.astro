@@ -33,7 +33,7 @@
       <label class="block text-sm font-medium text-slate-700 mb-3">
         Chọn File hoặc Thư mục
         <span class="text-slate-400 font-normal"
-          >(phải chứa index.html & manifest.json)</span
+          >(có thể chọn nhiều lần để thêm file/folder)</span
         >
       </label>
 
@@ -53,10 +53,9 @@
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            ></path>
+              d="M12 4v16m8-8H4"></path>
           </svg>
-          <span class="text-slate-700 text-sm font-medium">Chọn File</span>
+          <span class="text-slate-700 text-sm font-medium">+ Thêm File</span>
         </button>
         <button
           type="button"
@@ -73,16 +72,22 @@
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2"
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-            ></path>
+              d="M12 4v16m8-8H4"></path>
           </svg>
-          <span class="text-slate-700 text-sm font-medium">Chọn Thư mục</span>
+          <span class="text-slate-700 text-sm font-medium">+ Thêm Thư mục</span>
         </button>
       </div>
 
       <!-- Hidden file inputs -->
       <input type="file" id="fileInput" multiple class="hidden" />
-      <input type="file" id="folderInput" multiple class="hidden" />
+      <input
+        type="file"
+        id="folderInput"
+        multiple
+        webkitdirectory
+        directory
+        class="hidden"
+      />
 
       <!-- Drop Zone -->
       <div
@@ -711,12 +716,20 @@
 
   fileInput.addEventListener("change", (e) => {
     const files = Array.from((e.target as HTMLInputElement).files || []);
-    if (files.length > 0) processFiles(files);
+    if (files.length > 0) {
+      processFiles(files);
+      // Reset input để có thể chọn lại
+      (e.target as HTMLInputElement).value = "";
+    }
   });
 
   folderInput.addEventListener("change", (e) => {
     const files = Array.from((e.target as HTMLInputElement).files || []);
-    if (files.length > 0) processFiles(files);
+    if (files.length > 0) {
+      processFiles(files);
+      // Reset input để có thể chọn lại
+      (e.target as HTMLInputElement).value = "";
+    }
   });
 
   clearFilesBtn.addEventListener("click", clearAllFiles);
