@@ -1,0 +1,86 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import GameVersionUploadForm from '../../../components/GameVersionUploadForm.astro';
+import { RegistryManager } from '../../../lib/registry';
+
+const { id } = Astro.params;
+
+// Find game in registry
+let game = null;
+let error = null;
+
+try {
+  const registry = await RegistryManager.get();
+  game = registry.games.find(g => g.id === id);
+  
+  if (!game) {
+    error = `Game "${id}" không tồn tại trong registry`;
+  }
+} catch (err) {
+  console.error('Failed to load game:', err);
+  error = 'Không thể tải thông tin game';
+}
+
+// Get current version and manifest
+const currentVersion = game?.activeVersion || '1.0.0';
+const manifest = game?.manifest || {};
+---
+
+<Layout title={game ? `${game.title} - Tải phiên bản mới` : 'Game không tìm thấy'}>
+  <div class="min-h-screen bg-slate-50 py-8">
+    <div class="max-w-4xl mx-auto px-4">
+      <!-- Header -->
+      <div class="mb-8">
+        <div class="flex items-center gap-4 mb-4">
+          <a 
+            href={`/games/${id}/versions`}
+            class="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-2 text-sm font-medium"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Quay lại Quản lý phiên bản
+          </a>
+        </div>
+        
+        {game ? (
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">Tải phiên bản mới</h1>
+            <p class="text-slate-500">Cập nhật game <span class="font-medium">{game.title}</span> với phiên bản mới</p>
+            <p class="text-slate-400 font-mono text-sm mt-1">{game.id}</p>
+          </div>
+        ) : (
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">Game không tìm thấy</h1>
+            <p class="text-slate-500">{error}</p>
+          </div>
+        )}
+      </div>
+
+      {game ? (
+        <GameVersionUploadForm 
+          gameId={game.id}
+          gameTitle={game.title}
+          currentVersion={currentVersion}
+          manifest={manifest}
+        />
+      ) : (
+        <div class="card p-8 text-center">
+          <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-200 flex items-center justify-center">
+            <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 005.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900 mb-2">Game không tồn tại</h2>
+          <p class="text-slate-500 mb-6">{error}</p>
+          <a 
+            href="/" 
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors text-sm"
+          >
+            Quay lại Dashboard
+          </a>
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>

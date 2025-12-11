@@ -98,12 +98,40 @@ export const POST: APIRoute = async ({ request }) => {
       folders: {}
     };
 
+    // Create a map to store cleaned paths for each file
+    const fileCleanPaths = new Map<File, string>();
+    
     files.forEach((file) => {
       const relativePath = (file as any).webkitRelativePath || file.name;
-      const pathParts = relativePath.split('/');
       
-      // Remove top-level folder (e.g., 'dist') from path if it exists
-      const cleanPath = pathParts.length > 1 ? pathParts.slice(1).join('/') : file.name;
+      // Clean up file path - handle different folder structures
+      let cleanPath = relativePath;
+      
+      // Remove leading slash if present
+      if (cleanPath.startsWith('/')) {
+        cleanPath = cleanPath.substring(1);
+      }
+      
+      const pathParts = cleanPath.split('/');
+      
+      // If uploading from a folder, remove the top-level folder name
+      // This handles cases like "dist/", "build/", etc.
+      if (pathParts.length > 1 && (file as any).webkitRelativePath) {
+        const rootFolder = pathParts[0].toLowerCase();
+        if (['dist', 'build', 'public', 'output', 'static', 'www'].includes(rootFolder) || 
+            pathParts[0].includes('-') || pathParts[0].includes('_')) {
+          cleanPath = pathParts.slice(1).join('/');
+        }
+      }
+      
+      // If cleanPath is just the filename (no folders), use the original filename
+      if (!cleanPath.includes('/') && cleanPath !== file.name) {
+        cleanPath = file.name;
+      }
+      
+      // Store the cleaned path for this file
+      fileCleanPaths.set(file, cleanPath);
+      
       const folderPath = cleanPath.includes('/') ? cleanPath.split('/').slice(0, -1).join('/') : 'root';
       
       if (!filesByFolder[folderPath]) {
@@ -124,6 +152,12 @@ export const POST: APIRoute = async ({ request }) => {
       });
     });
 
+    // Debug: Log all files and their folder structure
+    console.log(`[Upload] File structure:`);
+    Object.entries(progress.folders).forEach(([folder, info]) => {
+      console.log(`  ${folder}: ${info.files.map(f => f.fileName).join(', ')}`);
+    });
+
     // 3. Upload files folder by folder for better organization
     const uploadResults: Array<{ success: boolean; file: string; error?: string }> = [];
     
@@ -133,9 +167,7 @@ export const POST: APIRoute = async ({ request }) => {
       // Upload files in this folder
       for (const file of folderFiles) {
         try {
-          const relativePath = (file as any).webkitRelativePath || file.name;
-          const pathParts = relativePath.split('/');
-          const cleanPath = pathParts.length > 1 ? pathParts.slice(1).join('/') : file.name;
+          const cleanPath = fileCleanPaths.get(file) || file.name;
           const destination = `games/${id}/${version}/${cleanPath}`;
           
           progress.currentFile = file.name;

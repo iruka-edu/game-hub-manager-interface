@@ -12,13 +12,24 @@ export default defineConfig({
   adapter: vercel({
     imageService: true,
     devImageService: "sharp",
+    maxDuration: 30, // Increase timeout for large uploads
   }),
 
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      // Increase body size limit for development
+      middlewareMode: false,
+    },
   },
 
   experimental: {
     svgo: true,
+  },
+
+  // Server configuration for body size limits
+  server: {
+    // This will be handled by Vercel in production
+    // For local development, we'll handle it in the API routes
   },
 });

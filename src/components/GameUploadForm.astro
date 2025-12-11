@@ -458,7 +458,7 @@
         <li class="flex items-start gap-2" data-check="file-size">
           <span class="check-icon text-slate-400 mt-0.5">○</span>
           <span
-            >Dung lượng ZIP: khuyến nghị &lt; 3 MB để tải nhanh cho vùng mạng yếu</span
+            >Dung lượng: tối đa 10 MB, khuyến nghị &lt; 3 MB để tải nhanh cho vùng mạng yếu</span
           >
         </li>
         <li class="flex items-start gap-2">
@@ -656,11 +656,14 @@
     // Check file size
     const totalSize = fileItems.reduce((sum, item) => sum + item.size, 0);
     let fileSizeCheck: boolean | string = false;
-    if (totalSize > 0 && totalSize < 3 * 1024 * 1024) {
-      fileSizeCheck = true;
-    } else if (totalSize > 0) {
-      // Show warning but don't fail
-      fileSizeCheck = 'warning';
+    if (totalSize > 0) {
+      if (totalSize > 10 * 1024 * 1024) {
+        fileSizeCheck = false; // Fail if over 10MB
+      } else if (totalSize > 3 * 1024 * 1024) {
+        fileSizeCheck = 'warning'; // Warning if over 3MB but under 10MB
+      } else {
+        fileSizeCheck = true; // Good if under 3MB
+      }
     }
     checks['file-size'] = fileSizeCheck as any;
 
@@ -805,6 +808,18 @@
   }
 
   async function processFiles(files: File[]) {
+    // Check total file size before processing
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    const totalSizeMB = totalSize / (1024 * 1024);
+    
+    if (totalSizeMB > 10) {
+      showStatus(
+        `❌ Tổng dung lượng file quá lớn: ${totalSizeMB.toFixed(1)} MB. Giới hạn tối đa là 10 MB.`,
+        'error'
+      );
+      return;
+    }
+
     const newItems: FileItem[] = files.map((file) => {
       const relativePath = (file as any).webkitRelativePath || "";
       const pathParts = relativePath.split('/');
@@ -830,6 +845,18 @@
     });
 
     fileItems = [...fileItems, ...newItems];
+    
+    // Show size warning if needed
+    const currentTotalSize = fileItems.reduce((sum, item) => sum + item.size, 0);
+    const currentTotalSizeMB = currentTotalSize / (1024 * 1024);
+    
+    if (currentTotalSizeMB > 3) {
+      showStatus(
+        `⚠️ Tổng dung lượng file: ${currentTotalSizeMB.toFixed(1)} MB (khuyến nghị < 3 MB). Game có thể tải chậm trên mạng yếu.`,
+        'warning'
+      );
+    }
+    
     renderFileList();
     await validateAndUpdateUI();
   }
@@ -860,9 +887,20 @@
     fileItems = [zipItem];
     renderFileList();
 
-    // Check file size
+    // Check file size with 10MB limit and 3MB warning
     const sizeMB = file.size / (1024 * 1024);
-    if (sizeMB > 3) {
+    if (sizeMB > 10) {
+      showStatus(
+        `❌ File ZIP quá lớn: ${sizeMB.toFixed(1)} MB. Giới hạn tối đa là 10 MB.`,
+        'error'
+      );
+      // Clear the file selection
+      fileItems = [];
+      isZipMode = false;
+      zipFile = null;
+      renderFileList();
+      return;
+    } else if (sizeMB > 3) {
       showStatus(
         `⚠️ File ZIP có dung lượng ${sizeMB.toFixed(1)} MB (khuyến nghị < 3 MB). Game có thể tải chậm trên mạng yếu.`,
         'warning'

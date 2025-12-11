@@ -63,12 +63,23 @@ try {
         <div class="space-y-6">
           <!-- Version Management -->
           <div class="card p-6">
-            <h2 class="text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              Quản lý phiên bản
-            </h2>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Quản lý phiên bản
+              </h2>
+              <a
+                href={`/games/${game.id}/new-version`}
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors text-sm"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Phiên bản mới
+              </a>
+            </div>
             
             <div class="space-y-3">
               {game.versions.slice().reverse().map((versionInfo) => {

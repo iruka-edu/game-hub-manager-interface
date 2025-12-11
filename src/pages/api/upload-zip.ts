@@ -119,6 +119,31 @@ export const POST: APIRoute = async ({ request }) => {
 
     console.log(`[Upload ZIP] Found ${progress.totalFiles} files in ZIP`);
 
+    // Analyze ZIP structure to determine if there's a common root folder
+    const allFilePaths = Object.keys(zipContent.files).filter(fileName => !zipContent.files[fileName].dir);
+    let commonRootFolder = '';
+    
+    if (allFilePaths.length > 0) {
+      // Check if all files share a common root folder
+      const firstPath = allFilePaths[0];
+      const firstPathParts = firstPath.split('/');
+      
+      if (firstPathParts.length > 1) {
+        const potentialRoot = firstPathParts[0];
+        const allHaveSameRoot = allFilePaths.every(path => path.startsWith(potentialRoot + '/'));
+        
+        if (allHaveSameRoot) {
+          // Check if this root folder looks like a build output
+          const rootLower = potentialRoot.toLowerCase();
+          if (['dist', 'build', 'public', 'output', 'static', 'www'].includes(rootLower) || 
+              potentialRoot.includes('-') || potentialRoot.includes('_')) {
+            commonRootFolder = potentialRoot;
+            console.log(`[Upload ZIP] Detected common root folder to remove: ${commonRootFolder}`);
+          }
+        }
+      }
+    }
+
     // 3. Extract all files from ZIP
     for (const fileName of Object.keys(zipContent.files)) {
       const file = zipContent.files[fileName];
@@ -128,13 +153,26 @@ export const POST: APIRoute = async ({ request }) => {
       try {
         const content = await file.async('nodebuffer');
         
-        // Clean up file path - remove top-level folder if it exists
-        const pathParts = fileName.split('/');
-        const cleanPath = pathParts.length > 1 && pathParts[0] !== '' ? pathParts.slice(1).join('/') : fileName;
+        // Clean up file path - handle different ZIP structures
+        let cleanPath = fileName;
         
-        // Skip if cleanPath is empty (root directory files that got filtered out)
-        if (!cleanPath) continue;
+        // Remove leading slash if present
+        if (cleanPath.startsWith('/')) {
+          cleanPath = cleanPath.substring(1);
+        }
         
+        // Remove common root folder if detected
+        if (commonRootFolder && cleanPath.startsWith(commonRootFolder + '/')) {
+          cleanPath = cleanPath.substring(commonRootFolder.length + 1);
+        }
+        
+        // Skip if cleanPath is empty after processing
+        if (!cleanPath || cleanPath.trim() === '') {
+          console.log(`[Upload ZIP] Skipping empty path for: ${fileName}`);
+          continue;
+        }
+        
+        // Determine folder structure
         const folderPath = cleanPath.includes('/') ? cleanPath.split('/').slice(0, -1).join('/') : 'root';
         const baseName = cleanPath.split('/').pop() || cleanPath;
         
@@ -160,7 +198,7 @@ export const POST: APIRoute = async ({ request }) => {
         progress.folders[folderPath].total++;
         progress.folders[folderPath].files.push(baseName);
         
-        console.log(`[Upload ZIP] Extracted: ${cleanPath} (${content.length} bytes)`);
+        console.log(`[Upload ZIP] Extracted: ${fileName} -> ${cleanPath} (${content.length} bytes)`);
         
       } catch (error) {
         console.error(`[Upload ZIP] Failed to extract ${fileName}:`, error);
@@ -168,6 +206,12 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     console.log(`[Upload ZIP] Successfully extracted ${extractedFiles.length} files`);
+    
+    // Debug: Log all extracted files and their folder structure
+    console.log(`[Upload ZIP] Folder structure:`);
+    Object.entries(progress.folders).forEach(([folder, info]) => {
+      console.log(`  ${folder}: ${info.files.join(', ')}`);
+    });
 
     // 4. Validate required files
     const hasIndex = extractedFiles.some(f => f.name === 'index.html' || f.path === 'index.html');
