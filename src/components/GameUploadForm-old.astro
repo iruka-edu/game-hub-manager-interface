@@ -1185,119 +1185,120 @@ import { set } from "astro/zod";
         // Regular file upload mode
         const formData = new FormData();
 
-        const manifestBlob = new  {
-          tjson",
-        };
-on", {
+        const manifestBlob = new Blob([JSON.stringify(manifestData, null, 2)], {
           type: "application/json",
         });
-        formData.append("files", manifes
+        formData.append("files", manifestBlob, "manifest.json");
 
         fileItems.forEach((item) => {
-          if (
-           &
-           )
-
+          if (item.name !== "manifest.json") {
             formData.append("files", item.file);
           }
         });
 
-        
-        const folderGroup;
+        // Group files by folder for progress tracking
+        const folderGroups: Record<string, FileItem[]> = {};
         fileItems.forEach(item => {
-          consot";
-;
+          const folderName = item.folder || "root";
+          if (!folderGroups[folderName]) folderGroups[folderName] = [];
           folderGroups[folderName].push(item);
         });
 
-        l = 0;
-h;
+        let completedFiles = 0;
+        const totalFiles = fileItems.length;
         
-      
-        const progressInterval = set
-s
-          const pen);
-          if (pendingFiles.length > {
+        // Simulate upload progress
+        const progressInterval = setInterval(() => {
+          const pendingFiles = fileItems.filter(item => item.status === "pending");
+          if (pendingFiles.length > 0) {
             const batchSize = Math.min(3, pendingFiles.length);
-        
-              if (Math.random() > 0.7) { erval
-                pendingFiles[i].status = "upl
+            for (let i = 0; i < batchSize; i++) {
+              if (Math.random() > 0.7) {
+                pendingFiles[i].status = "uploading";
               }
-         }
+            }
           }
 
-cess
-          const uploadingFiles = fileIteg");
-          uploadingFiles.forEach(file=> {
-            if (Math.random() > 0.6) { // 
-              file.sta
+          const uploadingFiles = fileItems.filter(item => item.status === "uploading");
+          uploadingFiles.forEach(file => {
+            if (Math.random() > 0.6) {
+              file.status = "success";
               completedFiles++;
-         
-;
+            }
+          });
 
-          const overallProgress = Math.min((completedFiles / totalFiles 90);
-;
-          progressPercent.
-          progressLabel.textContent =e`;
+          const overallProgress = Math.min((completedFiles / totalFiles) * 100, 90);
+          progressBar.style.width = `${overallProgress}%`;
+          progressPercent.textContent = `${Math.round(overallProgress)}%`;
+          progressLabel.textContent = `Đang tải lên ${completedFiles}/${totalFiles} file`;
           
-          rendst();
+          renderFileList();
           updateFolderProgress();
-       }, 300);
+        }, 300);
 
-        res = await fetch("/api/upl
+        res = await fetch("/api/upload", {
           method: "POST",
           body: formData,
         });
 
-        c
-        data = await re;
+        clearInterval(progressInterval);
+        data = await res.json();
       }
 
       if (res.ok) {
         // Mark all files as success
-        fileItems.forEach((item) => (item.st);
+        fileItems.forEach((item) => (item.status = "success"));
         
-     00%";
-     100%";
-        p";
-});
-    }
-  ");dd("hiddenList.atainer.classessConrogr
-      pử lại";t = "ThtentContextnText.    uploadB
-  = false;.disabled tndB uploa;
-     , "error") thất bại"Tải lên " ||messagetatus(err.owS
-
-      shress();Proglder   updateFost();
-   erFileLindre });
+        progressBar.style.width = "100%";
+        progressPercent.textContent = "100%";
+        progressLabel.textContent = "Hoàn tất!";
+        
+        progressContainer.classList.add("hidden");
+        uploadBtnText.textContent = "Tải lại";
+        uploadBtn.disabled = false;
+        
+        const summary = data.summary;
+        let successMessage = data.message || "Tải lên thành công! ";
+        
+        if (summary) {
+          if (isZipMode) {
+            successMessage += ` (${summary.totalFiles} file được giải nén từ ${zipFile?.name})`;
+          } else {
+            successMessage += ` (${summary.totalFiles} file trong ${summary.folders} thư mục)`;
+          }
         }
-     e;
-      ag err.messe =rorMessag    item.er";
-      s = "errorstatuem.      it) {
-    ending"== "pstatus = item.ng" || "uploadistatus ===   if (item.> {
-     ch((item) =Items.forEale fi) {
-     rr: anyatch (e
-    } c}");
-      thất bạiải lên "Terror || ata. Error(d new      throw{
-  } else      }, 2000);
-       = "/";
-  .href w.location    windo=> {
-      out(()   setTime
-
-      ớng...";ng chuyển hưông! Đa"Thành cnt = ontetnText.textC  uploadB  ;
-    ")successe, "essagsuccessMs(tatu  showS      }
-
-         }
+        
+        showStatus(successMessage, "success");
+        
+        // Redirect after success
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 2000);
+        
+      } else {
+        throw new Error(data.error || "Tải lên thất bại");
+      }
+    } catch (err: any) {
+      // Mark failed files
+      fileItems.forEach((item) => {
+        if (item.status === "pending" || item.status === "uploading") {
+          item.status = "error";
+          item.errorMessage = err.message;
+        }
+      });
       
-   `;thư mục)lders} mmary.fo ${sue trong filles}ry.totalFi{summae += ` ($sMessag succes         e {
-  } els
-          zipFile})`;ừ ${summary.nén tợc giải ile đư fles}y.totalFiummar (${ssage += `uccessMes  s
-          e) {if (isZipMod         ummary) {
-    if (ssage;
-     a.mese = datMessagesset succ
-        lmmary;data.su = summary    const     ss message
-ailed succe // Show det   );
+      renderFileList();
+      updateFolderProgress();
+      
+      progressContainer.classList.add("hidden");
+      uploadBtnText.textContent = "Thử lại";
+      uploadBtn.disabled = false;
+      
+      showStatus(err.message || "Tải lên thất bại", "error");
+    }
+  });
 
-    gress(teFolderPro   upda     leList();
-   renderFi   
-          t!àn tấntent = "HoxtCol.tessLaberogreontent = ".textCssPercent   progre
+  // Show detailed success message
+  progressLabel.textContent = "Hoàn tất!";
+  progressPercent.textContent = "100%";
 </script>
