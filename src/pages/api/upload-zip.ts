@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import JSZip from 'jszip';
-import { uploadBuffer } from '../../lib/gcs';
+import { uploadBuffer, uploadBufferBatch, type UploadItem } from '../../lib/gcs';
 import { RegistryManager } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
 
@@ -12,12 +12,82 @@ interface ExtractedFile {
   size: number;
 }
 
-interface ZipUploadProgress {
-  totalFiles: number;
-  extractedFiles: number;
-  uploadedFiles: number;
-  currentFile: string;
-  folders: Record<string, { total: number; completed: number; files: string[] }>;
+/**
+ * Find the root folder by locating index.html
+ * Returns the folder path that contains index.html, or empty string if at root
+ */
+function findRootFolder(filePaths: string[]): string {
+  // Find index.html in the file list
+  const indexFile = filePaths.find(path => {
+    const fileName = path.split('/').pop()?.toLowerCase();
+    return fileName === 'index.html';
+  });
+
+  if (!indexFile) {
+    return ''; // No index.html found, assume root
+  }
+
+  // Get the folder containing index.html
+  const parts = indexFile.split('/');
+  if (parts.length === 1) {
+    return ''; // index.html is at root
+  }
+
+  // Return the folder path (everything except the filename)
+  return parts.slice(0, -1).join('/');
+}
+
+/**
+ * Normalize file path by removing the root folder prefix
+ */
+function normalizeFilePath(filePath: string, rootFolder: string): string {
+  if (!rootFolder) {
+    return filePath;
+  }
+
+  const prefix = rootFolder + '/';
+  if (filePath.startsWith(prefix)) {
+    return filePath.substring(prefix.length);
+  }
+
+  return filePath;
+}
+
+/**
+ * Get content type based on file extension
+ */
+function getContentType(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  const contentTypes: Record<string, string> = {
+    'html': 'text/html',
+    'htm': 'text/html',
+    'css': 'text/css',
+    'js': 'application/javascript',
+    'mjs': 'application/javascript',
+    'json': 'application/json',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    'ico': 'image/x-icon',
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'woff': 'font/woff',
+    'woff2': 'font/woff2',
+    'ttf': 'font/ttf',
+    'eot': 'application/vnd.ms-fontobject',
+    'txt': 'text/plain',
+    'xml': 'application/xml',
+    'wasm': 'application/wasm',
+  };
+
+  return contentTypes[ext || ''] || 'application/octet-stream';
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -55,7 +125,7 @@ export const POST: APIRoute = async ({ request }) => {
     let manifest;
     try {
       manifest = JSON.parse(manifestData);
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Manifest JSON không hợp lệ' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -100,60 +170,33 @@ export const POST: APIRoute = async ({ request }) => {
     const zip = new JSZip();
     const zipContent = await zip.loadAsync(zipBuffer);
 
-    const extractedFiles: ExtractedFile[] = [];
-    const progress: ZipUploadProgress = {
-      totalFiles: 0,
-      extractedFiles: 0,
-      uploadedFiles: 0,
-      currentFile: '',
-      folders: {}
-    };
+    // Get all file paths (excluding directories)
+    const allFilePaths = Object.keys(zipContent.files).filter(
+      fileName => !zipContent.files[fileName].dir
+    );
 
-    // Count total files first
-    Object.keys(zipContent.files).forEach(fileName => {
-      const file = zipContent.files[fileName];
-      if (!file.dir) {
-        progress.totalFiles++;
-      }
-    });
+    console.log(`[Upload ZIP] Found ${allFilePaths.length} files in ZIP`);
 
-    console.log(`[Upload ZIP] Found ${progress.totalFiles} files in ZIP`);
-
-    // Analyze ZIP structure to determine if there's a common root folder
-    const allFilePaths = Object.keys(zipContent.files).filter(fileName => !zipContent.files[fileName].dir);
-    let commonRootFolder = '';
+    // 3. Find root folder by locating index.html
+    const rootFolder = findRootFolder(allFilePaths);
     
-    if (allFilePaths.length > 0) {
-      // Check if all files share a common root folder
-      const firstPath = allFilePaths[0];
-      const firstPathParts = firstPath.split('/');
-      
-      if (firstPathParts.length > 1) {
-        const potentialRoot = firstPathParts[0];
-        const allHaveSameRoot = allFilePaths.every(path => path.startsWith(potentialRoot + '/'));
-        
-        if (allHaveSameRoot) {
-          // Check if this root folder looks like a build output
-          const rootLower = potentialRoot.toLowerCase();
-          if (['dist', 'build', 'public', 'output', 'static', 'www'].includes(rootLower) || 
-              potentialRoot.includes('-') || potentialRoot.includes('_')) {
-            commonRootFolder = potentialRoot;
-            console.log(`[Upload ZIP] Detected common root folder to remove: ${commonRootFolder}`);
-          }
-        }
-      }
+    if (rootFolder) {
+      console.log(`[Upload ZIP] Detected root folder: "${rootFolder}" (contains index.html)`);
+    } else {
+      console.log(`[Upload ZIP] index.html is at ZIP root`);
     }
 
-    // 3. Extract all files from ZIP
-    for (const fileName of Object.keys(zipContent.files)) {
+    // 4. Extract all files and normalize paths
+    const extractedFiles: ExtractedFile[] = [];
+    const folderStats: Record<string, { total: number; files: string[] }> = {};
+
+    for (const fileName of allFilePaths) {
       const file = zipContent.files[fileName];
-      
-      if (file.dir) continue; // Skip directories
       
       try {
         const content = await file.async('nodebuffer');
         
-        // Clean up file path - handle different ZIP structures
+        // Normalize path relative to root folder
         let cleanPath = fileName;
         
         // Remove leading slash if present
@@ -161,153 +204,123 @@ export const POST: APIRoute = async ({ request }) => {
           cleanPath = cleanPath.substring(1);
         }
         
-        // Remove common root folder if detected
-        if (commonRootFolder && cleanPath.startsWith(commonRootFolder + '/')) {
-          cleanPath = cleanPath.substring(commonRootFolder.length + 1);
-        }
+        // Normalize based on detected root folder
+        cleanPath = normalizeFilePath(cleanPath, rootFolder);
         
-        // Skip if cleanPath is empty after processing
+        // Skip if path is empty or outside root folder
         if (!cleanPath || cleanPath.trim() === '') {
-          console.log(`[Upload ZIP] Skipping empty path for: ${fileName}`);
+          console.log(`[Upload ZIP] Skipping: ${fileName} (outside root folder)`);
           continue;
         }
         
-        // Determine folder structure
-        const folderPath = cleanPath.includes('/') ? cleanPath.split('/').slice(0, -1).join('/') : 'root';
+        // Determine folder structure for stats
+        const folderPath = cleanPath.includes('/') 
+          ? cleanPath.split('/').slice(0, -1).join('/') 
+          : 'root';
         const baseName = cleanPath.split('/').pop() || cleanPath;
         
-        const extractedFile: ExtractedFile = {
+        extractedFiles.push({
           name: baseName,
           path: cleanPath,
           folder: folderPath,
           content,
           size: content.length
-        };
+        });
         
-        extractedFiles.push(extractedFile);
-        progress.extractedFiles++;
-        
-        // Organize by folder
-        if (!progress.folders[folderPath]) {
-          progress.folders[folderPath] = {
-            total: 0,
-            completed: 0,
-            files: []
-          };
+        // Track folder stats
+        if (!folderStats[folderPath]) {
+          folderStats[folderPath] = { total: 0, files: [] };
         }
-        progress.folders[folderPath].total++;
-        progress.folders[folderPath].files.push(baseName);
-        
-        console.log(`[Upload ZIP] Extracted: ${fileName} -> ${cleanPath} (${content.length} bytes)`);
+        folderStats[folderPath].total++;
+        folderStats[folderPath].files.push(baseName);
         
       } catch (error) {
         console.error(`[Upload ZIP] Failed to extract ${fileName}:`, error);
       }
     }
 
-    console.log(`[Upload ZIP] Successfully extracted ${extractedFiles.length} files`);
+    console.log(`[Upload ZIP] Extracted ${extractedFiles.length} files`);
     
-    // Debug: Log all extracted files and their folder structure
+    // Log folder structure
     console.log(`[Upload ZIP] Folder structure:`);
-    Object.entries(progress.folders).forEach(([folder, info]) => {
-      console.log(`  ${folder}: ${info.files.join(', ')}`);
+    Object.entries(folderStats).forEach(([folder, info]) => {
+      console.log(`  ${folder}: ${info.total} files`);
     });
 
-    // 4. Validate required files
-    const hasIndex = extractedFiles.some(f => f.name === 'index.html' || f.path === 'index.html');
+    // 5. Validate required files
+    const hasIndex = extractedFiles.some(f => f.path === 'index.html');
     if (!hasIndex) {
       return new Response(
-        JSON.stringify({ error: 'File ZIP phải chứa index.html' }),
+        JSON.stringify({ 
+          error: 'File ZIP phải chứa index.html. Đảm bảo index.html nằm trong thư mục gốc của game.' 
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // 5. Upload enhanced manifest first
+    // 6. Upload manifest first
     const manifestBuffer = Buffer.from(enhancedManifestData, 'utf-8');
     await uploadBuffer(`games/${id}/${version}/manifest.json`, manifestBuffer, 'application/json');
+    console.log(`[Upload ZIP] ✓ Uploaded manifest.json`);
 
-    // 6. Upload all extracted files
-    const uploadResults: Array<{ success: boolean; file: string; error?: string }> = [];
+    // 7. Prepare batch upload items
+    const uploadItems: UploadItem[] = extractedFiles.map(file => ({
+      destination: `games/${id}/${version}/${file.path}`,
+      buffer: file.content,
+      contentType: getContentType(file.name),
+      isHtml: file.path.endsWith('.html')
+    }));
+
+    // 8. Upload files in parallel (3 concurrent uploads)
+    const concurrency = 3;
+    console.log(`[Upload ZIP] Starting parallel upload (${concurrency} concurrent)`);
     
-    for (const [folderPath, folderInfo] of Object.entries(progress.folders)) {
-      console.log(`[Upload ZIP] Processing folder: ${folderPath} (${folderInfo.total} files)`);
-      
-      const folderFiles = extractedFiles.filter(f => f.folder === folderPath);
-      
-      for (const file of folderFiles) {
-        try {
-          const destination = `games/${id}/${version}/${file.path}`;
-          progress.currentFile = file.name;
-          
-          // Determine content type
-          let contentType = 'application/octet-stream';
-          const ext = file.name.split('.').pop()?.toLowerCase();
-          
-          if (ext === 'html') contentType = 'text/html';
-          else if (ext === 'css') contentType = 'text/css';
-          else if (ext === 'js') contentType = 'application/javascript';
-          else if (ext === 'json') contentType = 'application/json';
-          else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || '')) contentType = `image/${ext}`;
-          else if (['mp3', 'wav', 'ogg'].includes(ext || '')) contentType = `audio/${ext}`;
-          else if (['mp4', 'webm'].includes(ext || '')) contentType = `video/${ext}`;
-          
-          const isHtml = file.path === 'index.html' || file.path.endsWith('.html');
-          
-          await uploadBuffer(destination, file.content, contentType, isHtml);
-          
-          progress.uploadedFiles++;
-          progress.folders[folderPath].completed++;
-          
-          uploadResults.push({ success: true, file: file.path });
-          
-          console.log(`[Upload ZIP] ✓ ${file.path} (${progress.uploadedFiles}/${extractedFiles.length})`);
-          
-        } catch (error: any) {
-          console.error(`[Upload ZIP] ✗ Failed to upload ${file.path}:`, error);
-          
-          uploadResults.push({ 
-            success: false, 
-            file: file.path, 
-            error: error.message 
-          });
-        }
+    const uploadResults = await uploadBufferBatch(
+      uploadItems,
+      concurrency,
+      (completed, total, currentFile) => {
+        const fileName = currentFile.split('/').pop();
+        console.log(`[Upload ZIP] ✓ ${fileName} (${completed}/${total})`);
       }
-    }
+    );
 
-    // Check if any uploads failed
+    // Check for failures
     const failedUploads = uploadResults.filter(r => !r.success);
     if (failedUploads.length > 0) {
       console.error(`[Upload ZIP] ${failedUploads.length} files failed to upload`);
       return new Response(
         JSON.stringify({ 
-          error: `Một số file tải lên thất bại: ${failedUploads.map(f => f.file).join(', ')}`,
+          error: `Một số file tải lên thất bại: ${failedUploads.map(f => f.destination.split('/').pop()).join(', ')}`,
           details: failedUploads
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // 7. Update registry
+    // 9. Update registry
     await RegistryManager.updateGame(id, version, manifest);
 
-    // 8. Generate summary
-    const folderSummary = Object.entries(progress.folders).map(([folder, info]) => 
-      `${folder}: ${info.completed}/${info.total} files`
-    ).join(', ');
+    // 10. Generate summary
+    const totalSize = extractedFiles.reduce((sum, f) => sum + f.size, 0);
+    const folderSummary = Object.entries(folderStats)
+      .map(([folder, info]) => `${folder}: ${info.total} files`)
+      .join(', ');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Đã giải nén và tải lên thành công ${manifest.title || id} v${version} từ file ZIP!`,
+        message: `Đã tải lên thành công ${manifest.title || id} v${version}!`,
         gameId: id,
         version: version,
-        entryUrl: `https://storage.googleapis.com/${process.env.GCLOUD_BUCKET_NAME}/games/${id}/${version}/index.html`,
+        entryUrl: manifest.entryUrl,
         summary: {
           zipFile: zipFile.name,
+          rootFolder: rootFolder || '(root)',
           totalFiles: extractedFiles.length,
-          folders: Object.keys(progress.folders).length,
+          folders: Object.keys(folderStats).length,
           folderBreakdown: folderSummary,
-          extractedSize: extractedFiles.reduce((sum, f) => sum + f.size, 0)
+          totalSize: totalSize,
+          uploadConcurrency: concurrency
         }
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }

@@ -1,20 +1,87 @@
 import type { APIRoute } from 'astro';
-import { uploadBuffer } from '../../lib/gcs';
-import { RegistryManager, type GameManifest } from '../../lib/registry';
+import { uploadBuffer, uploadBufferBatch, type UploadItem } from '../../lib/gcs';
+import { RegistryManager } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
 
-interface FileUploadProgress {
-  fileName: string;
+interface FileInfo {
+  file: File;
+  originalPath: string;
+  cleanPath: string;
   folder: string;
-  status: 'pending' | 'uploading' | 'success' | 'error';
-  error?: string;
 }
 
-interface UploadProgress {
-  totalFiles: number;
-  completedFiles: number;
-  currentFile: string;
-  folders: Record<string, { total: number; completed: number; files: FileUploadProgress[] }>;
+/**
+ * Find the root folder by locating index.html in the file list
+ * Returns the folder path that contains index.html, or empty string if at root
+ */
+function findRootFolder(files: File[]): string {
+  for (const file of files) {
+    const relativePath = (file as any).webkitRelativePath || file.name;
+    const fileName = relativePath.split('/').pop()?.toLowerCase();
+    
+    if (fileName === 'index.html') {
+      const parts = relativePath.split('/');
+      if (parts.length === 1) {
+        return ''; // index.html is at root
+      }
+      // Return the folder path (everything except the filename)
+      return parts.slice(0, -1).join('/');
+    }
+  }
+  return ''; // No index.html found, assume root
+}
+
+/**
+ * Normalize file path by removing the root folder prefix
+ */
+function normalizeFilePath(filePath: string, rootFolder: string): string {
+  if (!rootFolder) {
+    return filePath;
+  }
+
+  const prefix = rootFolder + '/';
+  if (filePath.startsWith(prefix)) {
+    return filePath.substring(prefix.length);
+  }
+
+  return filePath;
+}
+
+/**
+ * Get content type based on file extension
+ */
+function getContentType(fileName: string, fileType?: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  const contentTypes: Record<string, string> = {
+    'html': 'text/html',
+    'htm': 'text/html',
+    'css': 'text/css',
+    'js': 'application/javascript',
+    'mjs': 'application/javascript',
+    'json': 'application/json',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    'ico': 'image/x-icon',
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'woff': 'font/woff',
+    'woff2': 'font/woff2',
+    'ttf': 'font/ttf',
+    'eot': 'application/vnd.ms-fontobject',
+    'txt': 'text/plain',
+    'xml': 'application/xml',
+    'wasm': 'application/wasm',
+  };
+
+  return contentTypes[ext || ''] || fileType || 'application/octet-stream';
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -33,6 +100,13 @@ export const POST: APIRoute = async ({ request }) => {
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
 
+    if (files.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Không có file nào được tải lên' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Find manifest file
     const manifestFile = files.find(
       (f) => f.name === 'manifest.json' || (f as any).webkitRelativePath?.endsWith('/manifest.json')
@@ -50,7 +124,7 @@ export const POST: APIRoute = async ({ request }) => {
     let manifest;
     try {
       manifest = JSON.parse(manifestContent);
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Manifest JSON không hợp lệ' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -89,155 +163,135 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // 2. Organize files by folder structure
-    const filesByFolder: Record<string, File[]> = {};
-    const progress: UploadProgress = {
-      totalFiles: files.length,
-      completedFiles: 0,
-      currentFile: '',
-      folders: {}
-    };
+    console.log(`[Upload] Processing ${files.length} files for game ${id} v${version}`);
 
-    // Create a map to store cleaned paths for each file
-    const fileCleanPaths = new Map<File, string>();
+    // 2. Find root folder by locating index.html
+    const rootFolder = findRootFolder(files);
     
-    files.forEach((file) => {
-      const relativePath = (file as any).webkitRelativePath || file.name;
+    if (rootFolder) {
+      console.log(`[Upload] Detected root folder: "${rootFolder}" (contains index.html)`);
+    } else {
+      console.log(`[Upload] index.html is at root`);
+    }
+
+    // 3. Process files and normalize paths
+    const fileInfos: FileInfo[] = [];
+    const folderStats: Record<string, { total: number; files: string[] }> = {};
+
+    for (const file of files) {
+      const originalPath = (file as any).webkitRelativePath || file.name;
       
-      // Clean up file path - handle different folder structures
-      let cleanPath = relativePath;
+      // Normalize path relative to root folder
+      let cleanPath = originalPath;
       
       // Remove leading slash if present
       if (cleanPath.startsWith('/')) {
         cleanPath = cleanPath.substring(1);
       }
       
-      const pathParts = cleanPath.split('/');
+      // Normalize based on detected root folder
+      cleanPath = normalizeFilePath(cleanPath, rootFolder);
       
-      // If uploading from a folder, remove the top-level folder name
-      // This handles cases like "dist/", "build/", etc.
-      if (pathParts.length > 1 && (file as any).webkitRelativePath) {
-        const rootFolder = pathParts[0].toLowerCase();
-        if (['dist', 'build', 'public', 'output', 'static', 'www'].includes(rootFolder) || 
-            pathParts[0].includes('-') || pathParts[0].includes('_')) {
-          cleanPath = pathParts.slice(1).join('/');
-        }
+      // Skip if path is empty (file is outside root folder)
+      if (!cleanPath || cleanPath.trim() === '') {
+        console.log(`[Upload] Skipping: ${originalPath} (outside root folder)`);
+        continue;
       }
       
-      // If cleanPath is just the filename (no folders), use the original filename
-      if (!cleanPath.includes('/') && cleanPath !== file.name) {
-        cleanPath = file.name;
-      }
+      // Determine folder for stats
+      const folder = cleanPath.includes('/') 
+        ? cleanPath.split('/').slice(0, -1).join('/') 
+        : 'root';
       
-      // Store the cleaned path for this file
-      fileCleanPaths.set(file, cleanPath);
-      
-      const folderPath = cleanPath.includes('/') ? cleanPath.split('/').slice(0, -1).join('/') : 'root';
-      
-      if (!filesByFolder[folderPath]) {
-        filesByFolder[folderPath] = [];
-        progress.folders[folderPath] = {
-          total: 0,
-          completed: 0,
-          files: []
-        };
-      }
-      
-      filesByFolder[folderPath].push(file);
-      progress.folders[folderPath].total++;
-      progress.folders[folderPath].files.push({
-        fileName: file.name,
-        folder: folderPath,
-        status: 'pending'
+      fileInfos.push({
+        file,
+        originalPath,
+        cleanPath,
+        folder
       });
-    });
-
-    // Debug: Log all files and their folder structure
-    console.log(`[Upload] File structure:`);
-    Object.entries(progress.folders).forEach(([folder, info]) => {
-      console.log(`  ${folder}: ${info.files.map(f => f.fileName).join(', ')}`);
-    });
-
-    // 3. Upload files folder by folder for better organization
-    const uploadResults: Array<{ success: boolean; file: string; error?: string }> = [];
-    
-    for (const [folderPath, folderFiles] of Object.entries(filesByFolder)) {
-      console.log(`[Upload] Processing folder: ${folderPath} (${folderFiles.length} files)`);
       
-      // Upload files in this folder
-      for (const file of folderFiles) {
-        try {
-          const cleanPath = fileCleanPaths.get(file) || file.name;
-          const destination = `games/${id}/${version}/${cleanPath}`;
-          
-          progress.currentFile = file.name;
-          
-          // Update file status to uploading
-          const fileProgress = progress.folders[folderPath].files.find(f => f.fileName === file.name);
-          if (fileProgress) fileProgress.status = 'uploading';
-          
-          let buffer: Buffer;
-          let contentType = file.type || 'application/octet-stream';
-          
-          // Special handling for manifest.json - use enhanced version
-          if (cleanPath === 'manifest.json' || file.name === 'manifest.json') {
-            buffer = Buffer.from(enhancedManifestContent, 'utf-8');
-            contentType = 'application/json';
-          } else {
-            buffer = Buffer.from(await file.arrayBuffer());
-          }
-          
-          const isHtml = cleanPath === 'index.html' || cleanPath.endsWith('.html');
-          
-          await uploadBuffer(destination, buffer, contentType, isHtml);
-          
-          // Update progress
-          progress.completedFiles++;
-          progress.folders[folderPath].completed++;
-          if (fileProgress) fileProgress.status = 'success';
-          
-          uploadResults.push({ success: true, file: cleanPath });
-          
-          console.log(`[Upload] ✓ ${cleanPath} (${progress.completedFiles}/${progress.totalFiles})`);
-          
-        } catch (error: any) {
-          console.error(`[Upload] ✗ Failed to upload ${file.name}:`, error);
-          
-          const fileProgress = progress.folders[folderPath].files.find(f => f.fileName === file.name);
-          if (fileProgress) {
-            fileProgress.status = 'error';
-            fileProgress.error = error.message;
-          }
-          
-          uploadResults.push({ 
-            success: false, 
-            file: file.name, 
-            error: error.message 
-          });
-        }
+      // Track folder stats
+      if (!folderStats[folder]) {
+        folderStats[folder] = { total: 0, files: [] };
       }
+      folderStats[folder].total++;
+      folderStats[folder].files.push(file.name);
     }
 
-    // Check if any uploads failed
+    // Log folder structure
+    console.log(`[Upload] Folder structure:`);
+    Object.entries(folderStats).forEach(([folder, info]) => {
+      console.log(`  ${folder}: ${info.total} files`);
+    });
+
+    // 4. Validate required files
+    const hasIndex = fileInfos.some(f => f.cleanPath === 'index.html');
+    if (!hasIndex) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Không tìm thấy index.html. Đảm bảo index.html nằm trong thư mục gốc của game.' 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 5. Prepare upload items
+    const uploadItems: UploadItem[] = [];
+    
+    for (const info of fileInfos) {
+      let buffer: Buffer;
+      let contentType: string;
+      
+      // Special handling for manifest.json - use enhanced version
+      if (info.cleanPath === 'manifest.json') {
+        buffer = Buffer.from(enhancedManifestContent, 'utf-8');
+        contentType = 'application/json';
+      } else {
+        buffer = Buffer.from(await info.file.arrayBuffer());
+        contentType = getContentType(info.file.name, info.file.type);
+      }
+      
+      uploadItems.push({
+        destination: `games/${id}/${version}/${info.cleanPath}`,
+        buffer,
+        contentType,
+        isHtml: info.cleanPath.endsWith('.html')
+      });
+    }
+
+    // 6. Upload files in parallel (3 concurrent uploads)
+    const concurrency = 3;
+    console.log(`[Upload] Starting parallel upload (${concurrency} concurrent)`);
+    
+    const uploadResults = await uploadBufferBatch(
+      uploadItems,
+      concurrency,
+      (completed, total, currentFile) => {
+        const fileName = currentFile.split('/').pop();
+        console.log(`[Upload] ✓ ${fileName} (${completed}/${total})`);
+      }
+    );
+
+    // Check for failures
     const failedUploads = uploadResults.filter(r => !r.success);
     if (failedUploads.length > 0) {
       console.error(`[Upload] ${failedUploads.length} files failed to upload`);
       return new Response(
         JSON.stringify({ 
-          error: `Một số file tải lên thất bại: ${failedUploads.map(f => f.file).join(', ')}`,
+          error: `Một số file tải lên thất bại: ${failedUploads.map(f => f.destination.split('/').pop()).join(', ')}`,
           details: failedUploads
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // 4. Update registry
+    // 7. Update registry
     await RegistryManager.updateGame(id, version, manifest);
 
-    // 5. Generate summary
-    const folderSummary = Object.entries(progress.folders).map(([folder, info]) => 
-      `${folder}: ${info.completed}/${info.total} files`
-    ).join(', ');
+    // 8. Generate summary
+    const folderSummary = Object.entries(folderStats)
+      .map(([folder, info]) => `${folder}: ${info.total} files`)
+      .join(', ');
 
     return new Response(
       JSON.stringify({
@@ -245,17 +299,19 @@ export const POST: APIRoute = async ({ request }) => {
         message: `Đã tải lên thành công ${manifest.title || id} v${version}!`,
         gameId: id,
         version: version,
-        entryUrl: `https://storage.googleapis.com/${process.env.GCLOUD_BUCKET_NAME}/games/${id}/${version}/index.html`,
+        entryUrl: manifest.entryUrl,
         summary: {
-          totalFiles: progress.totalFiles,
-          folders: Object.keys(progress.folders).length,
-          folderBreakdown: folderSummary
+          rootFolder: rootFolder || '(root)',
+          totalFiles: fileInfos.length,
+          folders: Object.keys(folderStats).length,
+          folderBreakdown: folderSummary,
+          uploadConcurrency: concurrency
         }
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
-    console.error('Upload error:', error);
+    console.error('[Upload] Error:', error);
     
     // Better error messages for common issues
     let errorMessage = error.message || 'Upload failed';
