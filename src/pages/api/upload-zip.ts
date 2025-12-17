@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { uploadBuffer, uploadBufferBatch, type UploadItem } from '../../lib/gcs';
 import { RegistryManager } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
+import { AuditLogger } from '../../lib/audit';
 
 interface ExtractedFile {
   name: string;
@@ -90,7 +91,7 @@ function getContentType(fileName: string): string {
   return contentTypes[ext || ''] || 'application/octet-stream';
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   // Check credentials early
   if (!process.env.GCLOUD_PROJECT_ID || (!process.env.GCLOUD_CLIENT_EMAIL && !process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
     console.error('[Upload ZIP] Missing GCS credentials');
@@ -300,7 +301,32 @@ export const POST: APIRoute = async ({ request }) => {
     // 9. Update registry
     await RegistryManager.updateGame(id, version, manifest);
 
-    // 10. Generate summary
+    // 10. Log audit entry
+    if (locals.user) {
+      AuditLogger.log({
+        actor: {
+          user: locals.user,
+          ip: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || undefined,
+        },
+        action: 'GAME_UPLOAD',
+        target: {
+          entity: 'GAME',
+          id: id,
+          subId: version,
+        },
+        metadata: {
+          method: 'ZIP_UPLOAD',
+          zipFileName: zipFile.name,
+          fileCount: extractedFiles.length,
+          rootFolder: rootFolder || '(root)',
+          folders: Object.keys(folderStats).length,
+          totalSize: extractedFiles.reduce((sum, f) => sum + f.size, 0),
+        },
+      });
+    }
+
+    // 11. Generate summary
     const totalSize = extractedFiles.reduce((sum, f) => sum + f.size, 0);
     const folderSummary = Object.entries(folderStats)
       .map(([folder, info]) => `${folder}: ${info.total} files`)

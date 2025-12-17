@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { uploadBuffer, uploadBufferBatch, type UploadItem } from '../../lib/gcs';
 import { RegistryManager } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
+import { AuditLogger } from '../../lib/audit';
 
 interface FileInfo {
   file: File;
@@ -84,7 +85,7 @@ function getContentType(fileName: string, fileType?: string): string {
   return contentTypes[ext || ''] || fileType || 'application/octet-stream';
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   // Check credentials early
   if (!process.env.GCLOUD_PROJECT_ID || (!process.env.GCLOUD_CLIENT_EMAIL && !process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
     console.error('[Upload] Missing GCS credentials');
@@ -288,7 +289,30 @@ export const POST: APIRoute = async ({ request }) => {
     // 7. Update registry
     await RegistryManager.updateGame(id, version, manifest);
 
-    // 8. Generate summary
+    // 8. Log audit entry
+    if (locals.user) {
+      AuditLogger.log({
+        actor: {
+          user: locals.user,
+          ip: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || undefined,
+        },
+        action: 'GAME_UPLOAD',
+        target: {
+          entity: 'GAME',
+          id: id,
+          subId: version,
+        },
+        metadata: {
+          method: 'FOLDER_UPLOAD',
+          fileCount: fileInfos.length,
+          rootFolder: rootFolder || '(root)',
+          folders: Object.keys(folderStats).length,
+        },
+      });
+    }
+
+    // 9. Generate summary
     const folderSummary = Object.entries(folderStats)
       .map(([folder, info]) => `${folder}: ${info.total} files`)
       .join(', ');

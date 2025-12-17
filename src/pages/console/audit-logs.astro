@@ -1,0 +1,225 @@
+---
+import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
+import type { User } from '../../models/User';
+import { getUserFromRequest } from '../../lib/session';
+import { AuditLogger } from '../../lib/audit';
+import { UserRepository } from '../../models/User';
+import type { ActionType } from '../../lib/audit-types';
+
+// Auth check
+const user = await getUserFromRequest(Astro.request) as User | null;
+if (!user) {
+  return Astro.redirect('/login?redirect=/console/audit-logs');
+}
+
+// Get filters from URL
+const url = new URL(Astro.request.url);
+const userIdFilter = url.searchParams.get('userId') || '';
+const actionFilter = url.searchParams.get('action') || '';
+const gameIdFilter = url.searchParams.get('gameId') || '';
+const page = parseInt(url.searchParams.get('page') || '1');
+const limit = 20;
+const skip = (page - 1) * limit;
+
+// Build filter
+const filter: any = {};
+if (userIdFilter) filter.userId = userIdFilter;
+if (actionFilter) filter.action = actionFilter as ActionType;
+if (gameIdFilter) filter.targetId = gameIdFilter;
+
+// Get logs
+const logs = await AuditLogger.getLogs(filter, limit, skip);
+const totalCount = await AuditLogger.getLogsCount(filter);
+const totalPages = Math.ceil(totalCount / limit);
+
+// Get all users for filter dropdown
+const userRepo = await UserRepository.getInstance();
+const allUsers = await userRepo.findAll();
+
+// Action type labels
+const actionLabels: Record<string, { label: string; color: string }> = {
+  GAME_UPLOAD: { label: 'Upload Game', color: 'bg-blue-100 text-blue-700' },
+  GAME_UPDATE_METADATA: { label: 'Cập nhật Metadata', color: 'bg-cyan-100 text-cyan-700' },
+  GAME_DELETE_VERSION: { label: 'Xóa Version', color: 'bg-red-100 text-red-700' },
+  GAME_DELETE_FULL: { label: 'Xóa Game', color: 'bg-red-100 text-red-700' },
+  GAME_STATUS_CHANGE: { label: 'Đổi Trạng thái', color: 'bg-purple-100 text-purple-700' },
+  USER_LOGIN: { label: 'Đăng nhập', color: 'bg-green-100 text-green-700' },
+  USER_LOGOUT: { label: 'Đăng xuất', color: 'bg-gray-100 text-gray-700' },
+};
+
+const allActions: ActionType[] = [
+  'GAME_UPLOAD',
+  'GAME_UPDATE_METADATA', 
+  'GAME_DELETE_VERSION',
+  'GAME_DELETE_FULL',
+  'GAME_STATUS_CHANGE',
+  'USER_LOGIN',
+  'USER_LOGOUT',
+];
+
+// Format date helper
+function formatDate(date: Date): string {
+  return new Date(date).toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// Format details helper
+function formatDetails(log: any): string {
+  const parts: string[] = [];
+  
+  if (log.changes && log.changes.length > 0) {
+    log.changes.forEach((change: any) => {
+      parts.push(`${change.field}: ${change.oldValue} → ${change.newValue}`);
+    });
+  }
+  
+  if (log.metadata) {
+    if (log.metadata.method) parts.push(`Method: ${log.metadata.method}`);
+    if (log.metadata.fileCount) parts.push(`Files: ${log.metadata.fileCount}`);
+    if (log.metadata.reason) parts.push(`Lý do: ${log.metadata.reason}`);
+    if (log.metadata.triggerBy) parts.push(`Trigger: ${log.metadata.triggerBy}`);
+  }
+  
+  return parts.join(' | ') || '-';
+}
+---
+
+<ConsoleLayout title="Audit Logs" user={user} activeMenu="audit-logs">
+  <div class="p-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Audit Logs</h1>
+        <p class="text-slate-500 mt-1">Lịch sử hoạt động trong hệ thống ({totalCount} bản ghi)</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 mb-6">
+      <form method="get" class="flex flex-col md:flex-row gap-4">
+        <!-- User Filter -->
+        <select name="userId" class="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="">Tất cả người dùng</option>
+          {allUsers.map(u => (
+            <option value={u._id.toString()} selected={userIdFilter === u._id.toString()}>
+              {u.name || u.email}
+            </option>
+          ))}
+        </select>
+        
+        <!-- Action Filter -->
+        <select name="action" class="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500">
+          <option value="">Tất cả hành động</option>
+          {allActions.map(action => (
+            <option value={action} selected={actionFilter === action}>
+              {actionLabels[action]?.label || action}
+            </option>
+          ))}
+        </select>
+        
+        <!-- Game ID Filter -->
+        <input 
+          type="text" 
+          name="gameId" 
+          value={gameIdFilter}
+          placeholder="Game ID..."
+          class="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+        />
+        
+        <button type="submit" class="btn-primary">Lọc</button>
+        {(userIdFilter || actionFilter || gameIdFilter) && (
+          <a href="/console/audit-logs" class="btn-secondary">Xóa bộ lọc</a>
+        )}
+      </form>
+    </div>
+
+    <!-- Logs Table -->
+    {logs.length > 0 ? (
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Thời gian</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Người thực hiện</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Hành động</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Đối tượng</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Chi tiết</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {logs.map(log => {
+              const actionInfo = actionLabels[log.action] || { label: log.action, color: 'bg-gray-100 text-gray-700' };
+              return (
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
+                    {formatDate(log.createdAt)}
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="font-medium text-slate-900 text-sm">{log.actor.email}</p>
+                    <p class="text-xs text-slate-500">Role: {log.actor.role}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${actionInfo.color}`}>
+                      {actionInfo.label}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="font-mono text-sm text-slate-900">{log.target.id}</p>
+                    {log.target.subId && (
+                      <p class="text-xs text-slate-500">v{log.target.subId}</p>
+                    )}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-slate-600 max-w-xs truncate" title={formatDetails(log)}>
+                    {formatDetails(log)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="bg-white rounded-xl border border-slate-200 p-16 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+          <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-2">Không có log nào</h3>
+        <p class="text-slate-500">Chưa có hoạt động nào được ghi lại</p>
+      </div>
+    )}
+
+    <!-- Pagination -->
+    {totalPages > 1 && (
+      <div class="flex items-center justify-between mt-6">
+        <p class="text-sm text-slate-600">
+          Trang {page} / {totalPages} ({totalCount} bản ghi)
+        </p>
+        <div class="flex gap-2">
+          {page > 1 && (
+            <a 
+              href={`/console/audit-logs?page=${page - 1}${userIdFilter ? `&userId=${userIdFilter}` : ''}${actionFilter ? `&action=${actionFilter}` : ''}${gameIdFilter ? `&gameId=${gameIdFilter}` : ''}`}
+              class="btn-secondary"
+            >
+              ← Trước
+            </a>
+          )}
+          {page < totalPages && (
+            <a 
+              href={`/console/audit-logs?page=${page + 1}${userIdFilter ? `&userId=${userIdFilter}` : ''}${actionFilter ? `&action=${actionFilter}` : ''}${gameIdFilter ? `&gameId=${gameIdFilter}` : ''}`}
+              class="btn-secondary"
+            >
+              Sau →
+            </a>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+</ConsoleLayout>

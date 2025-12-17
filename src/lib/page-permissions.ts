@@ -16,6 +16,7 @@ export const PAGE_PERMISSIONS: PagePermissionConfig[] = [
   { pattern: '/console/qc-inbox', permission: 'games:review' },
   { pattern: '/console/approval', permission: 'games:approve' },
   { pattern: '/console/publish', permission: 'games:publish' },
+  { pattern: '/console/audit-logs', permission: 'system:audit_view' },
   { pattern: '/console/my-games', permission: 'games:view' },
   { pattern: '/console/library', permission: 'games:view' },
   { pattern: '/console/games', permission: 'games:view' },

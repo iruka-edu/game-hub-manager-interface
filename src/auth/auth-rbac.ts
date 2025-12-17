@@ -10,7 +10,8 @@ export type Permission =
   | 'games:submit' 
   | 'games:review' 
   | 'games:approve' 
-  | 'games:publish';
+  | 'games:publish'
+  | 'system:audit_view';
 
 /**
  * All available permissions
@@ -23,6 +24,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   'games:review',
   'games:approve',
   'games:publish',
+  'system:audit_view',
 ];
 
 /**
@@ -42,6 +44,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   cto: [
     'games:view',
     'games:approve',
+    'system:audit_view',
   ],
   ceo: [
     'games:view',
@@ -55,6 +58,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'games:review',
     'games:approve',
     'games:publish',
+    'system:audit_view',
   ],
 };
 

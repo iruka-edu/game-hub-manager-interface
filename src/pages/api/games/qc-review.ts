@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../models/Game';
 import { getUserFromRequest } from '../../../lib/session';
+import { AuditLogger } from '../../../lib/audit';
 
 /**
  * POST /api/games/qc-review
@@ -66,7 +67,23 @@ export const POST: APIRoute = async ({ request }) => {
     const newStatus = result === 'pass' ? 'qc_passed' : 'qc_failed';
     const updated = await gameRepo.updateStatus(gameId, newStatus);
 
-    // TODO: Save QC note to game history/comments
+    // Log audit entry
+    AuditLogger.log({
+      actor: {
+        user,
+        ip: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || undefined,
+      },
+      action: 'GAME_STATUS_CHANGE',
+      target: {
+        entity: 'GAME',
+        id: gameId,
+      },
+      changes: [
+        { field: 'status', oldValue: 'uploaded', newValue: newStatus },
+      ],
+      metadata: result === 'fail' ? { reason: note || 'No reason provided' } : undefined,
+    });
 
     return new Response(JSON.stringify({ success: true, game: updated }), {
       status: 200,

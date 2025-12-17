@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../models/Game';
 import { getUserFromRequest } from '../../../lib/session';
+import { AuditLogger } from '../../../lib/audit';
 
 /**
  * POST /api/games/publish
@@ -54,8 +55,27 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    const oldStatus = game.status;
+
     // Update status
     const updated = await gameRepo.updateStatus(gameId, 'published');
+
+    // Log audit entry
+    AuditLogger.log({
+      actor: {
+        user,
+        ip: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || undefined,
+      },
+      action: 'GAME_STATUS_CHANGE',
+      target: {
+        entity: 'GAME',
+        id: gameId,
+      },
+      changes: [
+        { field: 'status', oldValue: oldStatus, newValue: 'published' },
+      ],
+    });
 
     return new Response(JSON.stringify({ success: true, game: updated }), {
       status: 200,

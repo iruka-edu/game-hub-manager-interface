@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
 import { RegistryManager } from '../../../lib/registry';
 import { deleteFiles } from '../../../lib/gcs';
+import { AuditLogger } from '../../../lib/audit';
 
-export const DELETE: APIRoute = async ({ request }) => {
+export const DELETE: APIRoute = async ({ request, locals }) => {
   try {
     const url = new URL(request.url);
     const gameId = url.searchParams.get('id');
@@ -29,6 +30,26 @@ export const DELETE: APIRoute = async ({ request }) => {
       // Delete files from GCS
       await deleteFiles(`games/${gameId}/${version}/`);
 
+      // Log audit entry for version deletion
+      if (locals.user) {
+        AuditLogger.log({
+          actor: {
+            user: locals.user,
+            ip: request.headers.get('x-forwarded-for') || 'unknown',
+            userAgent: request.headers.get('user-agent') || undefined,
+          },
+          action: 'GAME_DELETE_VERSION',
+          target: {
+            entity: 'GAME',
+            id: gameId,
+            subId: version,
+          },
+          metadata: {
+            triggerBy: 'Manual deletion',
+          },
+        });
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -49,6 +70,25 @@ export const DELETE: APIRoute = async ({ request }) => {
 
       // Delete all game files from GCS
       await deleteFiles(`games/${gameId}/`);
+
+      // Log audit entry for full game deletion
+      if (locals.user) {
+        AuditLogger.log({
+          actor: {
+            user: locals.user,
+            ip: request.headers.get('x-forwarded-for') || 'unknown',
+            userAgent: request.headers.get('user-agent') || undefined,
+          },
+          action: 'GAME_DELETE_FULL',
+          target: {
+            entity: 'GAME',
+            id: gameId,
+          },
+          metadata: {
+            triggerBy: 'Manual deletion',
+          },
+        });
+      }
 
       return new Response(
         JSON.stringify({ 
