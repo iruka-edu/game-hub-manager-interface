@@ -1,0 +1,145 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import type { User } from '../../models/User';
+import { GameRepository, type Game } from '../../models/Game';
+
+// Get user from middleware (attached to locals)
+const user = Astro.locals.user as User;
+
+// Redirect if not authenticated (should be handled by middleware, but double-check)
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Get games based on user role
+const gameRepo = await GameRepository.getInstance();
+let games: Game[] = [];
+let dashboardTitle = 'Dashboard';
+let dashboardDescription = '';
+
+const roles = user.roles;
+const userId = user._id.toString();
+
+if (roles.includes('admin')) {
+  games = await gameRepo.findAll();
+  dashboardTitle = 'Admin Dashboard';
+  dashboardDescription = 'Quản lý tất cả games trong hệ thống';
+} else if (roles.includes('cto') || roles.includes('ceo')) {
+  games = await gameRepo.findByStatus('qc_passed');
+  dashboardTitle = roles.includes('cto') ? 'CTO Dashboard' : 'CEO Dashboard';
+  dashboardDescription = 'Games đang chờ phê duyệt';
+} else if (roles.includes('qc')) {
+  games = await gameRepo.findByStatus('uploaded');
+  dashboardTitle = 'QC Dashboard';
+  dashboardDescription = 'Games đang chờ kiểm tra';
+} else {
+  games = await gameRepo.findByOwnerId(userId);
+  dashboardTitle = 'Developer Dashboard';
+  dashboardDescription = 'Games của bạn';
+}
+
+// Stats for admin
+const totalGames = roles.includes('admin') ? games.length : null;
+const draftGames = roles.includes('admin') ? games.filter(g => g.status === 'draft').length : null;
+const publishedGames = roles.includes('admin') ? games.filter(g => g.status === 'published').length : null;
+
+// Helper function to get status badge color
+function getStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-700',
+    uploaded: 'bg-blue-100 text-blue-700',
+    qc_passed: 'bg-green-100 text-green-700',
+    qc_failed: 'bg-red-100 text-red-700',
+    approved: 'bg-purple-100 text-purple-700',
+    published: 'bg-emerald-100 text-emerald-700',
+    archived: 'bg-slate-100 text-slate-700',
+  };
+  return colors[status] || 'bg-gray-100 text-gray-700';
+}
+---
+
+
+<Layout title={`${dashboardTitle} - Game Hub Manager`}>
+  <div class="space-y-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">{dashboardTitle}</h1>
+        <p class="text-slate-500 mt-1">{dashboardDescription}</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-right">
+          <p class="text-sm font-medium text-slate-900">{user.name || user.email}</p>
+          <p class="text-xs text-slate-500 capitalize">{user.roles.join(', ')}</p>
+        </div>
+        <a href="/api/auth/logout" class="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors">
+          Đăng xuất
+        </a>
+      </div>
+    </div>
+
+    <!-- Admin Stats -->
+    {roles.includes('admin') && (
+      <div class="grid grid-cols-3 gap-6">
+        <div class="card p-6">
+          <p class="text-sm text-slate-500">Tổng số games</p>
+          <p class="text-3xl font-bold text-slate-900 mt-1">{totalGames}</p>
+        </div>
+        <div class="card p-6">
+          <p class="text-sm text-slate-500">Đang phát triển</p>
+          <p class="text-3xl font-bold text-blue-600 mt-1">{draftGames}</p>
+        </div>
+        <div class="card p-6">
+          <p class="text-sm text-slate-500">Đã xuất bản</p>
+          <p class="text-3xl font-bold text-emerald-600 mt-1">{publishedGames}</p>
+        </div>
+      </div>
+    )}
+
+    <!-- Dev: Upload Button -->
+    {roles.includes('dev') && !roles.includes('admin') && (
+      <div class="flex justify-end">
+        <a href="/upload" class="btn-primary text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Upload New Game
+        </a>
+      </div>
+    )}
+
+    <!-- Games List -->
+    <div class="card">
+      <div class="p-6 border-b border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-900">
+          {roles.includes('qc') ? 'Review Queue' : roles.includes('cto') || roles.includes('ceo') ? 'Approval Queue' : 'Games'}
+        </h2>
+      </div>
+      
+      {games.length === 0 ? (
+        <div class="p-12 text-center">
+          <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+          </svg>
+          <p class="text-slate-500">Không có game nào</p>
+        </div>
+      ) : (
+        <div class="divide-y divide-slate-200">
+          {games.map(game => (
+            <div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+              <div>
+                <h3 class="font-medium text-slate-900">{game.title || game.gameId}</h3>
+                <p class="text-sm text-slate-500 mt-1">{game.gameId}</p>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(game.status)}`}>
+                  {game.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>

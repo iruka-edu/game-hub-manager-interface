@@ -1,0 +1,239 @@
+---
+import ConsoleLayout from '../../../../layouts/ConsoleLayout.astro';
+import StatusChip from '../../../../components/StatusChip.astro';
+import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
+import type { User } from '../../../../models/User';
+import { GameRepository } from '../../../../models/Game';
+import { UserRepository } from '../../../../models/User';
+import { getUserFromRequest } from '../../../../lib/session';
+
+// Auth check
+const user = await getUserFromRequest(Astro.request) as User | null;
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Get game
+const { id } = Astro.params;
+const gameRepo = await GameRepository.getInstance();
+const userRepo = await UserRepository.getInstance();
+const game = await gameRepo.findById(id || '');
+
+if (!game) {
+  return Astro.redirect('/console/library?error=not-found');
+}
+
+// Get owner info
+const owner = await userRepo.findById(game.ownerId);
+const ownerName = owner?.name || owner?.email || 'Unknown';
+
+// Role checks
+const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
+const isOwner = game.ownerId === user._id.toString();
+const isDev = hasRole('dev');
+const isQC = hasRole('qc');
+const isCTO = hasRole('cto');
+const isCEO = hasRole('ceo');
+const isAdmin = hasRole('admin');
+
+// Action permissions
+const canEdit = isOwner && ['draft', 'qc_failed'].includes(game.status);
+const canSubmitQC = isOwner && ['draft', 'qc_failed'].includes(game.status);
+const canReview = (isQC || isAdmin) && game.status === 'uploaded';
+const canApprove = (isCTO || isCEO || isAdmin) && game.status === 'qc_passed';
+const canPublish = isAdmin && game.status === 'approved';
+---
+
+<ConsoleLayout title={game.title || game.gameId} user={user} activeMenu="library">
+  <div class="p-8">
+    <!-- Breadcrumb -->
+    <div class="mb-6">
+      <a href="/console/library" class="text-slate-500 hover:text-slate-900 text-sm flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Quay lại Thư viện
+      </a>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-8">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <h1 class="text-2xl font-bold text-slate-900">{game.title || game.gameId}</h1>
+          <StatusChip status={game.status} />
+        </div>
+        <p class="text-slate-500">{game.gameId}</p>
+        <p class="text-sm text-slate-400 mt-1">
+          Người phụ trách: {ownerName}
+          {isOwner && <span class="text-indigo-600"> (bạn)</span>}
+        </p>
+      </div>
+      
+      <!-- Actions -->
+      <div class="flex items-center gap-3">
+        {canEdit && (
+          <a href={`/console/games/${id}/edit`} class="btn-secondary">Chỉnh sửa</a>
+        )}
+        {canSubmitQC && (
+          <button id="submit-qc-btn" class="btn-primary" data-game-id={game._id.toString()}>
+            Gửi QC
+          </button>
+        )}
+        {canReview && (
+          <a href={`/console/games/${id}/review`} class="btn-primary">Mở Review</a>
+        )}
+        {canApprove && (
+          <button id="approve-btn" class="btn-success" data-game-id={game._id.toString()}>
+            Duyệt
+          </button>
+        )}
+        {canPublish && (
+          <button id="publish-btn" class="btn-success" data-game-id={game._id.toString()}>
+            Xuất bản
+          </button>
+        )}
+      </div>
+    </div>
+
+    <!-- Workflow Timeline -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 mb-8">
+      <h3 class="text-sm font-semibold text-slate-700 mb-4">Tiến trình phê duyệt</h3>
+      <WorkflowTimeline currentStatus={game.status} />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Game Info -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- Preview -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-200">
+            <h3 class="font-semibold text-slate-900">Preview Game</h3>
+          </div>
+          <div class="aspect-video bg-slate-100">
+            <iframe 
+              src={`/play/${game._id}`}
+              class="w-full h-full border-0"
+              title="Game Preview"
+            ></iframe>
+          </div>
+        </div>
+
+        <!-- Details -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="font-semibold text-slate-900 mb-4">Thông tin chi tiết</h3>
+          <dl class="grid grid-cols-2 gap-4">
+            <div>
+              <dt class="text-sm text-slate-500">Game ID</dt>
+              <dd class="font-medium text-slate-900">{game.gameId}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Tiêu đề</dt>
+              <dd class="font-medium text-slate-900">{game.title || '-'}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Trạng thái</dt>
+              <dd><StatusChip status={game.status} size="sm" /></dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Team</dt>
+              <dd class="font-medium text-slate-900">{game.teamId || '-'}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Ngày tạo</dt>
+              <dd class="font-medium text-slate-900">{game.createdAt.toLocaleDateString('vi-VN')}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Cập nhật lần cuối</dt>
+              <dd class="font-medium text-slate-900">{game.updatedAt.toLocaleDateString('vi-VN')}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="space-y-6">
+        <!-- Status Info -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="font-semibold text-slate-900 mb-4">Trạng thái hiện tại</h3>
+          <div class="flex items-center gap-3 mb-4">
+            <StatusChip status={game.status} />
+          </div>
+          <p class="text-sm text-slate-600">
+            {game.status === 'draft' && 'Game đang ở trạng thái nháp. Dev có thể chỉnh sửa và gửi QC khi sẵn sàng.'}
+            {game.status === 'uploaded' && 'Game đang chờ QC kiểm tra chất lượng.'}
+            {game.status === 'qc_passed' && 'Game đã qua QC và đang chờ CTO/CEO phê duyệt.'}
+            {game.status === 'qc_failed' && 'Game cần được Dev chỉnh sửa theo feedback của QC.'}
+            {game.status === 'approved' && 'Game đã được duyệt và đang chờ Admin xuất bản.'}
+            {game.status === 'published' && 'Game đã được xuất bản và học sinh có thể chơi.'}
+            {game.status === 'archived' && 'Game đã bị ngừng hiển thị.'}
+          </p>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="font-semibold text-slate-900 mb-4">Thao tác</h3>
+          <div class="space-y-2">
+            <a href={`/play/${game._id}`} target="_blank" class="flex items-center gap-2 p-3 rounded-lg hover:bg-slate-50 text-slate-700">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              Chơi thử game
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</ConsoleLayout>
+
+<script>
+  // Submit QC
+  document.getElementById('submit-qc-btn')?.addEventListener('click', async (e) => {
+    const gameId = (e.target as HTMLElement).dataset.gameId;
+    if (!confirm('Bạn có chắc muốn gửi game này để QC kiểm tra?')) return;
+    
+    try {
+      const response = await fetch('/api/games/submit-qc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId })
+      });
+      if (response.ok) window.location.reload();
+      else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+  
+  // Approve
+  document.getElementById('approve-btn')?.addEventListener('click', async (e) => {
+    const gameId = (e.target as HTMLElement).dataset.gameId;
+    if (!confirm('Bạn có chắc muốn duyệt game này?')) return;
+    
+    try {
+      const response = await fetch('/api/games/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId })
+      });
+      if (response.ok) window.location.reload();
+      else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+  
+  // Publish
+  document.getElementById('publish-btn')?.addEventListener('click', async (e) => {
+    const gameId = (e.target as HTMLElement).dataset.gameId;
+    if (!confirm('Bạn có chắc muốn xuất bản game này? Học sinh sẽ có thể chơi game.')) return;
+    
+    try {
+      const response = await fetch('/api/games/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId })
+      });
+      if (response.ok) window.location.reload();
+      else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+</script>

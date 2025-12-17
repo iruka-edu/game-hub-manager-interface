@@ -1,0 +1,240 @@
+---
+import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
+import StatusChip from '../../components/StatusChip.astro';
+import type { User } from '../../models/User';
+import { GameRepository, type Game } from '../../models/Game';
+import { UserRepository } from '../../models/User';
+
+// Get user from locals (set by middleware - auth and permission already checked)
+const user = Astro.locals.user as User;
+const permissions = Astro.locals.permissions || [];
+
+// Get filter from URL
+const url = new URL(Astro.request.url);
+const statusFilter = url.searchParams.get('status') || 'approved';
+
+// Get games
+const gameRepo = await GameRepository.getInstance();
+const userRepo = await UserRepository.getInstance();
+const allGames = await gameRepo.findAll();
+
+// Filter games
+let games: Game[] = [];
+if (statusFilter === 'approved') {
+  games = allGames.filter(g => g.status === 'approved');
+} else if (statusFilter === 'published') {
+  games = allGames.filter(g => g.status === 'published');
+} else if (statusFilter === 'archived') {
+  games = allGames.filter(g => g.status === 'archived');
+}
+
+// Stats
+const approvedCount = allGames.filter(g => g.status === 'approved').length;
+const publishedCount = allGames.filter(g => g.status === 'published').length;
+const archivedCount = allGames.filter(g => g.status === 'archived').length;
+
+// Get owner info
+const gamesWithOwner = await Promise.all(games.map(async (game) => {
+  const owner = await userRepo.findById(game.ownerId);
+  return { ...game, ownerName: owner?.name || owner?.email || 'Unknown' };
+}));
+---
+
+<ConsoleLayout title="Quản lý xuất bản" user={user} activeMenu="publish">
+  <div class="p-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-slate-900">Quản lý xuất bản</h1>
+      <p class="text-slate-500 mt-1">Xuất bản game ra ngoài cho học sinh sử dụng</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <a href="/console/publish?status=approved" class={`bg-white rounded-xl p-6 border-2 transition-all ${statusFilter === 'approved' ? 'border-emerald-500' : 'border-slate-200 hover:border-emerald-300'}`}>
+        <p class="text-sm text-slate-500">Chờ xuất bản</p>
+        <p class="text-3xl font-bold text-emerald-600 mt-1">{approvedCount}</p>
+      </a>
+      <a href="/console/publish?status=published" class={`bg-white rounded-xl p-6 border-2 transition-all ${statusFilter === 'published' ? 'border-green-500' : 'border-slate-200 hover:border-green-300'}`}>
+        <p class="text-sm text-slate-500">Đang xuất bản</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{publishedCount}</p>
+      </a>
+      <a href="/console/publish?status=archived" class={`bg-white rounded-xl p-6 border-2 transition-all ${statusFilter === 'archived' ? 'border-gray-500' : 'border-slate-200 hover:border-gray-300'}`}>
+        <p class="text-sm text-slate-500">Đã lưu trữ</p>
+        <p class="text-3xl font-bold text-gray-600 mt-1">{archivedCount}</p>
+      </a>
+    </div>
+
+    <!-- Games List -->
+    {gamesWithOwner.length > 0 ? (
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Game</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Trạng thái</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Dev</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Cập nhật</th>
+              <th class="text-right px-6 py-4 text-sm font-semibold text-slate-700">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {gamesWithOwner.map(game => (
+              <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-4">
+                  <a href={`/console/games/${game._id}`} class="block">
+                    <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+                    <p class="text-sm text-slate-500">{game.gameId}</p>
+                  </a>
+                </td>
+                <td class="px-6 py-4">
+                  <StatusChip status={game.status} size="sm" />
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-600">
+                  {game.ownerName}
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-500">
+                  {game.updatedAt.toLocaleDateString('vi-VN')}
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center justify-end gap-2">
+                    {game.status === 'approved' && (
+                      <button 
+                        class="publish-btn px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                        data-game-id={game._id.toString()}
+                        data-game-title={game.title || game.gameId}
+                      >
+                        Xuất bản
+                      </button>
+                    )}
+                    {game.status === 'published' && (
+                      <button 
+                        class="archive-btn px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                        data-game-id={game._id.toString()}
+                        data-game-title={game.title || game.gameId}
+                      >
+                        Ngừng hiển thị
+                      </button>
+                    )}
+                    {game.status === 'archived' && (
+                      <button 
+                        class="republish-btn px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                        data-game-id={game._id.toString()}
+                        data-game-title={game.title || game.gameId}
+                      >
+                        Xuất bản lại
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="bg-white rounded-xl border border-slate-200 p-16 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+          <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-2">
+          {statusFilter === 'approved' ? 'Không có game nào chờ xuất bản' : 
+           statusFilter === 'published' ? 'Chưa có game nào được xuất bản' :
+           'Không có game nào đã lưu trữ'}
+        </h3>
+      </div>
+    )}
+  </div>
+
+  <!-- Publish Modal -->
+  <div id="publishModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Xác nhận xuất bản</h3>
+      <p class="text-slate-600 mb-2">Bạn đang xuất bản game "<span id="publishGameTitle" class="font-medium"></span>".</p>
+      <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-6">
+        <p class="text-sm text-amber-800">⚠️ Khi xuất bản, học sinh có thể thấy và chơi game này.</p>
+      </div>
+      <div class="flex items-center justify-end gap-3">
+        <button id="cancelPublish" class="btn-secondary">Hủy</button>
+        <button id="confirmPublish" class="btn-success">Xác nhận xuất bản</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Archive Modal -->
+  <div id="archiveModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Ngừng hiển thị game</h3>
+      <p class="text-slate-600 mb-6">Game "<span id="archiveGameTitle" class="font-medium"></span>" sẽ không còn hiển thị cho học sinh. Bạn có thể xuất bản lại sau.</p>
+      <div class="flex items-center justify-end gap-3">
+        <button id="cancelArchive" class="btn-secondary">Hủy</button>
+        <button id="confirmArchive" class="btn-danger">Ngừng hiển thị</button>
+      </div>
+    </div>
+  </div>
+</ConsoleLayout>
+
+<script>
+  let currentGameId = '';
+  
+  // Publish Modal
+  const publishModal = document.getElementById('publishModal');
+  document.querySelectorAll('.publish-btn, .republish-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentGameId = (btn as HTMLElement).dataset.gameId || '';
+      const title = document.getElementById('publishGameTitle');
+      if (title) title.textContent = (btn as HTMLElement).dataset.gameTitle || '';
+      publishModal?.classList.remove('hidden');
+      publishModal?.classList.add('flex');
+    });
+  });
+  
+  document.getElementById('cancelPublish')?.addEventListener('click', () => {
+    publishModal?.classList.add('hidden');
+    publishModal?.classList.remove('flex');
+  });
+  
+  document.getElementById('confirmPublish')?.addEventListener('click', async () => {
+    if (!currentGameId) return;
+    try {
+      const response = await fetch('/api/games/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: currentGameId })
+      });
+      if (response.ok) window.location.reload();
+      else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+  
+  // Archive Modal
+  const archiveModal = document.getElementById('archiveModal');
+  document.querySelectorAll('.archive-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentGameId = (btn as HTMLElement).dataset.gameId || '';
+      const title = document.getElementById('archiveGameTitle');
+      if (title) title.textContent = (btn as HTMLElement).dataset.gameTitle || '';
+      archiveModal?.classList.remove('hidden');
+      archiveModal?.classList.add('flex');
+    });
+  });
+  
+  document.getElementById('cancelArchive')?.addEventListener('click', () => {
+    archiveModal?.classList.add('hidden');
+    archiveModal?.classList.remove('flex');
+  });
+  
+  document.getElementById('confirmArchive')?.addEventListener('click', async () => {
+    if (!currentGameId) return;
+    try {
+      const response = await fetch('/api/games/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: currentGameId })
+      });
+      if (response.ok) window.location.reload();
+      else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+</script>

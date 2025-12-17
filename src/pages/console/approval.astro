@@ -1,0 +1,218 @@
+---
+import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
+import StatusChip from '../../components/StatusChip.astro';
+import type { User } from '../../models/User';
+import { GameRepository, type Game } from '../../models/Game';
+import { UserRepository } from '../../models/User';
+
+// Get user from locals (set by middleware - auth and permission already checked)
+const user = Astro.locals.user as User;
+const permissions = Astro.locals.permissions || [];
+
+// Get games waiting for approval (QC passed)
+const gameRepo = await GameRepository.getInstance();
+const userRepo = await UserRepository.getInstance();
+const games = await gameRepo.findByStatus('qc_passed');
+
+// Get all games for stats
+const allGames = await gameRepo.findAll();
+const approvedCount = allGames.filter(g => g.status === 'approved').length;
+const publishedThisMonth = allGames.filter(g => {
+  if (g.status !== 'published') return false;
+  const now = new Date();
+  return g.updatedAt.getMonth() === now.getMonth() && g.updatedAt.getFullYear() === now.getFullYear();
+}).length;
+
+// Get owner info for each game
+const gamesWithOwner = await Promise.all(games.map(async (game) => {
+  const owner = await userRepo.findById(game.ownerId);
+  return { ...game, ownerName: owner?.name || owner?.email || 'Unknown' };
+}));
+---
+
+<ConsoleLayout title="Chờ duyệt" user={user} activeMenu="approval">
+  <div class="p-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-slate-900">Game chờ duyệt</h1>
+      <p class="text-slate-500 mt-1">Các game đã qua QC và đang chờ phê duyệt để xuất bản</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl p-6 border border-slate-200">
+        <p class="text-sm text-slate-500">QC đạt - Chờ duyệt</p>
+        <p class="text-3xl font-bold text-purple-600 mt-1">{games.length}</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200">
+        <p class="text-sm text-slate-500">Đã duyệt (chờ publish)</p>
+        <p class="text-3xl font-bold text-emerald-600 mt-1">{approvedCount}</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 border border-slate-200">
+        <p class="text-sm text-slate-500">Xuất bản tháng này</p>
+        <p class="text-3xl font-bold text-green-600 mt-1">{publishedThisMonth}</p>
+      </div>
+    </div>
+
+    <!-- Games List -->
+    {gamesWithOwner.length > 0 ? (
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Game</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Dev phụ trách</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Kết quả QC</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Ngày QC</th>
+              <th class="text-right px-6 py-4 text-sm font-semibold text-slate-700">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {gamesWithOwner.map(game => (
+              <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-4">
+                  <a href={`/console/games/${game._id}`} class="block">
+                    <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+                    <p class="text-sm text-slate-500">{game.gameId}</p>
+                  </a>
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-600">
+                  {game.ownerName}
+                </td>
+                <td class="px-6 py-4">
+                  <StatusChip status="qc_passed" size="sm" />
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-500">
+                  {game.updatedAt.toLocaleDateString('vi-VN')}
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center justify-end gap-2">
+                    <button 
+                      class="reject-btn px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                      data-game-id={game._id.toString()}
+                      data-game-title={game.title || game.gameId}
+                    >
+                      Yêu cầu sửa
+                    </button>
+                    <button 
+                      class="approve-btn px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+                      data-game-id={game._id.toString()}
+                      data-game-title={game.title || game.gameId}
+                    >
+                      Duyệt
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="bg-white rounded-xl border border-slate-200 p-16 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-2">Không có game nào chờ duyệt</h3>
+        <p class="text-slate-500">Tất cả game đã được xử lý.</p>
+      </div>
+    )}
+  </div>
+
+  <!-- Approve Modal -->
+  <div id="approveModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Xác nhận duyệt game</h3>
+      <p class="text-slate-600 mb-6">Bạn có chắc muốn duyệt game "<span id="approveGameTitle" class="font-medium"></span>"? Game sẽ được chuyển sang trạng thái chờ xuất bản.</p>
+      <div class="flex items-center justify-end gap-3">
+        <button id="cancelApprove" class="btn-secondary">Hủy</button>
+        <button id="confirmApprove" class="btn-success">Xác nhận duyệt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Modal -->
+  <div id="rejectModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Yêu cầu chỉnh sửa</h3>
+      <p class="text-slate-600 mb-4">Game "<span id="rejectGameTitle" class="font-medium"></span>" sẽ được trả về cho Dev để chỉnh sửa.</p>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-slate-700 mb-2">Lý do / Ghi chú:</label>
+        <textarea id="rejectNote" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Nhập lý do yêu cầu chỉnh sửa..."></textarea>
+      </div>
+      <div class="flex items-center justify-end gap-3">
+        <button id="cancelReject" class="btn-secondary">Hủy</button>
+        <button id="confirmReject" class="btn-danger">Yêu cầu sửa</button>
+      </div>
+    </div>
+  </div>
+</ConsoleLayout>
+
+<script>
+  let currentGameId = '';
+  
+  // Approve Modal
+  const approveModal = document.getElementById('approveModal');
+  const approveTitle = document.getElementById('approveGameTitle');
+  
+  document.querySelectorAll('.approve-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentGameId = (btn as HTMLElement).dataset.gameId || '';
+      if (approveTitle) approveTitle.textContent = (btn as HTMLElement).dataset.gameTitle || '';
+      approveModal?.classList.remove('hidden');
+      approveModal?.classList.add('flex');
+    });
+  });
+  
+  document.getElementById('cancelApprove')?.addEventListener('click', () => {
+    approveModal?.classList.add('hidden');
+    approveModal?.classList.remove('flex');
+  });
+  
+  document.getElementById('confirmApprove')?.addEventListener('click', async () => {
+    if (!currentGameId) return;
+    try {
+      const response = await fetch('/api/games/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: currentGameId })
+      });
+      if (response.ok) window.location.reload();
+      else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+  
+  // Reject Modal
+  const rejectModal = document.getElementById('rejectModal');
+  const rejectTitle = document.getElementById('rejectGameTitle');
+  
+  document.querySelectorAll('.reject-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentGameId = (btn as HTMLElement).dataset.gameId || '';
+      if (rejectTitle) rejectTitle.textContent = (btn as HTMLElement).dataset.gameTitle || '';
+      rejectModal?.classList.remove('hidden');
+      rejectModal?.classList.add('flex');
+    });
+  });
+  
+  document.getElementById('cancelReject')?.addEventListener('click', () => {
+    rejectModal?.classList.add('hidden');
+    rejectModal?.classList.remove('flex');
+  });
+  
+  document.getElementById('confirmReject')?.addEventListener('click', async () => {
+    if (!currentGameId) return;
+    const note = (document.getElementById('rejectNote') as HTMLTextAreaElement)?.value;
+    try {
+      const response = await fetch('/api/games/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: currentGameId, note })
+      });
+      if (response.ok) window.location.reload();
+      else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+</script>

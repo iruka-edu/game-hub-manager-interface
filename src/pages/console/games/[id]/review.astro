@@ -1,0 +1,236 @@
+---
+import ConsoleLayout from '../../../../layouts/ConsoleLayout.astro';
+import StatusChip from '../../../../components/StatusChip.astro';
+import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
+import type { User } from '../../../../models/User';
+import { GameRepository } from '../../../../models/Game';
+import { UserRepository } from '../../../../models/User';
+import { getUserFromRequest } from '../../../../lib/session';
+
+// Auth check
+const user = await getUserFromRequest(Astro.request) as User | null;
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Role check - only QC and admin
+const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
+if (!hasRole('qc') && !hasRole('admin')) {
+  return Astro.redirect('/console?error=unauthorized');
+}
+
+// Get game
+const { id } = Astro.params;
+const gameRepo = await GameRepository.getInstance();
+const userRepo = await UserRepository.getInstance();
+const game = await gameRepo.findById(id || '');
+
+if (!game) {
+  return Astro.redirect('/console/qc-inbox?error=not-found');
+}
+
+// Check if game is in correct status
+if (game.status !== 'uploaded') {
+  return Astro.redirect(`/console/games/${id}?error=invalid-status`);
+}
+
+// Get owner info
+const owner = await userRepo.findById(game.ownerId);
+const ownerName = owner?.name || owner?.email || 'Unknown';
+---
+
+<ConsoleLayout title={`Review: ${game.title || game.gameId}`} user={user} activeMenu="qc-inbox">
+  <div class="p-8">
+    <!-- Breadcrumb -->
+    <div class="mb-6">
+      <a href="/console/qc-inbox" class="text-slate-500 hover:text-slate-900 text-sm flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Quay lại QC Inbox
+      </a>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-8">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <h1 class="text-2xl font-bold text-slate-900">{game.title || game.gameId}</h1>
+          <StatusChip status={game.status} />
+        </div>
+        <p class="text-slate-500">{game.gameId}</p>
+        <p class="text-sm text-slate-400 mt-1">Dev: {ownerName}</p>
+      </div>
+    </div>
+
+    <!-- Workflow Timeline -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 mb-8">
+      <h3 class="text-sm font-semibold text-slate-700 mb-4">Tiến trình</h3>
+      <WorkflowTimeline currentStatus={game.status} />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Game Preview -->
+      <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="font-semibold text-slate-900">Preview Game</h3>
+            <div class="flex items-center gap-2">
+              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="mobile">Mobile</button>
+              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-indigo-100 text-indigo-700" data-device="tablet">Tablet</button>
+              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="desktop">Desktop</button>
+            </div>
+          </div>
+          <div class="p-4 bg-slate-100 flex items-center justify-center min-h-[500px]">
+            <div id="preview-container" class="bg-white shadow-lg rounded-lg overflow-hidden transition-all" style="width: 768px; height: 500px;">
+              <iframe 
+                id="game-iframe"
+                src={`/play/${game._id}`}
+                class="w-full h-full border-0"
+                title="Game Preview"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QC Panel -->
+      <div class="space-y-6">
+        <!-- Checklist -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="font-semibold text-slate-900 mb-4">Checklist kiểm tra</h3>
+          <div class="space-y-3">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="audio" />
+              <div>
+                <p class="font-medium text-slate-700">Âm thanh</p>
+                <p class="text-sm text-slate-500">Kiểm tra âm thanh trên iOS/Android</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="responsive" />
+              <div>
+                <p class="font-medium text-slate-700">Responsive</p>
+                <p class="text-sm text-slate-500">Hiển thị đúng trên mobile, tablet</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="content" />
+              <div>
+                <p class="font-medium text-slate-700">Nội dung</p>
+                <p class="text-sm text-slate-500">Nội dung phù hợp, không lỗi chính tả</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="logic" />
+              <div>
+                <p class="font-medium text-slate-700">Logic game</p>
+                <p class="text-sm text-slate-500">Game hoạt động đúng logic</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Note -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="font-semibold text-slate-900 mb-4">Ghi chú cho Dev</h3>
+          <textarea 
+            id="qc-note"
+            rows="4"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="Nhập ghi chú nếu có vấn đề cần sửa..."
+          ></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="font-semibold text-slate-900 mb-4">Kết quả QC</h3>
+          <div class="space-y-3">
+            <button 
+              id="qc-pass-btn"
+              class="w-full btn-success flex items-center justify-center gap-2"
+              data-game-id={game._id.toString()}
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              QC Đạt
+            </button>
+            <button 
+              id="qc-fail-btn"
+              class="w-full btn-danger flex items-center justify-center gap-2"
+              data-game-id={game._id.toString()}
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+              QC Cần sửa
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</ConsoleLayout>
+
+<script>
+  const container = document.getElementById('preview-container') as HTMLElement;
+  const deviceBtns = document.querySelectorAll('.device-btn');
+  
+  const sizes = {
+    mobile: { width: '375px', height: '667px' },
+    tablet: { width: '768px', height: '500px' },
+    desktop: { width: '100%', height: '500px' }
+  };
+  
+  deviceBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const device = (btn as HTMLElement).dataset.device as keyof typeof sizes;
+      const size = sizes[device];
+      
+      container.style.width = size.width;
+      container.style.height = size.height;
+      
+      deviceBtns.forEach(b => {
+        b.classList.remove('bg-indigo-100', 'text-indigo-700');
+        b.classList.add('bg-slate-100', 'text-slate-600');
+      });
+      btn.classList.remove('bg-slate-100', 'text-slate-600');
+      btn.classList.add('bg-indigo-100', 'text-indigo-700');
+    });
+  });
+  
+  // QC Actions
+  const passBtn = document.getElementById('qc-pass-btn');
+  const failBtn = document.getElementById('qc-fail-btn');
+  const noteInput = document.getElementById('qc-note') as HTMLTextAreaElement;
+  
+  async function submitQCResult(result: 'pass' | 'fail') {
+    const gameId = passBtn?.dataset.gameId;
+    const note = noteInput?.value || '';
+    
+    if (result === 'fail' && !note.trim()) {
+      alert('Vui lòng nhập ghi chú khi QC không đạt');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/games/qc-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, result, note })
+      });
+      
+      if (response.ok) {
+        window.location.href = '/console/qc-inbox';
+      } else {
+        alert('Có lỗi xảy ra');
+      }
+    } catch {
+      alert('Có lỗi xảy ra');
+    }
+  }
+  
+  passBtn?.addEventListener('click', () => submitQCResult('pass'));
+  failBtn?.addEventListener('click', () => submitQCResult('fail'));
+</script>
