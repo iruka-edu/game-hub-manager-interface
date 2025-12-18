@@ -1,54 +1,59 @@
 ---
 import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
-import StatusChip from '../../components/StatusChip.astro';
 import type { User } from '../../models/User';
 import { GameRepository, type Game } from '../../models/Game';
+import { GameVersionRepository, type GameVersion } from '../../models/GameVersion';
 import { UserRepository } from '../../models/User';
 
-// Get user from locals (set by middleware - auth and permission already checked)
 const user = Astro.locals.user as User;
-const permissions = Astro.locals.permissions || [];
-
-// Get filter from URL
 const url = new URL(Astro.request.url);
 const statusFilter = url.searchParams.get('status') || 'approved';
 
-// Get games
 const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
 const allGames = await gameRepo.findAll();
 
-// Filter games
-let games: Game[] = [];
-if (statusFilter === 'approved') {
-  games = allGames.filter(g => g.status === 'approved');
-} else if (statusFilter === 'published') {
-  games = allGames.filter(g => g.status === 'published');
-} else if (statusFilter === 'archived') {
-  games = allGames.filter(g => g.status === 'archived');
+interface GameWithVersionStatus extends Game {
+  versionStatus?: string;
+  liveVersion?: GameVersion;
+  ownerName?: string;
 }
 
-// Stats
-const approvedCount = allGames.filter(g => g.status === 'approved').length;
-const publishedCount = allGames.filter(g => g.status === 'published').length;
-const archivedCount = allGames.filter(g => g.status === 'archived').length;
+const gamesWithStatus: GameWithVersionStatus[] = await Promise.all(
+  allGames.map(async (game) => {
+    const owner = await userRepo.findById(game.ownerId);
+    let versionStatus: string | undefined;
+    let liveVersion: GameVersion | undefined;
+    if (game.liveVersionId) {
+      const version = await versionRepo.findById(game.liveVersionId.toString());
+      if (version) { versionStatus = version.status; liveVersion = version; }
+    }
+    if (!versionStatus && game.latestVersionId) {
+      const version = await versionRepo.findById(game.latestVersionId.toString());
+      if (version) { versionStatus = version.status; }
+    }
+    return { ...game, versionStatus, liveVersion, ownerName: owner?.name || owner?.email || 'Unknown' };
+  })
+);
 
-// Get owner info
-const gamesWithOwner = await Promise.all(games.map(async (game) => {
-  const owner = await userRepo.findById(game.ownerId);
-  return { ...game, ownerName: owner?.name || owner?.email || 'Unknown' };
-}));
+let filteredGames: GameWithVersionStatus[] = [];
+if (statusFilter === 'approved') filteredGames = gamesWithStatus.filter(g => g.versionStatus === 'approved');
+else if (statusFilter === 'published') filteredGames = gamesWithStatus.filter(g => g.versionStatus === 'published');
+else if (statusFilter === 'archived') filteredGames = gamesWithStatus.filter(g => g.versionStatus === 'archived');
+
+const approvedCount = gamesWithStatus.filter(g => g.versionStatus === 'approved').length;
+const publishedCount = gamesWithStatus.filter(g => g.versionStatus === 'published').length;
+const archivedCount = gamesWithStatus.filter(g => g.versionStatus === 'archived').length;
 ---
 
 <ConsoleLayout title="Quản lý xuất bản" user={user} activeMenu="publish">
   <div class="p-8">
-    <!-- Header -->
     <div class="mb-8">
       <h1 class="text-2xl font-bold text-slate-900">Quản lý xuất bản</h1>
       <p class="text-slate-500 mt-1">Xuất bản game ra ngoài cho học sinh sử dụng</p>
     </div>
 
-    <!-- Stats -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <a href="/console/publish?status=approved" class={`bg-white rounded-xl p-6 border-2 transition-all ${statusFilter === 'approved' ? 'border-emerald-500' : 'border-slate-200 hover:border-emerald-300'}`}>
         <p class="text-sm text-slate-500">Chờ xuất bản</p>
@@ -64,65 +69,44 @@ const gamesWithOwner = await Promise.all(games.map(async (game) => {
       </a>
     </div>
 
-    <!-- Games List -->
-    {gamesWithOwner.length > 0 ? (
+    {filteredGames.length > 0 ? (
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table class="w-full">
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
               <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Game</th>
-              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Trạng thái</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Rollout</th>
               <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Dev</th>
-              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Cập nhật</th>
               <th class="text-right px-6 py-4 text-sm font-semibold text-slate-700">Thao tác</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            {gamesWithOwner.map(game => (
+            {filteredGames.map(game => (
               <tr class="hover:bg-slate-50 transition-colors">
                 <td class="px-6 py-4">
                   <a href={`/console/games/${game._id}`} class="block">
-                    <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+                    <div class="flex items-center gap-2">
+                      <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+                      {game.disabled && <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">Disabled</span>}
+                    </div>
                     <p class="text-sm text-slate-500">{game.gameId}</p>
                   </a>
                 </td>
-                <td class="px-6 py-4">
-                  <StatusChip status={game.status} size="sm" />
-                </td>
-                <td class="px-6 py-4 text-sm text-slate-600">
-                  {game.ownerName}
-                </td>
-                <td class="px-6 py-4 text-sm text-slate-500">
-                  {game.updatedAt.toLocaleDateString('vi-VN')}
-                </td>
+                <td class="px-6 py-4"><span class="text-sm text-slate-600">{game.rolloutPercentage ?? 100}%</span></td>
+                <td class="px-6 py-4 text-sm text-slate-600">{game.ownerName}</td>
                 <td class="px-6 py-4">
                   <div class="flex items-center justify-end gap-2">
-                    {game.status === 'approved' && (
-                      <button 
-                        class="publish-btn px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                        data-game-id={game._id.toString()}
-                        data-game-title={game.title || game.gameId}
-                      >
-                        Xuất bản
-                      </button>
+                    {game.versionStatus === 'approved' && !game.disabled && (
+                      <button class="publish-btn px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg" data-game-id={game._id.toString()} data-game-title={game.title || game.gameId} data-rollout={game.rolloutPercentage ?? 100}>Xuất bản</button>
                     )}
-                    {game.status === 'published' && (
-                      <button 
-                        class="archive-btn px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                        data-game-id={game._id.toString()}
-                        data-game-title={game.title || game.gameId}
-                      >
-                        Ngừng hiển thị
-                      </button>
+                    {game.versionStatus === 'published' && (
+                      <>
+                        <button class="disable-btn px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg" data-game-id={game._id.toString()} data-game-title={game.title || game.gameId} data-disabled={game.disabled ? 'true' : 'false'}>{game.disabled ? 'Bật lại' : 'Tắt ngay'}</button>
+                        <button class="archive-btn px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg" data-game-id={game._id.toString()} data-game-title={game.title || game.gameId}>Lưu trữ</button>
+                      </>
                     )}
-                    {game.status === 'archived' && (
-                      <button 
-                        class="republish-btn px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                        data-game-id={game._id.toString()}
-                        data-game-title={game.title || game.gameId}
-                      >
-                        Xuất bản lại
-                      </button>
+                    {game.versionStatus === 'archived' && !game.disabled && (
+                      <button class="republish-btn px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg" data-game-id={game._id.toString()} data-version-id={game.liveVersionId?.toString()}>Xuất bản lại</button>
                     )}
                   </div>
                 </td>
@@ -133,31 +117,44 @@ const gamesWithOwner = await Promise.all(games.map(async (game) => {
       </div>
     ) : (
       <div class="bg-white rounded-xl border border-slate-200 p-16 text-center">
-        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
-          <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-          </svg>
-        </div>
-        <h3 class="text-lg font-semibold text-slate-900 mb-2">
-          {statusFilter === 'approved' ? 'Không có game nào chờ xuất bản' : 
-           statusFilter === 'published' ? 'Chưa có game nào được xuất bản' :
-           'Không có game nào đã lưu trữ'}
-        </h3>
+        <h3 class="text-lg font-semibold text-slate-900">{statusFilter === 'approved' ? 'Không có game nào chờ xuất bản' : statusFilter === 'published' ? 'Chưa có game nào được xuất bản' : 'Không có game nào đã lưu trữ'}</h3>
       </div>
     )}
   </div>
+
 
   <!-- Publish Modal -->
   <div id="publishModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
     <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
       <h3 class="text-lg font-semibold text-slate-900 mb-4">Xác nhận xuất bản</h3>
-      <p class="text-slate-600 mb-2">Bạn đang xuất bản game "<span id="publishGameTitle" class="font-medium"></span>".</p>
+      <p class="text-slate-600 mb-4">Bạn đang xuất bản game "<span id="publishGameTitle" class="font-medium"></span>".</p>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-slate-700 mb-2">Tỷ lệ rollout: <span id="rolloutValue">100</span>%</label>
+        <input type="range" id="rolloutSlider" min="0" max="100" value="100" class="w-full h-2 bg-slate-200 rounded-lg cursor-pointer" />
+        <p class="text-xs text-slate-500 mt-1">Phần trăm người dùng có thể thấy game này</p>
+      </div>
       <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-6">
         <p class="text-sm text-amber-800">⚠️ Khi xuất bản, học sinh có thể thấy và chơi game này.</p>
       </div>
       <div class="flex items-center justify-end gap-3">
-        <button id="cancelPublish" class="btn-secondary">Hủy</button>
-        <button id="confirmPublish" class="btn-success">Xác nhận xuất bản</button>
+        <button id="cancelPublish" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Hủy</button>
+        <button id="confirmPublish" class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disable Modal -->
+  <div id="disableModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4" id="disableModalTitle">Tắt game</h3>
+      <p class="text-slate-600 mb-4">Game "<span id="disableGameTitle" class="font-medium"></span>" sẽ bị ẩn khỏi Game Hub.</p>
+      <div id="disableReasonContainer" class="mb-4">
+        <label class="block text-sm font-medium text-slate-700 mb-2">Lý do</label>
+        <textarea id="disableReason" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Nhập lý do..."></textarea>
+      </div>
+      <div class="flex items-center justify-end gap-3">
+        <button id="cancelDisable" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Hủy</button>
+        <button id="confirmDisable" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg">Xác nhận</button>
       </div>
     </div>
   </div>
@@ -165,46 +162,84 @@ const gamesWithOwner = await Promise.all(games.map(async (game) => {
   <!-- Archive Modal -->
   <div id="archiveModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
     <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
-      <h3 class="text-lg font-semibold text-slate-900 mb-4">Ngừng hiển thị game</h3>
-      <p class="text-slate-600 mb-6">Game "<span id="archiveGameTitle" class="font-medium"></span>" sẽ không còn hiển thị cho học sinh. Bạn có thể xuất bản lại sau.</p>
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Lưu trữ game</h3>
+      <p class="text-slate-600 mb-6">Game "<span id="archiveGameTitle" class="font-medium"></span>" sẽ không còn hiển thị cho học sinh.</p>
       <div class="flex items-center justify-end gap-3">
-        <button id="cancelArchive" class="btn-secondary">Hủy</button>
-        <button id="confirmArchive" class="btn-danger">Ngừng hiển thị</button>
+        <button id="cancelArchive" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Hủy</button>
+        <button id="confirmArchive" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg">Lưu trữ</button>
       </div>
     </div>
   </div>
 </ConsoleLayout>
 
+
 <script>
   let currentGameId = '';
+  let currentDisabled = false;
+  
+  const rolloutSlider = document.getElementById('rolloutSlider') as HTMLInputElement;
+  const rolloutValue = document.getElementById('rolloutValue');
+  rolloutSlider?.addEventListener('input', () => { if (rolloutValue) rolloutValue.textContent = rolloutSlider.value; });
   
   // Publish Modal
   const publishModal = document.getElementById('publishModal');
-  document.querySelectorAll('.publish-btn, .republish-btn').forEach(btn => {
+  document.querySelectorAll('.publish-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       currentGameId = (btn as HTMLElement).dataset.gameId || '';
       const title = document.getElementById('publishGameTitle');
       if (title) title.textContent = (btn as HTMLElement).dataset.gameTitle || '';
+      const rollout = (btn as HTMLElement).dataset.rollout || '100';
+      if (rolloutSlider) rolloutSlider.value = rollout;
+      if (rolloutValue) rolloutValue.textContent = rollout;
       publishModal?.classList.remove('hidden');
       publishModal?.classList.add('flex');
     });
   });
   
-  document.getElementById('cancelPublish')?.addEventListener('click', () => {
-    publishModal?.classList.add('hidden');
-    publishModal?.classList.remove('flex');
-  });
+  document.getElementById('cancelPublish')?.addEventListener('click', () => { publishModal?.classList.add('hidden'); publishModal?.classList.remove('flex'); });
   
   document.getElementById('confirmPublish')?.addEventListener('click', async () => {
     if (!currentGameId) return;
+    const rolloutPercentage = parseInt(rolloutSlider?.value || '100');
     try {
-      const response = await fetch('/api/games/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId: currentGameId })
+      const response = await fetch(`/api/games/${currentGameId}/publish`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ setAsLive: true, rolloutPercentage })
       });
       if (response.ok) window.location.reload();
-      else alert('Có lỗi xảy ra');
+      else { const data = await response.json(); alert(data.error || 'Có lỗi xảy ra'); }
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+  
+  // Disable Modal
+  const disableModal = document.getElementById('disableModal');
+  document.querySelectorAll('.disable-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentGameId = (btn as HTMLElement).dataset.gameId || '';
+      currentDisabled = (btn as HTMLElement).dataset.disabled === 'true';
+      const title = document.getElementById('disableGameTitle');
+      if (title) title.textContent = (btn as HTMLElement).dataset.gameTitle || '';
+      const reasonContainer = document.getElementById('disableReasonContainer');
+      if (currentDisabled && reasonContainer) reasonContainer.style.display = 'none';
+      else if (reasonContainer) reasonContainer.style.display = 'block';
+      disableModal?.classList.remove('hidden');
+      disableModal?.classList.add('flex');
+    });
+  });
+  
+  document.getElementById('cancelDisable')?.addEventListener('click', () => { disableModal?.classList.add('hidden'); disableModal?.classList.remove('flex'); });
+  
+  document.getElementById('confirmDisable')?.addEventListener('click', async () => {
+    if (!currentGameId) return;
+    const reason = (document.getElementById('disableReason') as HTMLTextAreaElement)?.value || '';
+    if (!currentDisabled && !reason.trim()) { alert('Vui lòng nhập lý do'); return; }
+    try {
+      const response = await fetch(`/api/games/${currentGameId}/disable`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disabled: !currentDisabled, reason })
+      });
+      if (response.ok) window.location.reload();
+      else { const data = await response.json(); alert(data.error || 'Có lỗi xảy ra'); }
     } catch { alert('Có lỗi xảy ra'); }
   });
   
@@ -220,21 +255,35 @@ const gamesWithOwner = await Promise.all(games.map(async (game) => {
     });
   });
   
-  document.getElementById('cancelArchive')?.addEventListener('click', () => {
-    archiveModal?.classList.add('hidden');
-    archiveModal?.classList.remove('flex');
-  });
+  document.getElementById('cancelArchive')?.addEventListener('click', () => { archiveModal?.classList.add('hidden'); archiveModal?.classList.remove('flex'); });
   
   document.getElementById('confirmArchive')?.addEventListener('click', async () => {
     if (!currentGameId) return;
     try {
       const response = await fetch('/api/games/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId: currentGameId })
       });
       if (response.ok) window.location.reload();
-      else alert('Có lỗi xảy ra');
+      else { const data = await response.json(); alert(data.error || 'Có lỗi xảy ra'); }
     } catch { alert('Có lỗi xảy ra'); }
+  });
+  
+  // Republish
+  document.querySelectorAll('.republish-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const gameId = (btn as HTMLElement).dataset.gameId || '';
+      const versionId = (btn as HTMLElement).dataset.versionId || '';
+      if (!gameId || !versionId) { alert('Không tìm thấy version'); return; }
+      if (!confirm('Xuất bản lại game này?')) return;
+      try {
+        const response = await fetch('/api/games/republish', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameId, versionId })
+        });
+        if (response.ok) window.location.reload();
+        else { const data = await response.json(); alert(data.error || 'Có lỗi xảy ra'); }
+      } catch { alert('Có lỗi xảy ra'); }
+    });
   });
 </script>

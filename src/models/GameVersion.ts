@@ -11,7 +11,8 @@ export type VersionStatus =
   | 'qc_passed'       // QC approved
   | 'qc_failed'       // QC rejected
   | 'approved'        // CTO/Admin approved
-  | 'published';      // Live for users
+  | 'published'       // Live for users
+  | 'archived';       // Removed from public, preserved in DB
 
 /**
  * Valid version statuses for validation
@@ -23,7 +24,8 @@ export const VALID_VERSION_STATUSES: VersionStatus[] = [
   'qc_passed',
   'qc_failed',
   'approved',
-  'published'
+  'published',
+  'archived'
 ];
 
 /**

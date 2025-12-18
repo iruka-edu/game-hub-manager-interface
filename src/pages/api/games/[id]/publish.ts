@@ -7,6 +7,8 @@ import { AuditLogger } from '../../../../lib/audit';
 import { NotificationService } from '../../../../lib/notification';
 import { GameHistoryService } from '../../../../lib/game-history';
 import { VersionStateMachine } from '../../../../lib/version-state-machine';
+import { PublicRegistryManager } from '../../../../lib/public-registry';
+import { listFiles } from '../../../../lib/gcs';
 
 /**
  * POST /api/games/[id]/publish
@@ -41,7 +43,17 @@ export const POST: APIRoute = async ({ params, request }) => {
     }
 
     const body = await request.json();
-    const { versionId, setAsLive = false } = body;
+    const { versionId, setAsLive = false, rolloutPercentage } = body;
+
+    // Validate rolloutPercentage if provided
+    if (rolloutPercentage !== undefined) {
+      if (typeof rolloutPercentage !== 'number' || rolloutPercentage < 0 || rolloutPercentage > 100) {
+        return new Response(JSON.stringify({ error: 'Rollout percentage must be between 0 and 100' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
@@ -76,6 +88,24 @@ export const POST: APIRoute = async ({ params, request }) => {
       });
     }
 
+    // Check if game is disabled (kill-switch)
+    if (game.disabled) {
+      return new Response(JSON.stringify({ error: 'Cannot publish disabled game. Enable the game first.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate that version files exist on GCS
+    const versionFiles = await listFiles(version.storagePath);
+    const hasIndexHtml = versionFiles.some(f => f.endsWith(version.entryFile));
+    if (!hasIndexHtml) {
+      return new Response(JSON.stringify({ error: 'Version files not found on storage. Please re-upload the game.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Use state machine for transition
     const stateMachine = await VersionStateMachine.getInstance();
     
@@ -91,9 +121,29 @@ export const POST: APIRoute = async ({ params, request }) => {
     const oldStatus = version.status;
     const updatedVersion = await stateMachine.transition(targetVersionId, 'publish', user._id.toString());
 
-    // Optionally set as live version
-    if (setAsLive) {
+    // Update rollout percentage if provided
+    if (rolloutPercentage !== undefined) {
+      await gameRepo.updateRolloutPercentage(gameId, rolloutPercentage);
+    }
+
+    // Set as live version (required for Public Registry)
+    // If setAsLive is true or this is the first published version
+    const shouldSetLive = setAsLive || !game.liveVersionId;
+    if (shouldSetLive) {
       await gameRepo.updateLiveVersion(gameId, version._id);
+    }
+
+    // Set publishedAt if this is the first time publishing
+    if (!game.publishedAt) {
+      await gameRepo.setPublishedAt(gameId);
+    }
+
+    // Sync Public Registry
+    try {
+      await PublicRegistryManager.sync();
+    } catch (syncError) {
+      console.error('[Publish] Failed to sync Public Registry:', syncError);
+      // Don't fail the publish, just log the error
     }
 
     // Record history
@@ -127,14 +177,16 @@ export const POST: APIRoute = async ({ params, request }) => {
       metadata: {
         gameId: game.gameId,
         version: version.version,
-        setAsLive,
+        setAsLive: shouldSetLive,
+        rolloutPercentage: rolloutPercentage ?? game.rolloutPercentage ?? 100,
       },
     });
 
     return new Response(JSON.stringify({ 
       success: true, 
       version: updatedVersion,
-      isLive: setAsLive,
+      isLive: shouldSetLive,
+      rolloutPercentage: rolloutPercentage ?? game.rolloutPercentage ?? 100,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

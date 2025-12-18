@@ -9,13 +9,15 @@ export type ActionType =
   | 'GAME_DELETE_VERSION'
   | 'GAME_DELETE_FULL'
   | 'GAME_STATUS_CHANGE'
+  | 'GAME_SET_LIVE'
+  | 'GAME_DISABLE'
   | 'USER_LOGIN'
   | 'USER_LOGOUT';
 
 /**
  * Entity types that can be targeted by actions
  */
-export type TargetEntity = 'GAME' | 'USER' | 'SYSTEM';
+export type TargetEntity = 'GAME' | 'GAME_VERSION' | 'USER' | 'SYSTEM';
 
 /**
  * Information about the user who performed the action

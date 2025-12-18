@@ -57,6 +57,16 @@ export const STATE_TRANSITIONS: Record<string, StateTransition> = {
     from: ['approved'],
     to: 'published',
     requiredPermission: 'games:publish'
+  },
+  archive: {
+    from: ['published'],
+    to: 'archived',
+    requiredPermission: 'games:publish'
+  },
+  republish: {
+    from: ['archived'],
+    to: 'published',
+    requiredPermission: 'games:publish'
   }
 };
 

@@ -1,16 +1,14 @@
 import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../../models/Game';
-import { GameVersionRepository } from '../../../../models/GameVersion';
 import { getUserFromRequest } from '../../../../lib/session';
 import { hasPermissionString } from '../../../../auth/auth-rbac';
 import { AuditLogger } from '../../../../lib/audit';
-import { GameHistoryService } from '../../../../lib/game-history';
 import { PublicRegistryManager } from '../../../../lib/public-registry';
 
 /**
- * POST /api/games/[id]/set-live
- * Set a specific version as the live version for users
- * Only published versions can be set as live
+ * POST /api/games/[id]/disable
+ * Toggle the disabled (kill-switch) flag for a game
+ * When disabled, the game is immediately removed from the Public Registry
  */
 export const POST: APIRoute = async ({ params, request }) => {
   try {
@@ -22,7 +20,7 @@ export const POST: APIRoute = async ({ params, request }) => {
       });
     }
 
-    // Check permission - only admin can set live version
+    // Check permission - requires publish permission to toggle kill-switch
     if (!hasPermissionString(user, 'games:publish')) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
@@ -39,17 +37,24 @@ export const POST: APIRoute = async ({ params, request }) => {
     }
 
     const body = await request.json();
-    const { versionId } = body;
+    const { disabled, reason } = body;
 
-    if (!versionId) {
-      return new Response(JSON.stringify({ error: 'versionId is required' }), {
+    // Validate input
+    if (typeof disabled !== 'boolean') {
+      return new Response(JSON.stringify({ error: 'disabled field must be a boolean' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (disabled && (!reason || typeof reason !== 'string' || reason.trim() === '')) {
+      return new Response(JSON.stringify({ error: 'Reason is required when disabling a game' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     const gameRepo = await GameRepository.getInstance();
-    const versionRepo = await GameVersionRepository.getInstance();
 
     // Find the game
     const game = await gameRepo.findById(gameId);
@@ -60,59 +65,36 @@ export const POST: APIRoute = async ({ params, request }) => {
       });
     }
 
-    // Find the version
-    const version = await versionRepo.findById(versionId);
-    if (!version) {
-      return new Response(JSON.stringify({ error: 'Version not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Verify version belongs to this game
-    if (version.gameId.toString() !== game._id.toString()) {
-      return new Response(JSON.stringify({ error: 'Version does not belong to this game' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Check version status - must be published
-    if (version.status !== 'published') {
+    // Check if already in desired state
+    if (game.disabled === disabled) {
       return new Response(JSON.stringify({ 
-        error: `Only published versions can be set as live. Current status: ${version.status}` 
+        success: true, 
+        message: `Game is already ${disabled ? 'disabled' : 'enabled'}`,
+        disabled: game.disabled
       }), {
-        status: 400,
+        status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Get previous live version for logging
-    const previousLiveVersionId = game.liveVersionId?.toString();
+    const oldDisabled = game.disabled;
 
-    // Update game with new liveVersionId
-    const updatedGame = await gameRepo.updateLiveVersion(gameId, version._id);
+    // Update disabled flag
+    const updatedGame = await gameRepo.updateDisabled(gameId, disabled);
+    if (!updatedGame) {
+      return new Response(JSON.stringify({ error: 'Failed to update game' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    // Sync Public Registry to update entryUrl
+    // Sync Public Registry immediately
     try {
       await PublicRegistryManager.sync();
     } catch (syncError) {
-      console.error('[SetLive] Failed to sync Public Registry:', syncError);
+      console.error('[Disable] Failed to sync Public Registry:', syncError);
+      // Don't fail the operation, just log the error
     }
-
-    // Record history
-    await GameHistoryService.recordStatusChange(
-      gameId,
-      user,
-      undefined,
-      undefined,
-      { 
-        action: 'set_live_version',
-        previousLiveVersionId,
-        newLiveVersionId: versionId,
-        version: version.version,
-      }
-    );
 
     // Audit log
     AuditLogger.log({
@@ -121,34 +103,31 @@ export const POST: APIRoute = async ({ params, request }) => {
         ip: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || undefined,
       },
-      action: 'GAME_SET_LIVE',
+      action: 'GAME_STATUS_CHANGE',
       target: {
         entity: 'GAME',
         id: gameId,
       },
       changes: [
-        { field: 'liveVersionId', oldValue: previousLiveVersionId, newValue: versionId },
+        { field: 'disabled', oldValue: oldDisabled, newValue: disabled },
       ],
       metadata: {
         gameId: game.gameId,
-        version: version.version,
+        reason: reason || 'Re-enabled',
+        action: disabled ? 'disable' : 'enable',
       },
     });
 
     return new Response(JSON.stringify({ 
       success: true, 
-      game: updatedGame,
-      liveVersion: {
-        _id: version._id.toString(),
-        version: version.version,
-        storagePath: version.storagePath,
-      },
+      disabled: updatedGame.disabled,
+      message: disabled ? 'Game disabled successfully' : 'Game enabled successfully'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Set live version error:', error);
+    console.error('Disable error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

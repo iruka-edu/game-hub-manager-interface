@@ -65,6 +65,11 @@ export interface Game {
   priority?: GamePriority;
   tags?: string[];
   
+  // Publishing fields
+  disabled: boolean;           // Kill-switch: if true, game is hidden from Public Registry
+  rolloutPercentage: number;   // 0-100, percentage of users who can see this game
+  publishedAt?: Date;          // When the game was first published
+  
   // Timestamps
   isDeleted: boolean;
   createdAt: Date;
@@ -102,6 +107,9 @@ export function serializeGame(game: Game): Record<string, unknown> {
     gameType: game.gameType,
     priority: game.priority,
     tags: game.tags,
+    disabled: game.disabled,
+    rolloutPercentage: game.rolloutPercentage,
+    publishedAt: game.publishedAt?.toISOString(),
     isDeleted: game.isDeleted,
     createdAt: game.createdAt.toISOString(),
     updatedAt: game.updatedAt.toISOString(),
@@ -127,6 +135,9 @@ export function deserializeGame(data: Record<string, unknown>): Game {
     gameType: data.gameType as string | undefined,
     priority: data.priority as GamePriority | undefined,
     tags: data.tags as string[] | undefined,
+    disabled: (data.disabled as boolean) ?? false,
+    rolloutPercentage: (data.rolloutPercentage as number) ?? 100,
+    publishedAt: data.publishedAt ? new Date(data.publishedAt as string) : undefined,
     isDeleted: data.isDeleted as boolean,
     createdAt: new Date(data.createdAt as string),
     updatedAt: new Date(data.updatedAt as string),
@@ -216,6 +227,9 @@ export class GameRepository {
       gameType: input.gameType,
       priority: input.priority,
       tags: input.tags,
+      disabled: input.disabled ?? false,
+      rolloutPercentage: input.rolloutPercentage ?? 100,
+      publishedAt: input.publishedAt,
       isDeleted: input.isDeleted ?? false,
       createdAt: now,
       updatedAt: now,
@@ -289,6 +303,83 @@ export class GameRepository {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Update disabled flag (kill-switch)
+   * @param id - Game ID
+   * @param disabled - Whether the game should be disabled
+   * @returns Updated game or null if not found
+   */
+  async updateDisabled(id: string, disabled: boolean): Promise<Game | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { disabled, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update rollout percentage
+   * @param id - Game ID
+   * @param percentage - Rollout percentage (0-100)
+   * @returns Updated game or null if not found
+   * @throws Error if percentage is out of range
+   */
+  async updateRolloutPercentage(id: string, percentage: number): Promise<Game | null> {
+    // Validate percentage range
+    if (percentage < 0 || percentage > 100) {
+      throw new Error('Rollout percentage must be between 0 and 100');
+    }
+    if (!Number.isInteger(percentage)) {
+      throw new Error('Rollout percentage must be an integer');
+    }
+
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { rolloutPercentage: percentage, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Set publishedAt timestamp when game is first published
+   * @param id - Game ID
+   * @returns Updated game or null if not found
+   */
+  async setPublishedAt(id: string): Promise<Game | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id), publishedAt: { $exists: false } },
+        { $set: { publishedAt: new Date(), updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Find all published and enabled games (for Public Registry)
+   * Games must have a liveVersionId and not be disabled
+   */
+  async findPublishedAndEnabled(): Promise<Game[]> {
+    return this.collection.find({
+      isDeleted: false,
+      disabled: { $ne: true },
+      liveVersionId: { $exists: true }
+    } as any).toArray();
   }
 
   /**

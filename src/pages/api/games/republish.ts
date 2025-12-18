@@ -8,10 +8,10 @@ import { PublicRegistryManager } from '../../../lib/public-registry';
 import { VersionStateMachine } from '../../../lib/version-state-machine';
 
 /**
- * POST /api/games/archive
- * Admin archives a published game version
- * Changes version status: published -> archived
- * Removes game from Public Registry while preserving all data
+ * POST /api/games/republish
+ * Admin republishes an archived game version
+ * Changes version status: archived -> published
+ * Restores game to Public Registry
  */
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -53,20 +53,23 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Get target version (live version or specified version)
-    let targetVersionId = versionId;
-    if (!targetVersionId && game.liveVersionId) {
-      targetVersionId = game.liveVersionId.toString();
-    }
-
-    if (!targetVersionId) {
-      return new Response(JSON.stringify({ error: 'No version to archive' }), {
+    // Check if game is disabled
+    if (game.disabled) {
+      return new Response(JSON.stringify({ error: 'Cannot republish disabled game. Enable the game first.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const version = await versionRepo.findById(targetVersionId);
+    // Get target version
+    if (!versionId) {
+      return new Response(JSON.stringify({ error: 'versionId is required for republish' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const version = await versionRepo.findById(versionId);
     if (!version) {
       return new Response(JSON.stringify({ error: 'Version not found' }), {
         status: 404,
@@ -77,9 +80,9 @@ export const POST: APIRoute = async ({ request }) => {
     // Use state machine for transition
     const stateMachine = await VersionStateMachine.getInstance();
     
-    if (!stateMachine.canTransition(version.status, 'archive')) {
+    if (!stateMachine.canTransition(version.status, 'republish')) {
       return new Response(JSON.stringify({ 
-        error: `Cannot archive version in "${version.status}" status. Only published versions can be archived.` 
+        error: `Cannot republish version in "${version.status}" status. Only archived versions can be republished.` 
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -87,13 +90,16 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const oldStatus = version.status;
-    const updatedVersion = await stateMachine.transition(targetVersionId, 'archive', user._id.toString());
+    const updatedVersion = await stateMachine.transition(versionId, 'republish', user._id.toString());
 
-    // Remove from Public Registry
+    // Set as live version
+    await gameRepo.updateLiveVersion(gameId, version._id);
+
+    // Sync Public Registry
     try {
-      await PublicRegistryManager.removeGame(game.gameId);
+      await PublicRegistryManager.sync();
     } catch (syncError) {
-      console.error('[Archive] Failed to remove from Public Registry:', syncError);
+      console.error('[Republish] Failed to sync Public Registry:', syncError);
     }
 
     // Audit log
@@ -106,28 +112,28 @@ export const POST: APIRoute = async ({ request }) => {
       action: 'GAME_STATUS_CHANGE',
       target: {
         entity: 'GAME_VERSION',
-        id: targetVersionId,
+        id: versionId,
       },
       changes: [
-        { field: 'status', oldValue: oldStatus, newValue: 'archived' },
+        { field: 'status', oldValue: oldStatus, newValue: 'published' },
       ],
       metadata: {
         gameId: game.gameId,
         version: version.version,
-        action: 'archive',
+        action: 'republish',
       },
     });
 
     return new Response(JSON.stringify({ 
       success: true, 
       version: updatedVersion,
-      message: 'Game archived successfully'
+      message: 'Game republished successfully'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    console.error('Archive error:', error);
+    console.error('Republish error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
