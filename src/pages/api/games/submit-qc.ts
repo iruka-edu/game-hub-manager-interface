@@ -1,12 +1,20 @@
 import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../models/Game';
+import { GameVersionRepository } from '../../../models/GameVersion';
 import { getUserFromRequest } from '../../../lib/session';
 import { AuditLogger } from '../../../lib/audit';
+import { NotificationService } from '../../../lib/notification';
+import { GameHistoryService } from '../../../lib/game-history';
+import { VersionStateMachine } from '../../../lib/version-state-machine';
 
 /**
  * POST /api/games/submit-qc
- * Dev submits game for QC review
- * Changes status: draft/qc_failed -> uploaded
+ * Dev submits game version for QC review
+ * Changes version status: draft/qc_failed -> uploaded
+ * 
+ * Accepts either:
+ * - versionId: Submit specific version
+ * - gameId: Submit latest version (backward compatible)
  */
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -29,23 +37,59 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json();
-    const { gameId } = body;
+    const { versionId, gameId } = body;
 
-    if (!gameId) {
-      return new Response(JSON.stringify({ error: 'gameId is required' }), {
+    if (!versionId && !gameId) {
+      return new Response(JSON.stringify({ error: 'versionId or gameId is required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
     const gameRepo = await GameRepository.getInstance();
-    const game = await gameRepo.findById(gameId);
+    const versionRepo = await GameVersionRepository.getInstance();
 
-    if (!game) {
-      return new Response(JSON.stringify({ error: 'Game not found' }), {
+    let targetVersionId = versionId;
+    let game;
+
+    // If gameId provided, get the latest version
+    if (!targetVersionId && gameId) {
+      game = await gameRepo.findById(gameId);
+      if (!game) {
+        return new Response(JSON.stringify({ error: 'Game not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (!game.latestVersionId) {
+        return new Response(JSON.stringify({ error: 'No version found for this game' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      targetVersionId = game.latestVersionId.toString();
+    }
+
+    // Get the version
+    const version = await versionRepo.findById(targetVersionId);
+    if (!version) {
+      return new Response(JSON.stringify({ error: 'Version not found' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+
+    // Get game if not already loaded
+    if (!game) {
+      game = await gameRepo.findById(version.gameId.toString());
+      if (!game) {
+        return new Response(JSON.stringify({ error: 'Game not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // Check ownership (dev can only submit their own games)
@@ -56,18 +100,46 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Check current status
-    if (!['draft', 'qc_failed'].includes(game.status)) {
-      return new Response(JSON.stringify({ error: 'Game cannot be submitted in current status' }), {
+    // Use state machine for transition
+    const stateMachine = await VersionStateMachine.getInstance();
+    
+    // Check if transition is valid
+    if (!stateMachine.canTransition(version.status, 'submit')) {
+      return new Response(JSON.stringify({ 
+        error: `Cannot submit version in "${version.status}" status. Only draft or qc_failed versions can be submitted.` 
+      }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const oldStatus = game.status;
+    // Validate Self-QA completion
+    if (!stateMachine.validateSelfQA(version.selfQAChecklist)) {
+      return new Response(JSON.stringify({ 
+        error: 'Please complete all Self-QA checklist items before submitting' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
-    // Update status
-    const updated = await gameRepo.updateStatus(gameId, 'uploaded');
+    const oldStatus = version.status;
+
+    // Perform transition
+    const updatedVersion = await stateMachine.transition(targetVersionId, 'submit', user._id.toString());
+
+    // Set submittedAt timestamp
+    await versionRepo.setSubmittedAt(targetVersionId);
+
+    // Record history
+    await GameHistoryService.recordSubmission(game._id.toString(), user, oldStatus);
+
+    // Notify QC users
+    await NotificationService.notifyGameSubmitted(
+      game.title || game.gameId,
+      game._id.toString(),
+      user.name || user.email
+    );
 
     // Log audit entry
     AuditLogger.log({
@@ -78,20 +150,33 @@ export const POST: APIRoute = async ({ request }) => {
       },
       action: 'GAME_STATUS_CHANGE',
       target: {
-        entity: 'GAME',
-        id: gameId,
+        entity: 'GAME_VERSION',
+        id: targetVersionId,
       },
       changes: [
         { field: 'status', oldValue: oldStatus, newValue: 'uploaded' },
       ],
+      metadata: {
+        gameId: game.gameId,
+        version: version.version,
+      },
     });
 
-    return new Response(JSON.stringify({ success: true, game: updated }), {
+    return new Response(JSON.stringify({ success: true, version: updatedVersion }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Submit QC error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    if (errorMessage.includes('Validation failed')) {
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

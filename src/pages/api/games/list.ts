@@ -1,17 +1,36 @@
 import type { APIRoute } from 'astro';
 import { RegistryManager } from '../../../lib/registry';
 import { GameRepository, type Game } from '../../../models/Game';
-import type { User, Role } from '../../../models/User';
+import { GameVersionRepository, type VersionStatus } from '../../../models/GameVersion';
+import type { User } from '../../../models/User';
 
 /**
- * Filter games based on user role
+ * Game with version info for API response
+ */
+interface GameWithVersion extends Game {
+  latestVersion?: {
+    _id: string;
+    version: string;
+    status: VersionStatus;
+    submittedAt?: string;
+  };
+  liveVersion?: {
+    _id: string;
+    version: string;
+  };
+}
+
+/**
+ * Filter games based on user role and version status
  * - dev: only games where ownerId matches user's id
- * - qc: only games with status "uploaded"
- * - cto/ceo: only games with status "qc_passed"
+ * - qc: only games with latest version status "uploaded"
+ * - cto/ceo: only games with latest version status "qc_passed"
  * - admin: all games
  */
-function filterGamesByRole(games: Game[], user: User): Game[] {
-  // Check user's highest priority role
+async function filterGamesByRole(
+  games: GameWithVersion[], 
+  user: User
+): Promise<GameWithVersion[]> {
   const roles = user.roles;
   
   // Admin sees all games
@@ -21,12 +40,12 @@ function filterGamesByRole(games: Game[], user: User): Game[] {
   
   // CTO/CEO sees games awaiting approval
   if (roles.includes('cto') || roles.includes('ceo')) {
-    return games.filter(game => game.status === 'qc_passed');
+    return games.filter(game => game.latestVersion?.status === 'qc_passed');
   }
   
   // QC sees games ready for review
   if (roles.includes('qc')) {
-    return games.filter(game => game.status === 'uploaded');
+    return games.filter(game => game.latestVersion?.status === 'uploaded');
   }
   
   // Dev sees only their own games
@@ -53,19 +72,54 @@ export const GET: APIRoute = async ({ locals }) => {
 
     // Get games from MongoDB
     const gameRepo = await GameRepository.getInstance();
+    const versionRepo = await GameVersionRepository.getInstance();
     const allGames = await gameRepo.findAll();
     
+    // Enrich games with version info
+    const gamesWithVersions: GameWithVersion[] = await Promise.all(
+      allGames.map(async (game) => {
+        const gameWithVersion: GameWithVersion = { ...game };
+        
+        // Get latest version info
+        if (game.latestVersionId) {
+          const latestVersion = await versionRepo.findById(game.latestVersionId.toString());
+          if (latestVersion) {
+            gameWithVersion.latestVersion = {
+              _id: latestVersion._id.toString(),
+              version: latestVersion.version,
+              status: latestVersion.status,
+              submittedAt: latestVersion.submittedAt?.toISOString(),
+            };
+          }
+        }
+        
+        // Get live version info
+        if (game.liveVersionId) {
+          const liveVersion = await versionRepo.findById(game.liveVersionId.toString());
+          if (liveVersion) {
+            gameWithVersion.liveVersion = {
+              _id: liveVersion._id.toString(),
+              version: liveVersion.version,
+            };
+          }
+        }
+        
+        return gameWithVersion;
+      })
+    );
+    
     // Filter based on user role
-    const filteredGames = filterGamesByRole(allGames, user);
+    const filteredGames = await filterGamesByRole(gamesWithVersions, user);
     
     return new Response(JSON.stringify({ games: filteredGames }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('List games error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch games';
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to fetch games' }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

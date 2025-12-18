@@ -2,7 +2,8 @@ import { ObjectId, type Collection, type Db } from 'mongodb';
 import { getMongoClient } from '../lib/mongodb';
 
 /**
- * Game status in the workflow
+ * @deprecated Game status is now in GameVersion model. Use VersionStatus instead.
+ * Kept for backward compatibility during migration.
  */
 export type GameStatus = 
   | 'draft' 
@@ -14,7 +15,7 @@ export type GameStatus =
   | 'archived';
 
 /**
- * Valid game statuses for validation
+ * @deprecated Valid game statuses for validation. Use VALID_VERSION_STATUSES instead.
  */
 export const VALID_GAME_STATUSES: GameStatus[] = [
   'draft', 
@@ -27,15 +28,44 @@ export const VALID_GAME_STATUSES: GameStatus[] = [
 ];
 
 /**
+ * Priority levels for games
+ */
+export type GamePriority = 'low' | 'medium' | 'high';
+
+/**
+ * @deprecated Self-QA is now in GameVersion model. Use SelfQAChecklist instead.
+ */
+export interface SelfQaItem {
+  id: string;
+  label: string;
+  checked: boolean;
+  checkedAt?: Date;
+}
+
+/**
  * Game interface representing a game document in MongoDB
  */
 export interface Game {
   _id: ObjectId;
-  gameId: string;        // e.g., "com.iruka.math"
+  gameId: string;        // e.g., "com.iruka.math" (also used as slug)
   title: string;
+  description?: string;
   ownerId: string;       // User._id
   teamId?: string;
-  status: GameStatus;
+  
+  // Version references
+  latestVersionId?: ObjectId;  // Most recent GameVersion
+  liveVersionId?: ObjectId;    // Currently published version for users
+  
+  // Metadata
+  subject?: string;      // Môn học
+  grade?: string;        // Lớp
+  unit?: string;         // Unit SGK
+  gameType?: string;     // Loại game
+  priority?: GamePriority;
+  tags?: string[];
+  
+  // Timestamps
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -47,7 +77,7 @@ export interface Game {
 export type CreateGameInput = Omit<Game, '_id' | 'createdAt' | 'updatedAt'>;
 
 /**
- * Validate that a status is valid
+ * @deprecated Use isValidVersionStatus from GameVersion model instead.
  */
 export function isValidGameStatus(status: string): status is GameStatus {
   return VALID_GAME_STATUSES.includes(status as GameStatus);
@@ -61,15 +91,22 @@ export function serializeGame(game: Game): Record<string, unknown> {
     _id: game._id.toString(),
     gameId: game.gameId,
     title: game.title,
+    description: game.description,
     ownerId: game.ownerId,
     teamId: game.teamId,
-    status: game.status,
+    latestVersionId: game.latestVersionId?.toString(),
+    liveVersionId: game.liveVersionId?.toString(),
+    subject: game.subject,
+    grade: game.grade,
+    unit: game.unit,
+    gameType: game.gameType,
+    priority: game.priority,
+    tags: game.tags,
     isDeleted: game.isDeleted,
     createdAt: game.createdAt.toISOString(),
     updatedAt: game.updatedAt.toISOString(),
   };
 }
-
 
 /**
  * Deserialize a JSON object back to a Game
@@ -79,9 +116,17 @@ export function deserializeGame(data: Record<string, unknown>): Game {
     _id: new ObjectId(data._id as string),
     gameId: data.gameId as string,
     title: data.title as string,
+    description: data.description as string | undefined,
     ownerId: data.ownerId as string,
     teamId: data.teamId as string | undefined,
-    status: data.status as GameStatus,
+    latestVersionId: data.latestVersionId ? new ObjectId(data.latestVersionId as string) : undefined,
+    liveVersionId: data.liveVersionId ? new ObjectId(data.liveVersionId as string) : undefined,
+    subject: data.subject as string | undefined,
+    grade: data.grade as string | undefined,
+    unit: data.unit as string | undefined,
+    gameType: data.gameType as string | undefined,
+    priority: data.priority as GamePriority | undefined,
+    tags: data.tags as string[] | undefined,
     isDeleted: data.isDeleted as boolean,
     createdAt: new Date(data.createdAt as string),
     updatedAt: new Date(data.updatedAt as string),
@@ -107,7 +152,7 @@ export class GameRepository {
   }
 
   /**
-   * Find a game by ID
+   * Find a game by ID (MongoDB _id)
    */
   async findById(id: string): Promise<Game | null> {
     try {
@@ -118,17 +163,17 @@ export class GameRepository {
   }
 
   /**
+   * Find a game by gameId (e.g., "com.iruka.math")
+   */
+  async findByGameId(gameId: string): Promise<Game | null> {
+    return this.collection.findOne({ gameId, isDeleted: false });
+  }
+
+  /**
    * Find games by owner ID
    */
   async findByOwnerId(ownerId: string): Promise<Game[]> {
     return this.collection.find({ ownerId, isDeleted: false }).toArray();
-  }
-
-  /**
-   * Find games by status
-   */
-  async findByStatus(status: GameStatus): Promise<Game[]> {
-    return this.collection.find({ status, isDeleted: false }).toArray();
   }
 
   /**
@@ -156,19 +201,21 @@ export class GameRepository {
       throw new Error('Game with this gameId already exists');
     }
 
-    // Validate status if provided
-    const status = input.status || 'draft'; // Default status is 'draft'
-    if (!isValidGameStatus(status)) {
-      throw new Error(`Invalid status. Must be one of: ${VALID_GAME_STATUSES.join(', ')}`);
-    }
-
     const now = new Date();
     const game: Omit<Game, '_id'> = {
       gameId: input.gameId.trim(),
       title: input.title || '',
+      description: input.description,
       ownerId: input.ownerId.trim(),
       teamId: input.teamId,
-      status,
+      latestVersionId: input.latestVersionId,
+      liveVersionId: input.liveVersionId,
+      subject: input.subject,
+      grade: input.grade,
+      unit: input.unit,
+      gameType: input.gameType,
+      priority: input.priority,
+      tags: input.tags,
       isDeleted: input.isDeleted ?? false,
       createdAt: now,
       updatedAt: now,
@@ -176,26 +223,6 @@ export class GameRepository {
 
     const result = await this.collection.insertOne(game as Game);
     return { ...game, _id: result.insertedId } as Game;
-  }
-
-  /**
-   * Update game status
-   */
-  async updateStatus(id: string, status: GameStatus): Promise<Game | null> {
-    if (!isValidGameStatus(status)) {
-      throw new Error(`Invalid status. Must be one of: ${VALID_GAME_STATUSES.join(', ')}`);
-    }
-
-    try {
-      const result = await this.collection.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        { $set: { status, updatedAt: new Date() } },
-        { returnDocument: 'after' }
-      );
-      return result;
-    } catch {
-      return null;
-    }
   }
 
   /**
@@ -214,11 +241,63 @@ export class GameRepository {
   }
 
   /**
+   * Update game metadata
+   */
+  async updateMetadata(
+    id: string,
+    data: Partial<Pick<Game, 'title' | 'description' | 'subject' | 'grade' | 'unit' | 'gameType' | 'priority'>>
+  ): Promise<Game | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { ...data, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update latest version reference
+   */
+  async updateLatestVersion(id: string, versionId: ObjectId): Promise<Game | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { latestVersionId: versionId, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update live version reference
+   */
+  async updateLiveVersion(id: string, versionId: ObjectId): Promise<Game | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { liveVersionId: versionId, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Ensure indexes are created
    */
   async ensureIndexes(): Promise<void> {
     await this.collection.createIndex({ gameId: 1 }, { unique: true });
     await this.collection.createIndex({ ownerId: 1 });
-    await this.collection.createIndex({ status: 1 });
+    await this.collection.createIndex({ isDeleted: 1 });
+    await this.collection.createIndex({ subject: 1, grade: 1 });
   }
 }

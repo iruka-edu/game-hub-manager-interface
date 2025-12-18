@@ -80,9 +80,10 @@ describe('Middleware Logic', () => {
           
           expect(Array.isArray(permissions)).toBe(true);
           // All returned permissions should be valid Permission strings
+          // Permissions can be games:*, system:*, or other valid permission patterns
           for (const perm of permissions) {
             expect(typeof perm).toBe('string');
-            expect(perm).toMatch(/^games:/);
+            expect(perm).toMatch(/^(games|system|users):/);
           }
         }),
         { numRuns: 100 }

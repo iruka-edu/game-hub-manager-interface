@@ -2,23 +2,55 @@
 import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
 import StatusChip from '../../components/StatusChip.astro';
 import type { User } from '../../models/User';
-import { GameRepository, type Game } from '../../models/Game';
+import { GameRepository } from '../../models/Game';
+import { GameVersionRepository } from '../../models/GameVersion';
+import { QcReportRepository } from '../../models/QcReport';
 import { UserRepository } from '../../models/User';
 
 // Get user from locals (set by middleware - auth and permission already checked)
 const user = Astro.locals.user as User;
 const permissions = Astro.locals.permissions || [];
 
-// Get games waiting for QC
+// Get versions waiting for QC (status = 'uploaded')
 const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
+const qcReportRepo = await QcReportRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
-const games = await gameRepo.findByStatus('uploaded');
 
-// Get owner info for each game
-const gamesWithOwner = await Promise.all(games.map(async (game) => {
+// Find all versions with 'uploaded' status
+const uploadedVersions = await versionRepo.findByStatus('uploaded');
+
+// Get game and owner info for each version
+const gamesWithOwner = await Promise.all(uploadedVersions.map(async (version) => {
+  const game = await gameRepo.findById(version.gameId.toString());
+  if (!game) return null;
+  
   const owner = await userRepo.findById(game.ownerId);
-  return { ...game, ownerName: owner?.name || owner?.email || 'Unknown' };
+  const qcAttempts = await qcReportRepo.countAttempts(game._id.toString());
+  const isRetest = qcAttempts > 0;
+  
+  return { 
+    ...game, 
+    version: version.version,
+    versionId: version._id.toString(),
+    versionStatus: version.status,
+    submittedAt: version.submittedAt || version.updatedAt,
+    ownerName: owner?.name || owner?.email || 'Unknown',
+    qcAttempts,
+    isRetest,
+  };
 }));
+
+// Filter out null values and sort by submittedAt
+const games = gamesWithOwner
+  .filter(g => g !== null)
+  .sort((a, b) => {
+    // Prioritize re-tests
+    if (a.isRetest && !b.isRetest) return -1;
+    if (!a.isRetest && b.isRetest) return 1;
+    // Then by submittedAt
+    return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+  });
 ---
 
 <ConsoleLayout title="QC Inbox" user={user} activeMenu="qc-inbox">
@@ -38,36 +70,57 @@ const gamesWithOwner = await Promise.all(games.map(async (game) => {
     </div>
 
     <!-- Games List -->
-    {gamesWithOwner.length > 0 ? (
+    {games.length > 0 ? (
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table class="w-full">
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
               <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Game</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Version</th>
               <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Dev phụ trách</th>
               <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Ngày gửi</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Lần QC</th>
               <th class="text-right px-6 py-4 text-sm font-semibold text-slate-700">Thao tác</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            {gamesWithOwner.map(game => (
-              <tr class="hover:bg-slate-50 transition-colors">
+            {games.map(game => (
+              <tr class={`hover:bg-slate-50 transition-colors ${game.isRetest ? 'bg-amber-50' : ''}`}>
                 <td class="px-6 py-4">
-                  <a href={`/console/games/${game._id}/review`} class="block">
-                    <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+                  <a href={`/console/games/${game._id}/review?versionId=${game.versionId}`} class="block">
+                    <div class="flex items-center gap-2">
+                      <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+                      {game.isRetest && (
+                        <span class="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+                          Re-test
+                        </span>
+                      )}
+                    </div>
                     <p class="text-sm text-slate-500">{game.gameId}</p>
                   </a>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="px-2 py-1 text-sm font-mono bg-slate-100 text-slate-700 rounded">
+                    v{game.version}
+                  </span>
                 </td>
                 <td class="px-6 py-4 text-sm text-slate-600">
                   {game.ownerName}
                 </td>
                 <td class="px-6 py-4 text-sm text-slate-500">
-                  {game.updatedAt.toLocaleDateString('vi-VN')}
+                  {game.submittedAt.toLocaleDateString('vi-VN')}
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-600">
+                  {game.qcAttempts > 0 ? (
+                    <span class="text-amber-600 font-medium">Lần {game.qcAttempts + 1}</span>
+                  ) : (
+                    <span class="text-green-600">Lần đầu</span>
+                  )}
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center justify-end gap-2">
                     <a 
-                      href={`/console/games/${game._id}/review`}
+                      href={`/console/games/${game._id}/review?versionId=${game.versionId}`}
                       class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                     >
                       Mở review

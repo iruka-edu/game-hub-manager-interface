@@ -3,6 +3,8 @@ import { uploadBuffer, uploadBufferBatch, type UploadItem } from '../../lib/gcs'
 import { RegistryManager } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
 import { AuditLogger } from '../../lib/audit';
+import { GameRepository } from '../../models/Game';
+import { GameHistoryService } from '../../lib/game-history';
 
 interface FileInfo {
   file: File;
@@ -289,7 +291,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // 7. Update registry
     await RegistryManager.updateGame(id, version, manifest);
 
-    // 8. Log audit entry
+    // 8. Create or update Game record in MongoDB
+    const gameRepo = await GameRepository.getInstance();
+    let game = await gameRepo.findByGameId(id);
+    
+    if (!game && locals.user) {
+      // Create new game record
+      game = await gameRepo.create({
+        gameId: id,
+        title: manifest.title || id,
+        description: manifest.description || '',
+        ownerId: locals.user._id.toString(),
+        status: 'draft',
+      });
+      
+      // Record history
+      await GameHistoryService.recordCreation(game._id.toString(), locals.user);
+    }
+
+    // 9. Log audit entry
     if (locals.user) {
       AuditLogger.log({
         actor: {

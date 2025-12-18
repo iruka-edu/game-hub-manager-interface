@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../models/Game';
 import { getUserFromRequest } from '../../../lib/session';
 import { AuditLogger } from '../../../lib/audit';
+import { NotificationService } from '../../../lib/notification';
+import { GameHistoryService } from '../../../lib/game-history';
 
 /**
  * POST /api/games/publish
@@ -59,6 +61,16 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Update status
     const updated = await gameRepo.updateStatus(gameId, 'published');
+
+    // Record history
+    await GameHistoryService.recordPublication(gameId, user);
+
+    // Notify owner
+    await NotificationService.notifyGamePublished(
+      game.ownerId,
+      game.title || game.gameId,
+      gameId
+    );
 
     // Log audit entry
     AuditLogger.log({

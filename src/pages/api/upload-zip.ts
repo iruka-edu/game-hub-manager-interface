@@ -4,6 +4,8 @@ import { uploadBuffer, uploadBufferBatch, type UploadItem } from '../../lib/gcs'
 import { RegistryManager } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
 import { AuditLogger } from '../../lib/audit';
+import { GameRepository } from '../../models/Game';
+import { GameHistoryService } from '../../lib/game-history';
 
 interface ExtractedFile {
   name: string;
@@ -301,7 +303,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // 9. Update registry
     await RegistryManager.updateGame(id, version, manifest);
 
-    // 10. Log audit entry
+    // 10. Create or update Game record in MongoDB
+    const gameRepo = await GameRepository.getInstance();
+    let game = await gameRepo.findByGameId(id);
+    
+    if (!game && locals.user) {
+      // Create new game record
+      game = await gameRepo.create({
+        gameId: id,
+        title: manifest.title || id,
+        description: manifest.description || '',
+        ownerId: locals.user._id.toString(),
+        status: 'draft',
+      });
+      
+      // Record history
+      await GameHistoryService.recordCreation(game._id.toString(), locals.user);
+    }
+
+    // 11. Log audit entry
     if (locals.user) {
       AuditLogger.log({
         actor: {
@@ -326,7 +346,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // 11. Generate summary
+    // 12. Generate summary
     const totalSize = extractedFiles.reduce((sum, f) => sum + f.size, 0);
     const folderSummary = Object.entries(folderStats)
       .map(([folder, info]) => `${folder}: ${info.total} files`)

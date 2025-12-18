@@ -5,6 +5,8 @@ import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
 import { UserRepository } from '../../../../models/User';
+import { QcReportRepository } from '../../../../models/QcReport';
+import { GameHistoryService } from '../../../../lib/game-history';
 import { getUserFromRequest } from '../../../../lib/session';
 
 // Auth check
@@ -17,6 +19,7 @@ if (!user) {
 const { id } = Astro.params;
 const gameRepo = await GameRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
+const qcRepo = await QcReportRepository.getInstance();
 const game = await gameRepo.findById(id || '');
 
 if (!game) {
@@ -26,6 +29,10 @@ if (!game) {
 // Get owner info
 const owner = await userRepo.findById(game.ownerId);
 const ownerName = owner?.name || owner?.email || 'Unknown';
+
+// Get history and QC reports
+const history = await GameHistoryService.getHistory(id || '');
+const qcReports = await qcRepo.findByGameId(id || '');
 
 // Role checks
 const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
@@ -42,6 +49,9 @@ const canSubmitQC = isOwner && ['draft', 'qc_failed'].includes(game.status);
 const canReview = (isQC || isAdmin) && game.status === 'uploaded';
 const canApprove = (isCTO || isCEO || isAdmin) && game.status === 'qc_passed';
 const canPublish = isAdmin && game.status === 'approved';
+
+// Tab from URL
+const tab = Astro.url.searchParams.get('tab') || 'info';
 ---
 
 <ConsoleLayout title={game.title || game.gameId} user={user} activeMenu="library">
@@ -102,6 +112,25 @@ const canPublish = isAdmin && game.status === 'approved';
       <WorkflowTimeline currentStatus={game.status} />
     </div>
 
+    <!-- Tabs -->
+    <div class="bg-white rounded-xl border border-slate-200 mb-8">
+      <div class="flex border-b border-slate-200">
+        <a href={`/console/games/${id}?tab=info`} 
+           class={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${tab === 'info' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+          Thông tin
+        </a>
+        <a href={`/console/games/${id}?tab=history`}
+           class={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${tab === 'history' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+          Lịch sử ({history.length})
+        </a>
+        <a href={`/console/games/${id}?tab=qc`}
+           class={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${tab === 'qc' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+          QC Reports ({qcReports.length})
+        </a>
+      </div>
+    </div>
+
+    {tab === 'info' && (
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Game Info -->
       <div class="lg:col-span-2 space-y-6">
@@ -140,6 +169,22 @@ const canPublish = isAdmin && game.status === 'approved';
               <dd class="font-medium text-slate-900">{game.teamId || '-'}</dd>
             </div>
             <div>
+              <dt class="text-sm text-slate-500">Môn học</dt>
+              <dd class="font-medium text-slate-900">{game.subject || '-'}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Lớp</dt>
+              <dd class="font-medium text-slate-900">{game.grade || '-'}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Unit</dt>
+              <dd class="font-medium text-slate-900">{game.unit || '-'}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">Loại game</dt>
+              <dd class="font-medium text-slate-900">{game.gameType || '-'}</dd>
+            </div>
+            <div>
               <dt class="text-sm text-slate-500">Ngày tạo</dt>
               <dd class="font-medium text-slate-900">{game.createdAt.toLocaleDateString('vi-VN')}</dd>
             </div>
@@ -149,6 +194,44 @@ const canPublish = isAdmin && game.status === 'approved';
             </div>
           </dl>
         </div>
+
+        <!-- Self-QA Checklist -->
+        {game.selfQaChecklist && game.selfQaChecklist.length > 0 && (
+          <div class="bg-white rounded-xl border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-slate-900">Self-QA Checklist</h3>
+              {canEdit && (
+                <span class="text-xs text-slate-500">Nhấn để cập nhật</span>
+              )}
+            </div>
+            <div class="space-y-3" id="self-qa-list" data-game-id={game._id.toString()} data-can-edit={canEdit ? 'true' : 'false'}>
+              {game.selfQaChecklist.map(item => (
+                <label class={`flex items-center gap-3 ${canEdit ? 'cursor-pointer' : ''}`}>
+                  <input 
+                    type="checkbox" 
+                    class="self-qa-check w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    data-item-id={item.id}
+                    checked={item.checked}
+                    disabled={!canEdit}
+                  />
+                  <span class={item.checked ? 'text-slate-900' : 'text-slate-500'}>{item.label}</span>
+                </label>
+              ))}
+            </div>
+            {canEdit && (
+              <div class="mt-4 pt-4 border-t border-slate-200">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Ghi chú</label>
+                <textarea 
+                  id="self-qa-note"
+                  rows="2"
+                  class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Ghi chú thêm cho QC..."
+                >{game.selfQaNote || ''}</textarea>
+                <button id="save-self-qa" class="mt-2 btn-secondary text-sm">Lưu Self-QA</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <!-- Sidebar -->
@@ -185,6 +268,112 @@ const canPublish = isAdmin && game.status === 'approved';
         </div>
       </div>
     </div>
+    )}
+
+    {tab === 'history' && (
+    <div class="bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="font-semibold text-slate-900 mb-6">Lịch sử hoạt động</h3>
+      {history.length === 0 ? (
+        <p class="text-slate-500 text-center py-8">Chưa có lịch sử</p>
+      ) : (
+        <div class="relative">
+          <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200"></div>
+          <div class="space-y-6">
+            {history.map((entry, idx) => (
+              <div class="relative pl-10">
+                <div class={`absolute left-2 w-5 h-5 rounded-full border-2 ${
+                  entry.newStatus === 'published' ? 'bg-green-500 border-green-500' :
+                  entry.newStatus === 'qc_passed' ? 'bg-purple-500 border-purple-500' :
+                  entry.newStatus === 'qc_failed' ? 'bg-red-500 border-red-500' :
+                  entry.newStatus === 'approved' ? 'bg-emerald-500 border-emerald-500' :
+                  'bg-white border-slate-300'
+                }`}></div>
+                <div class="bg-slate-50 rounded-lg p-4">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-medium text-slate-900">{entry.action}</span>
+                    <span class="text-xs text-slate-500">{entry.createdAt.toLocaleString('vi-VN')}</span>
+                  </div>
+                  <p class="text-sm text-slate-600">{entry.actorEmail}</p>
+                  {entry.oldStatus && entry.newStatus && (
+                    <div class="mt-2 flex items-center gap-2 text-xs">
+                      <StatusChip status={entry.oldStatus} size="sm" />
+                      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                      </svg>
+                      <StatusChip status={entry.newStatus} size="sm" />
+                    </div>
+                  )}
+                  {entry.metadata?.note && (
+                    <p class="mt-2 text-sm text-slate-500 italic">"{entry.metadata.note}"</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+    )}
+
+    {tab === 'qc' && (
+    <div class="space-y-6">
+      {qcReports.length === 0 ? (
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <p class="text-slate-500 text-center py-8">Chưa có QC report</p>
+        </div>
+      ) : (
+        qcReports.map((report, idx) => (
+          <div class="bg-white rounded-xl border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <span class={`px-3 py-1 rounded-full text-sm font-medium ${
+                  report.result === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                }`}>
+                  {report.result === 'pass' ? 'Đạt' : 'Không đạt'}
+                </span>
+                <span class="text-sm text-slate-500">Lần #{report.attemptNumber}</span>
+                {report.severity && (
+                  <span class={`text-xs px-2 py-0.5 rounded ${
+                    report.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                    report.severity === 'major' ? 'bg-orange-100 text-orange-700' :
+                    'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {report.severity === 'critical' ? 'Nghiêm trọng' : report.severity === 'major' ? 'Lớn' : 'Nhỏ'}
+                  </span>
+                )}
+              </div>
+              <span class="text-sm text-slate-500">{report.createdAt.toLocaleString('vi-VN')}</span>
+            </div>
+            <p class="text-sm text-slate-600 mb-4">QC: {report.reviewerEmail}</p>
+            
+            {report.checklist && report.checklist.length > 0 && (
+              <div class="mb-4">
+                <h4 class="text-sm font-medium text-slate-700 mb-2">Checklist</h4>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {report.checklist.map(item => (
+                    <div class={`text-xs px-2 py-1 rounded ${
+                      item.status === 'ok' ? 'bg-green-50 text-green-700' :
+                      item.status === 'warning' ? 'bg-yellow-50 text-yellow-700' :
+                      'bg-red-50 text-red-700'
+                    }`}>
+                      {item.category}: {item.status === 'ok' ? 'OK' : item.status === 'warning' ? 'Cảnh báo' : 'Lỗi'}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {report.note && (
+              <div class="bg-slate-50 rounded-lg p-3">
+                <h4 class="text-sm font-medium text-slate-700 mb-1">Ghi chú</h4>
+                <p class="text-sm text-slate-600">{report.note}</p>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+    )}
   </div>
 </ConsoleLayout>
 
@@ -234,6 +423,36 @@ const canPublish = isAdmin && game.status === 'approved';
       });
       if (response.ok) window.location.reload();
       else alert('Có lỗi xảy ra');
+    } catch { alert('Có lỗi xảy ra'); }
+  });
+
+  // Self-QA
+  const selfQaList = document.getElementById('self-qa-list');
+  const saveSelfQaBtn = document.getElementById('save-self-qa');
+  
+  saveSelfQaBtn?.addEventListener('click', async () => {
+    const gameId = selfQaList?.dataset.gameId;
+    const checkboxes = selfQaList?.querySelectorAll('.self-qa-check') as NodeListOf<HTMLInputElement>;
+    const noteInput = document.getElementById('self-qa-note') as HTMLTextAreaElement;
+    
+    const checklist = Array.from(checkboxes).map(cb => ({
+      id: cb.dataset.itemId,
+      label: cb.parentElement?.querySelector('span')?.textContent || '',
+      checked: cb.checked,
+    }));
+    
+    try {
+      const response = await fetch('/api/games/self-qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, checklist, note: noteInput?.value })
+      });
+      
+      if (response.ok) {
+        alert('Đã lưu Self-QA');
+      } else {
+        alert('Có lỗi xảy ra');
+      }
     } catch { alert('Có lỗi xảy ra'); }
   });
 </script>

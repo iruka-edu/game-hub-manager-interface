@@ -5,6 +5,7 @@ import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
 import { UserRepository } from '../../../../models/User';
+import { QcReportRepository, QC_CHECKLIST_CATEGORIES } from '../../../../models/QcReport';
 import { getUserFromRequest } from '../../../../lib/session';
 
 // Auth check
@@ -23,6 +24,7 @@ if (!hasRole('qc') && !hasRole('admin')) {
 const { id } = Astro.params;
 const gameRepo = await GameRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
+const qcRepo = await QcReportRepository.getInstance();
 const game = await gameRepo.findById(id || '');
 
 if (!game) {
@@ -37,6 +39,11 @@ if (game.status !== 'uploaded') {
 // Get owner info
 const owner = await userRepo.findById(game.ownerId);
 const ownerName = owner?.name || owner?.email || 'Unknown';
+
+// Get QC attempt count and previous reports
+const attemptCount = await qcRepo.countAttempts(id || '');
+const previousReports = await qcRepo.findByGameId(id || '');
+const lastReport = previousReports[0];
 ---
 
 <ConsoleLayout title={`Review: ${game.title || game.gameId}`} user={user} activeMenu="qc-inbox">
@@ -69,6 +76,82 @@ const ownerName = owner?.name || owner?.email || 'Unknown';
       <WorkflowTimeline currentStatus={game.status} />
     </div>
 
+    <!-- Game Metadata -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 mb-8">
+      <h3 class="text-sm font-semibold text-slate-700 mb-4">Thông tin game</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <span class="text-slate-500">Môn học:</span>
+          <span class="ml-2 font-medium">{game.subject || '-'}</span>
+        </div>
+        <div>
+          <span class="text-slate-500">Lớp:</span>
+          <span class="ml-2 font-medium">{game.grade || '-'}</span>
+        </div>
+        <div>
+          <span class="text-slate-500">Unit:</span>
+          <span class="ml-2 font-medium">{game.unit || '-'}</span>
+        </div>
+        <div>
+          <span class="text-slate-500">Loại:</span>
+          <span class="ml-2 font-medium">{game.gameType || '-'}</span>
+        </div>
+        <div>
+          <span class="text-slate-500">Độ ưu tiên:</span>
+          <span class={`ml-2 font-medium ${game.priority === 'high' ? 'text-red-600' : game.priority === 'medium' ? 'text-yellow-600' : 'text-slate-600'}`}>
+            {game.priority === 'high' ? 'Cao' : game.priority === 'medium' ? 'Trung bình' : 'Thấp'}
+          </span>
+        </div>
+        <div>
+          <span class="text-slate-500">Lần QC:</span>
+          <span class={`ml-2 font-medium ${attemptCount > 0 ? 'text-orange-600' : ''}`}>
+            #{attemptCount + 1}
+          </span>
+        </div>
+        {lastReport && (
+          <div>
+            <span class="text-slate-500">Lỗi trước:</span>
+            <span class={`ml-2 font-medium ${lastReport.severity === 'critical' ? 'text-red-600' : lastReport.severity === 'major' ? 'text-orange-600' : 'text-yellow-600'}`}>
+              {lastReport.severity === 'critical' ? 'Nghiêm trọng' : lastReport.severity === 'major' ? 'Lớn' : 'Nhỏ'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Dev's Self-QA Checklist -->
+    {game.selfQaChecklist && game.selfQaChecklist.length > 0 && (
+      <div class="bg-amber-50 rounded-xl border border-amber-200 p-6 mb-8">
+        <h3 class="text-sm font-semibold text-amber-800 mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+          </svg>
+          Self-QA của Dev
+        </h3>
+        <div class="space-y-2">
+          {game.selfQaChecklist.map(item => (
+            <div class="flex items-center gap-2 text-sm">
+              {item.checked ? (
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              ) : (
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              )}
+              <span class={item.checked ? 'text-amber-800' : 'text-slate-500'}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+        {game.selfQaNote && (
+          <div class="mt-4 pt-4 border-t border-amber-200">
+            <p class="text-sm text-amber-700"><strong>Ghi chú:</strong> {game.selfQaNote}</p>
+          </div>
+        )}
+      </div>
+    )}
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Game Preview -->
       <div class="lg:col-span-2">
@@ -96,37 +179,45 @@ const ownerName = owner?.name || owner?.email || 'Unknown';
 
       <!-- QC Panel -->
       <div class="space-y-6">
-        <!-- Checklist -->
+        <!-- QC Checklist -->
         <div class="bg-white rounded-xl border border-slate-200 p-6">
           <h3 class="font-semibold text-slate-900 mb-4">Checklist kiểm tra</h3>
-          <div class="space-y-3">
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="audio" />
-              <div>
-                <p class="font-medium text-slate-700">Âm thanh</p>
-                <p class="text-sm text-slate-500">Kiểm tra âm thanh trên iOS/Android</p>
+          <div class="space-y-4">
+            {QC_CHECKLIST_CATEGORIES.map(cat => (
+              <div class="qc-item border border-slate-200 rounded-lg p-3" data-category={cat.id}>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="font-medium text-slate-700">{cat.label}</span>
+                  <div class="flex gap-1">
+                    <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200" data-status="ok">OK</button>
+                    <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200" data-status="warning">Cảnh báo</button>
+                    <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200" data-status="fail">Lỗi</button>
+                  </div>
+                </div>
+                <input 
+                  type="text" 
+                  class="item-note w-full px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Ghi chú (nếu có)..."
+                />
               </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Severity (for fail) -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6" id="severity-section">
+          <h3 class="font-semibold text-slate-900 mb-4">Mức độ nghiêm trọng</h3>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="severity" value="minor" class="text-indigo-600" />
+              <span class="text-sm"><strong class="text-yellow-600">Nhỏ</strong> - Lỗi nhỏ, không ảnh hưởng gameplay</span>
             </label>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="responsive" />
-              <div>
-                <p class="font-medium text-slate-700">Responsive</p>
-                <p class="text-sm text-slate-500">Hiển thị đúng trên mobile, tablet</p>
-              </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="severity" value="major" class="text-indigo-600" />
+              <span class="text-sm"><strong class="text-orange-600">Lớn</strong> - Ảnh hưởng trải nghiệm người dùng</span>
             </label>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="content" />
-              <div>
-                <p class="font-medium text-slate-700">Nội dung</p>
-                <p class="text-sm text-slate-500">Nội dung phù hợp, không lỗi chính tả</p>
-              </div>
-            </label>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" class="qc-check mt-1 rounded border-slate-300" data-item="logic" />
-              <div>
-                <p class="font-medium text-slate-700">Logic game</p>
-                <p class="text-sm text-slate-500">Game hoạt động đúng logic</p>
-              </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="severity" value="critical" class="text-indigo-600" />
+              <span class="text-sm"><strong class="text-red-600">Nghiêm trọng</strong> - Game không thể chơi được</span>
             </label>
           </div>
         </div>
@@ -199,32 +290,83 @@ const ownerName = owner?.name || owner?.email || 'Unknown';
       btn.classList.add('bg-indigo-100', 'text-indigo-700');
     });
   });
+
+  // QC Checklist status buttons
+  const qcItems = document.querySelectorAll('.qc-item');
+  const checklistState: Record<string, { status: string; note: string }> = {};
+
+  qcItems.forEach(item => {
+    const category = (item as HTMLElement).dataset.category!;
+    const statusBtns = item.querySelectorAll('.status-btn');
+    const noteInput = item.querySelector('.item-note') as HTMLInputElement;
+
+    checklistState[category] = { status: '', note: '' };
+
+    statusBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const status = (btn as HTMLElement).dataset.status!;
+        checklistState[category].status = status;
+
+        // Update button styles
+        statusBtns.forEach(b => {
+          b.classList.remove('ring-2', 'ring-offset-1');
+        });
+        btn.classList.add('ring-2', 'ring-offset-1');
+      });
+    });
+
+    noteInput?.addEventListener('input', () => {
+      checklistState[category].note = noteInput.value;
+    });
+  });
   
   // QC Actions
   const passBtn = document.getElementById('qc-pass-btn');
   const failBtn = document.getElementById('qc-fail-btn');
   const noteInput = document.getElementById('qc-note') as HTMLTextAreaElement;
+
+  function getChecklist() {
+    return Object.entries(checklistState).map(([category, data]) => ({
+      category,
+      status: data.status || 'ok',
+      note: data.note || undefined,
+    }));
+  }
+
+  function getSeverity(): string | null {
+    const checked = document.querySelector('input[name="severity"]:checked') as HTMLInputElement;
+    return checked?.value || null;
+  }
   
   async function submitQCResult(result: 'pass' | 'fail') {
     const gameId = passBtn?.dataset.gameId;
     const note = noteInput?.value || '';
+    const checklist = getChecklist();
+    const severity = getSeverity();
     
     if (result === 'fail' && !note.trim()) {
       alert('Vui lòng nhập ghi chú khi QC không đạt');
       return;
     }
+
+    if (result === 'fail' && !severity) {
+      alert('Vui lòng chọn mức độ nghiêm trọng');
+      return;
+    }
     
     try {
-      const response = await fetch('/api/games/qc-review', {
+      const response = await fetch('/api/games/qc-result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, result, note })
+        body: JSON.stringify({ gameId, result, checklist, note, severity })
       });
+      
+      const data = await response.json();
       
       if (response.ok) {
         window.location.href = '/console/qc-inbox';
       } else {
-        alert('Có lỗi xảy ra');
+        alert(data.error || 'Có lỗi xảy ra');
       }
     } catch {
       alert('Có lỗi xảy ra');
