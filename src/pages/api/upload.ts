@@ -1,10 +1,11 @@
 import type { APIRoute } from 'astro';
 import { uploadBuffer, uploadBufferBatch, type UploadItem } from '../../lib/gcs';
-import { RegistryManager } from '../../lib/registry';
 import { validateManifest } from '../../lib/validator';
 import { AuditLogger } from '../../lib/audit';
 import { GameRepository } from '../../models/Game';
+import { GameVersionRepository } from '../../models/GameVersion';
 import { GameHistoryService } from '../../lib/game-history';
+import { ObjectId } from 'mongodb';
 
 interface FileInfo {
   file: File;
@@ -288,11 +289,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    // 7. Update registry
-    await RegistryManager.updateGame(id, version, manifest);
-
-    // 8. Create or update Game record in MongoDB
+    // 7. Create or update Game and GameVersion records in MongoDB
+    // NOTE: Do NOT add to registry index - game must go through QC and approval first
     const gameRepo = await GameRepository.getInstance();
+    const versionRepo = await GameVersionRepository.getInstance();
     let game = await gameRepo.findByGameId(id);
     
     if (!game && locals.user) {
@@ -302,11 +302,41 @@ export const POST: APIRoute = async ({ request, locals }) => {
         title: manifest.title || id,
         description: manifest.description || '',
         ownerId: locals.user._id.toString(),
-        status: 'draft',
       });
       
       // Record history
       await GameHistoryService.recordCreation(game._id.toString(), locals.user);
+    }
+
+    // 8. Create GameVersion record with status 'draft'
+    let gameVersion = null;
+    if (game && locals.user) {
+      // Check if version already exists
+      const existingVersion = await versionRepo.findByVersion(game._id.toString(), version);
+      
+      if (existingVersion) {
+        // Update existing version (re-upload)
+        gameVersion = existingVersion;
+        console.log(`[Upload] Version ${version} already exists, files updated`);
+      } else {
+        // Create new version with draft status
+        const totalSize = uploadItems.reduce((sum, item) => sum + item.buffer.length, 0);
+        gameVersion = await versionRepo.create({
+          gameId: game._id,
+          version: version,
+          storagePath: `games/${id}/${version}/`,
+          entryFile: 'index.html',
+          buildSize: totalSize,
+          status: 'draft',
+          submittedBy: new ObjectId(locals.user._id.toString()),
+          releaseNote: manifest.releaseNote || '',
+        });
+        
+        // Update game's latestVersionId
+        await gameRepo.updateLatestVersion(game._id.toString(), gameVersion._id);
+        
+        console.log(`[Upload] Created new version ${version} with status 'draft'`);
+      }
     }
 
     // 9. Log audit entry
@@ -340,9 +370,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Đã tải lên thành công ${manifest.title || id} v${version}!`,
+        message: `Đã tải lên thành công ${manifest.title || id} v${version}! Game đang ở trạng thái Draft, cần hoàn thành Self-QA và submit để QC review.`,
         gameId: id,
         version: version,
+        versionId: gameVersion?._id?.toString(),
+        status: 'draft',
         entryUrl: manifest.entryUrl,
         summary: {
           rootFolder: rootFolder || '(root)',

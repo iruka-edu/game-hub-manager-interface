@@ -1,0 +1,205 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import type { User } from '../../models/User';
+
+// Get user from middleware
+const user = Astro.locals.user as User;
+
+// Check admin permission
+if (!user || !user.roles.includes('admin')) {
+  return Astro.redirect('/dashboard');
+}
+---
+
+<Layout title="Sync Games từ GCS - Admin">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <!-- Header -->
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Sync Games từ GCS</h1>
+      <p class="text-slate-500 mt-1">Import games từ registry/index.json trên GCS vào MongoDB</p>
+    </div>
+
+    <!-- Warning -->
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <div>
+          <h3 class="font-medium text-amber-800">Lưu ý quan trọng</h3>
+          <ul class="mt-2 text-sm text-amber-700 list-disc list-inside space-y-1">
+            <li>Chỉ import games chưa tồn tại trong MongoDB</li>
+            <li>Games đã tồn tại sẽ được bỏ qua (không ghi đè)</li>
+            <li>Bạn là owner của tất cả games được import</li>
+            <li>Nên chạy Dry Run trước để xem preview</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="card p-6 space-y-6">
+      <h2 class="text-lg font-semibold text-slate-900">Tùy chọn Import</h2>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">Status sau khi import</label>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="status" value="published" checked class="text-indigo-600 focus:ring-indigo-500">
+              <span class="text-sm text-slate-700">Published (giữ nguyên trạng thái live)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="status" value="draft" class="text-indigo-600 focus:ring-indigo-500">
+              <span class="text-sm text-slate-700">Draft (cần QC lại)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <button id="dryRunBtn" class="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium">
+          🔍 Dry Run (Preview)
+        </button>
+        <button id="syncBtn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+          ⬇️ Sync Now
+        </button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="hidden">
+      <div class="card">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-slate-900">Kết quả</h2>
+          <div id="summary" class="text-sm text-slate-500"></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Game ID</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Title</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Versions</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">Action</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody" class="divide-y divide-slate-200">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="hidden">
+      <div class="card p-8 text-center">
+        <div class="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+        <p class="mt-4 text-slate-500">Đang xử lý...</p>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="hidden">
+      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-red-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <div>
+            <h3 class="font-medium text-red-800">Lỗi</h3>
+            <p id="errorMessage" class="mt-1 text-sm text-red-700"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const dryRunBtn = document.getElementById('dryRunBtn') as HTMLButtonElement;
+  const syncBtn = document.getElementById('syncBtn') as HTMLButtonElement;
+  const resultsDiv = document.getElementById('results') as HTMLDivElement;
+  const loadingDiv = document.getElementById('loading') as HTMLDivElement;
+  const errorDiv = document.getElementById('error') as HTMLDivElement;
+  const summaryDiv = document.getElementById('summary') as HTMLDivElement;
+  const resultsBody = document.getElementById('resultsBody') as HTMLTableSectionElement;
+  const errorMessage = document.getElementById('errorMessage') as HTMLParagraphElement;
+
+  function getSelectedStatus(): string {
+    const radio = document.querySelector('input[name="status"]:checked') as HTMLInputElement;
+    return radio?.value || 'published';
+  }
+
+  async function runSync(dryRun: boolean) {
+    // Hide previous results
+    resultsDiv.classList.add('hidden');
+    errorDiv.classList.add('hidden');
+    loadingDiv.classList.remove('hidden');
+
+    // Disable buttons
+    dryRunBtn.disabled = true;
+    syncBtn.disabled = true;
+
+    try {
+      const status = getSelectedStatus();
+      const response = await fetch(`/api/admin/sync-from-gcs?dryRun=${dryRun}&status=${status}`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Sync failed');
+      }
+
+      // Show results
+      loadingDiv.classList.add('hidden');
+      resultsDiv.classList.remove('hidden');
+
+      // Update summary
+      const prefix = dryRun ? '[DRY RUN] ' : '';
+      summaryDiv.textContent = `${prefix}Created: ${data.summary.created}, Skipped: ${data.summary.skipped}`;
+
+      // Populate table
+      resultsBody.innerHTML = '';
+      for (const result of data.results) {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-slate-50';
+        
+        const actionClass = result.action === 'created' 
+          ? 'bg-green-100 text-green-700' 
+          : 'bg-gray-100 text-gray-700';
+        const actionLabel = result.action === 'created' 
+          ? (dryRun ? 'Will Create' : 'Created')
+          : 'Skipped';
+
+        row.innerHTML = `
+          <td class="px-4 py-3 text-sm font-mono text-slate-600">${result.gameId}</td>
+          <td class="px-4 py-3 text-sm text-slate-900">${result.title}</td>
+          <td class="px-4 py-3 text-sm text-slate-500">${result.versions.join(', ')}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded text-xs font-medium ${actionClass}">${actionLabel}</span>
+            ${result.error ? `<span class="ml-2 text-xs text-red-500">${result.error}</span>` : ''}
+          </td>
+        `;
+        resultsBody.appendChild(row);
+      }
+
+    } catch (error: any) {
+      loadingDiv.classList.add('hidden');
+      errorDiv.classList.remove('hidden');
+      errorMessage.textContent = error.message;
+    } finally {
+      dryRunBtn.disabled = false;
+      syncBtn.disabled = false;
+    }
+  }
+
+  dryRunBtn.addEventListener('click', () => runSync(true));
+  syncBtn.addEventListener('click', () => {
+    if (confirm('Bạn có chắc muốn sync games từ GCS? Games đã tồn tại sẽ được bỏ qua.')) {
+      runSync(false);
+    }
+  });
+</script>

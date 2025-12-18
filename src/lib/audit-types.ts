@@ -11,6 +11,8 @@ export type ActionType =
   | 'GAME_STATUS_CHANGE'
   | 'GAME_SET_LIVE'
   | 'GAME_DISABLE'
+  | 'GAME_RESET_TO_DRAFT'
+  | 'GAME_SYNC_FROM_GCS'
   | 'USER_LOGIN'
   | 'USER_LOGOUT';
 

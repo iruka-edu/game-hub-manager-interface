@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import type { User } from '../../models/User';
 import { GameRepository, type Game } from '../../models/Game';
+import { GameVersionRepository, type GameVersion } from '../../models/GameVersion';
 
 // Get user from middleware (attached to locals)
 const user = Astro.locals.user as User;
@@ -13,6 +14,7 @@ if (!user) {
 
 // Get games based on user role
 const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
 let games: Game[] = [];
 let dashboardTitle = 'Dashboard';
 let dashboardDescription = '';
@@ -20,16 +22,30 @@ let dashboardDescription = '';
 const roles = user.roles;
 const userId = user._id.toString();
 
+// Interface for game with version info
+interface GameWithVersion extends Game {
+  latestVersion?: GameVersion;
+  versionStatus?: string;
+}
+
 if (roles.includes('admin')) {
   games = await gameRepo.findAll();
   dashboardTitle = 'Admin Dashboard';
   dashboardDescription = 'Quản lý tất cả games trong hệ thống';
 } else if (roles.includes('cto') || roles.includes('ceo')) {
-  games = await gameRepo.findByStatus('qc_passed');
+  // Get games with qc_passed versions
+  const allGames = await gameRepo.findAll();
+  const qcPassedVersions = await versionRepo.findByStatus('qc_passed');
+  const gameIdsWithQcPassed = new Set(qcPassedVersions.map(v => v.gameId.toString()));
+  games = allGames.filter(g => gameIdsWithQcPassed.has(g._id.toString()));
   dashboardTitle = roles.includes('cto') ? 'CTO Dashboard' : 'CEO Dashboard';
   dashboardDescription = 'Games đang chờ phê duyệt';
 } else if (roles.includes('qc')) {
-  games = await gameRepo.findByStatus('uploaded');
+  // Get games with uploaded versions
+  const allGames = await gameRepo.findAll();
+  const uploadedVersions = await versionRepo.findByStatus('uploaded');
+  const gameIdsWithUploaded = new Set(uploadedVersions.map(v => v.gameId.toString()));
+  games = allGames.filter(g => gameIdsWithUploaded.has(g._id.toString()));
   dashboardTitle = 'QC Dashboard';
   dashboardDescription = 'Games đang chờ kiểm tra';
 } else {
@@ -38,23 +54,75 @@ if (roles.includes('admin')) {
   dashboardDescription = 'Games của bạn';
 }
 
-// Stats for admin
-const totalGames = roles.includes('admin') ? games.length : null;
-const draftGames = roles.includes('admin') ? games.filter(g => g.status === 'draft').length : null;
-const publishedGames = roles.includes('admin') ? games.filter(g => g.status === 'published').length : null;
+// Get version info for each game
+const gamesWithVersions: GameWithVersion[] = await Promise.all(
+  games.map(async (game) => {
+    let latestVersion: GameVersion | undefined;
+    let versionStatus: string | undefined;
+    
+    if (game.latestVersionId) {
+      const version = await versionRepo.findById(game.latestVersionId.toString());
+      if (version) {
+        latestVersion = version;
+        versionStatus = version.status;
+      }
+    }
+    
+    return { ...game, latestVersion, versionStatus };
+  })
+);
+
+// Stats for admin - based on version status
+let totalGames = 0;
+let draftGames = 0;
+let publishedGames = 0;
+
+if (roles.includes('admin')) {
+  totalGames = gamesWithVersions.length;
+  draftGames = gamesWithVersions.filter(g => g.versionStatus === 'draft').length;
+  publishedGames = gamesWithVersions.filter(g => g.versionStatus === 'published').length;
+}
 
 // Helper function to get status badge color
-function getStatusColor(status: string): string {
+function getStatusColor(status?: string): string {
   const colors: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-700',
     uploaded: 'bg-blue-100 text-blue-700',
+    qc_processing: 'bg-yellow-100 text-yellow-700',
     qc_passed: 'bg-green-100 text-green-700',
     qc_failed: 'bg-red-100 text-red-700',
     approved: 'bg-purple-100 text-purple-700',
     published: 'bg-emerald-100 text-emerald-700',
     archived: 'bg-slate-100 text-slate-700',
   };
-  return colors[status] || 'bg-gray-100 text-gray-700';
+  return colors[status || ''] || 'bg-gray-100 text-gray-700';
+}
+
+// Helper function to get status label in Vietnamese
+function getStatusLabel(status?: string): string {
+  const labels: Record<string, string> = {
+    draft: 'Nháp',
+    uploaded: 'Chờ QC',
+    qc_processing: 'Đang QC',
+    qc_passed: 'QC Passed',
+    qc_failed: 'QC Failed',
+    approved: 'Đã duyệt',
+    published: 'Đã xuất bản',
+    archived: 'Đã lưu trữ',
+  };
+  return labels[status || ''] || status || 'N/A';
+}
+
+// Format date
+function formatDate(date?: Date): string {
+  if (!date) return 'N/A';
+  return new Date(date).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 ---
 
@@ -96,6 +164,33 @@ function getStatusColor(status: string): string {
       </div>
     )}
 
+    <!-- Admin Tools -->
+    {roles.includes('admin') && (
+      <div class="card p-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-4">Admin Tools</h2>
+        <div class="flex flex-wrap gap-4">
+          <a href="/admin/sync-games" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Sync từ GCS
+          </a>
+          <a href="/console/publish" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Publishing Console
+          </a>
+          <a href="/upload" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            Upload Game
+          </a>
+        </div>
+      </div>
+    )}
+
     <!-- Dev: Upload Button -->
     {roles.includes('dev') && !roles.includes('admin') && (
       <div class="flex justify-end">
@@ -116,28 +211,63 @@ function getStatusColor(status: string): string {
         </h2>
       </div>
       
-      {games.length === 0 ? (
+      {gamesWithVersions.length === 0 ? (
         <div class="p-12 text-center">
           <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
           </svg>
           <p class="text-slate-500">Không có game nào</p>
+          {roles.includes('dev') && (
+            <a href="/upload" class="mt-4 inline-block text-indigo-600 hover:text-indigo-700 font-medium">
+              Upload game đầu tiên →
+            </a>
+          )}
         </div>
       ) : (
-        <div class="divide-y divide-slate-200">
-          {games.map(game => (
-            <div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-              <div>
-                <h3 class="font-medium text-slate-900">{game.title || game.gameId}</h3>
-                <p class="text-sm text-slate-500 mt-1">{game.gameId}</p>
-              </div>
-              <div class="flex items-center gap-4">
-                <span class={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(game.status)}`}>
-                  {game.status}
-                </span>
-              </div>
-            </div>
-          ))}
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Game</th>
+                <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Version</th>
+                <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Trạng thái</th>
+                <th class="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Cập nhật</th>
+                <th class="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              {gamesWithVersions.map(game => (
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4">
+                    <div>
+                      <p class="font-medium text-slate-900">{game.title || game.gameId}</p>
+                      <p class="text-sm text-slate-500">{game.gameId}</p>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="text-sm text-slate-600">
+                      {game.latestVersion?.version || 'N/A'}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(game.versionStatus)}`}>
+                      {getStatusLabel(game.versionStatus)}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="text-sm text-slate-500">
+                      {formatDate(game.latestVersion?.updatedAt || game.updatedAt)}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <a href={`/console/games/${game._id}`} class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                      Chi tiết →
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
