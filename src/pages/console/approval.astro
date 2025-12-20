@@ -3,6 +3,7 @@ import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
 import StatusChip from '../../components/StatusChip.astro';
 import type { User } from '../../models/User';
 import { GameRepository, type Game } from '../../models/Game';
+import { GameVersionRepository } from '../../models/GameVersion';
 import { UserRepository } from '../../models/User';
 
 // Get user from locals (set by middleware - auth and permission already checked)
@@ -11,16 +12,24 @@ const permissions = Astro.locals.permissions || [];
 
 // Get games waiting for approval (QC passed)
 const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
-const games = await gameRepo.findByStatus('qc_passed');
 
-// Get all games for stats
+// Find games with qc_passed versions
 const allGames = await gameRepo.findAll();
-const approvedCount = allGames.filter(g => g.status === 'approved').length;
-const publishedThisMonth = allGames.filter(g => {
-  if (g.status !== 'published') return false;
+const qcPassedVersions = await versionRepo.findByStatus('qc_passed');
+const gameIdsWithQcPassed = new Set(qcPassedVersions.map(v => v.gameId.toString()));
+const games = allGames.filter(g => gameIdsWithQcPassed.has(g._id.toString()));
+
+// Get stats
+const approvedVersions = await versionRepo.findByStatus('approved');
+const gameIdsWithApproved = new Set(approvedVersions.map(v => v.gameId.toString()));
+const approvedCount = allGames.filter(g => gameIdsWithApproved.has(g._id.toString())).length;
+
+const publishedVersions = await versionRepo.findByStatus('published');
+const publishedThisMonth = publishedVersions.filter(v => {
   const now = new Date();
-  return g.updatedAt.getMonth() === now.getMonth() && g.updatedAt.getFullYear() === now.getFullYear();
+  return v.updatedAt.getMonth() === now.getMonth() && v.updatedAt.getFullYear() === now.getFullYear();
 }).length;
 
 // Get owner info for each game
@@ -174,10 +183,10 @@ const gamesWithOwner = await Promise.all(games.map(async (game) => {
   document.getElementById('confirmApprove')?.addEventListener('click', async () => {
     if (!currentGameId) return;
     try {
-      const response = await fetch('/api/games/approve', {
+      const response = await fetch(`/api/games/${currentGameId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId: currentGameId })
+        body: JSON.stringify({})
       });
       if (response.ok) window.location.reload();
       else alert('Có lỗi xảy ra');
@@ -206,10 +215,10 @@ const gamesWithOwner = await Promise.all(games.map(async (game) => {
     if (!currentGameId) return;
     const note = (document.getElementById('rejectNote') as HTMLTextAreaElement)?.value;
     try {
-      const response = await fetch('/api/games/reject', {
+      const response = await fetch(`/api/games/${currentGameId}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId: currentGameId, note })
+        body: JSON.stringify({ note })
       });
       if (response.ok) window.location.reload();
       else alert('Có lỗi xảy ra');

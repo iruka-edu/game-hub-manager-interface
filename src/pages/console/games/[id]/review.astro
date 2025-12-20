@@ -4,6 +4,7 @@ import StatusChip from '../../../../components/StatusChip.astro';
 import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
+import { GameVersionRepository } from '../../../../models/GameVersion';
 import { UserRepository } from '../../../../models/User';
 import { QcReportRepository, QC_CHECKLIST_CATEGORIES } from '../../../../models/QcReport';
 import { getUserFromRequest } from '../../../../lib/session';
@@ -20,9 +21,10 @@ if (!hasRole('qc') && !hasRole('admin')) {
   return Astro.redirect('/console?error=unauthorized');
 }
 
-// Get game
+// Get game and version
 const { id } = Astro.params;
 const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
 const qcRepo = await QcReportRepository.getInstance();
 const game = await gameRepo.findById(id || '');
@@ -31,8 +33,27 @@ if (!game) {
   return Astro.redirect('/console/qc-inbox?error=not-found');
 }
 
-// Check if game is in correct status
-if (game.status !== 'uploaded') {
+// Get latest version or find uploaded version
+let version = null;
+if (game.latestVersionId) {
+  version = await versionRepo.findById(game.latestVersionId.toString());
+} else {
+  // Fallback: find uploaded version
+  const versions = await versionRepo.findByGameId(id || '');
+  const uploadedVersion = versions.find(v => v.status === 'uploaded');
+  if (uploadedVersion) {
+    version = uploadedVersion;
+    // Update game's latestVersionId
+    await gameRepo.updateLatestVersion(id || '', uploadedVersion._id);
+  }
+}
+
+if (!version) {
+  return Astro.redirect('/console/qc-inbox?error=no-version');
+}
+
+// Check if version is in correct status for QC
+if (!['uploaded', 'qc_processing'].includes(version.status)) {
   return Astro.redirect(`/console/games/${id}?error=invalid-status`);
 }
 
@@ -63,9 +84,9 @@ const lastReport = previousReports[0];
       <div>
         <div class="flex items-center gap-3 mb-2">
           <h1 class="text-2xl font-bold text-slate-900">{game.title || game.gameId}</h1>
-          <StatusChip status={game.status} />
+          <StatusChip status={version.status} />
         </div>
-        <p class="text-slate-500">{game.gameId}</p>
+        <p class="text-slate-500">{game.gameId} v{version.version}</p>
         <p class="text-sm text-slate-400 mt-1">Dev: {ownerName}</p>
       </div>
     </div>
@@ -73,7 +94,7 @@ const lastReport = previousReports[0];
     <!-- Workflow Timeline -->
     <div class="bg-white rounded-xl border border-slate-200 p-6 mb-8">
       <h3 class="text-sm font-semibold text-slate-700 mb-4">Tiến trình</h3>
-      <WorkflowTimeline currentStatus={game.status} />
+      <WorkflowTimeline currentStatus={version.status} />
     </div>
 
     <!-- Game Metadata -->
@@ -120,7 +141,7 @@ const lastReport = previousReports[0];
     </div>
 
     <!-- Dev's Self-QA Checklist -->
-    {game.selfQaChecklist && game.selfQaChecklist.length > 0 && (
+    {version.selfQAChecklist && (
       <div class="bg-amber-50 rounded-xl border border-amber-200 p-6 mb-8">
         <h3 class="text-sm font-semibold text-amber-800 mb-4 flex items-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,24 +150,58 @@ const lastReport = previousReports[0];
           Self-QA của Dev
         </h3>
         <div class="space-y-2">
-          {game.selfQaChecklist.map(item => (
-            <div class="flex items-center gap-2 text-sm">
-              {item.checked ? (
-                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              ) : (
-                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              )}
-              <span class={item.checked ? 'text-amber-800' : 'text-slate-500'}>{item.label}</span>
-            </div>
-          ))}
+          <div class="flex items-center gap-2 text-sm">
+            {version.selfQAChecklist.testedDevices ? (
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            ) : (
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            )}
+            <span class={version.selfQAChecklist.testedDevices ? 'text-amber-800' : 'text-slate-500'}>Đã test trên các thiết bị</span>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            {version.selfQAChecklist.testedAudio ? (
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            ) : (
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            )}
+            <span class={version.selfQAChecklist.testedAudio ? 'text-amber-800' : 'text-slate-500'}>Đã test âm thanh</span>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            {version.selfQAChecklist.gameplayComplete ? (
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            ) : (
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            )}
+            <span class={version.selfQAChecklist.gameplayComplete ? 'text-amber-800' : 'text-slate-500'}>Đã chơi hết tất cả màn</span>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            {version.selfQAChecklist.contentVerified ? (
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            ) : (
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            )}
+            <span class={version.selfQAChecklist.contentVerified ? 'text-amber-800' : 'text-slate-500'}>Đã đối chiếu nội dung</span>
+          </div>
         </div>
-        {game.selfQaNote && (
+        {version.selfQAChecklist.note && (
           <div class="mt-4 pt-4 border-t border-amber-200">
-            <p class="text-sm text-amber-700"><strong>Ghi chú:</strong> {game.selfQaNote}</p>
+            <p class="text-sm text-amber-700"><strong>Ghi chú:</strong> {version.selfQAChecklist.note}</p>
           </div>
         )}
       </div>
@@ -240,7 +295,7 @@ const lastReport = previousReports[0];
             <button 
               id="qc-pass-btn"
               class="w-full btn-success flex items-center justify-center gap-2"
-              data-game-id={game._id.toString()}
+              data-version-id={version._id.toString()}
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -250,7 +305,7 @@ const lastReport = previousReports[0];
             <button 
               id="qc-fail-btn"
               class="w-full btn-danger flex items-center justify-center gap-2"
-              data-game-id={game._id.toString()}
+              data-version-id={version._id.toString()}
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -339,7 +394,7 @@ const lastReport = previousReports[0];
   }
   
   async function submitQCResult(result: 'pass' | 'fail') {
-    const gameId = passBtn?.dataset.gameId;
+    const versionId = passBtn?.dataset.versionId;
     const note = noteInput?.value || '';
     const checklist = getChecklist();
     const severity = getSeverity();
@@ -358,7 +413,7 @@ const lastReport = previousReports[0];
       const response = await fetch('/api/games/qc-result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, result, checklist, note, severity })
+        body: JSON.stringify({ versionId, result, checklist, note, severity })
       });
       
       const data = await response.json();

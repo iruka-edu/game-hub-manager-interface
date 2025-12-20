@@ -7,14 +7,11 @@ import { AuditLogger } from '../../../../lib/audit';
 import { NotificationService } from '../../../../lib/notification';
 import { GameHistoryService } from '../../../../lib/game-history';
 import { VersionStateMachine } from '../../../../lib/version-state-machine';
-import { PublicRegistryManager } from '../../../../lib/public-registry';
-import { listFiles } from '../../../../lib/gcs';
 
 /**
- * POST /api/games/[id]/publish
- * Admin publishes a game version after approval
- * Changes version status: approved -> published
- * Optionally sets as live version
+ * POST /api/games/[id]/reject
+ * CTO/Admin rejects a game version and sends it back to dev
+ * Changes version status: qc_passed -> qc_failed
  */
 export const POST: APIRoute = async ({ params, request }) => {
   try {
@@ -27,7 +24,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     }
 
     // Check permission
-    if (!hasPermissionString(user, 'games:publish')) {
+    if (!hasPermissionString(user, 'games:approve')) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },
@@ -43,17 +40,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     }
 
     const body = await request.json();
-    const { versionId, setAsLive = false, rolloutPercentage } = body;
-
-    // Validate rolloutPercentage if provided
-    if (rolloutPercentage !== undefined) {
-      if (typeof rolloutPercentage !== 'number' || rolloutPercentage < 0 || rolloutPercentage > 100) {
-        return new Response(JSON.stringify({ error: 'Rollout percentage must be between 0 and 100' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-    }
+    const { versionId, note } = body;
 
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
@@ -96,19 +83,11 @@ export const POST: APIRoute = async ({ params, request }) => {
       });
     }
 
-    // Check if game is disabled (kill-switch)
-    if (game.disabled) {
-      return new Response(JSON.stringify({ error: 'Cannot publish disabled game. Enable the game first.' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Validate that version files exist on GCS
-    const versionFiles = await listFiles(version.storagePath);
-    const hasIndexHtml = versionFiles.some(f => f.endsWith(version.entryFile));
-    if (!hasIndexHtml) {
-      return new Response(JSON.stringify({ error: 'Version files not found on storage. Please re-upload the game.' }), {
+    // Check current status - can reject from qc_passed or approved
+    if (!['qc_passed', 'approved'].includes(version.status)) {
+      return new Response(JSON.stringify({ 
+        error: `Cannot reject version in "${version.status}" status. Only qc_passed or approved versions can be rejected.` 
+      }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -117,9 +96,9 @@ export const POST: APIRoute = async ({ params, request }) => {
     // Use state machine for transition
     const stateMachine = await VersionStateMachine.getInstance();
     
-    if (!stateMachine.canTransition(version.status, 'publish')) {
+    if (!stateMachine.canTransition(version.status, 'fail')) {
       return new Response(JSON.stringify({ 
-        error: `Cannot publish version in "${version.status}" status. Only approved versions can be published.` 
+        error: `Cannot reject version in "${version.status}" status.` 
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -127,44 +106,17 @@ export const POST: APIRoute = async ({ params, request }) => {
     }
 
     const oldStatus = version.status;
-    const updatedVersion = await stateMachine.transition(targetVersionId, 'publish', user._id.toString());
-
-    // Update rollout percentage if provided
-    if (rolloutPercentage !== undefined) {
-      await gameRepo.updateRolloutPercentage(gameId, rolloutPercentage);
-    }
-
-    // Set as live version (required for Public Registry)
-    // If setAsLive is true or this is the first published version
-    const shouldSetLive = setAsLive || !game.liveVersionId;
-    if (shouldSetLive) {
-      await gameRepo.updateLiveVersion(gameId, version._id);
-    }
-
-    // Set publishedAt if this is the first time publishing
-    if (!game.publishedAt) {
-      await gameRepo.setPublishedAt(gameId);
-    }
-
-    // Sync Public Registry
-    try {
-      await PublicRegistryManager.sync();
-    } catch (syncError) {
-      console.error('[Publish] Failed to sync Public Registry:', syncError);
-      // Don't fail the publish, just log the error
-    }
+    const updatedVersion = await stateMachine.transition(targetVersionId, 'fail', user._id.toString());
 
     // Record history
-    await GameHistoryService.recordStatusChange(gameId, user, oldStatus, 'published', {
-      setAsLive,
-      version: version.version,
-    });
+    await GameHistoryService.recordStatusChange(gameId, user, oldStatus, 'qc_failed', note);
 
     // Notify owner
-    await NotificationService.notifyGamePublished(
+    await NotificationService.notifyGameRejected(
       game.ownerId,
       game.title || game.gameId,
-      gameId
+      gameId,
+      note || 'No reason provided'
     );
 
     // Audit log
@@ -180,27 +132,21 @@ export const POST: APIRoute = async ({ params, request }) => {
         id: targetVersionId,
       },
       changes: [
-        { field: 'status', oldValue: oldStatus, newValue: 'published' },
+        { field: 'status', oldValue: oldStatus, newValue: 'qc_failed' },
       ],
       metadata: {
         gameId: game.gameId,
         version: version.version,
-        setAsLive: shouldSetLive,
-        rolloutPercentage: rolloutPercentage ?? game.rolloutPercentage ?? 100,
+        rejectionNote: note,
       },
     });
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      version: updatedVersion,
-      isLive: shouldSetLive,
-      rolloutPercentage: rolloutPercentage ?? game.rolloutPercentage ?? 100,
-    }), {
+    return new Response(JSON.stringify({ success: true, version: updatedVersion }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Publish error:', error);
+    console.error('Reject error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

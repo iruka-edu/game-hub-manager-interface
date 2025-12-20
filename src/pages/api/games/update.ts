@@ -1,8 +1,18 @@
 import type { APIRoute } from 'astro';
-import { RegistryManager } from '../../../lib/registry';
+import { GameRepository } from '../../../models/Game';
+import { getUserFromRequest } from '../../../lib/session';
+import { AuditLogger } from '../../../lib/audit';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
+    const user = await getUserFromRequest(request);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const data = await request.json();
     const { id, title, runtime, owner, capabilities, iconUrl, minHubVersion, disabled } = data;
 
@@ -70,49 +80,58 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    // Get current registry
-    const registry = await RegistryManager.get();
-    const gameIndex = registry.games.findIndex(g => g.id === id);
+    // Find game by gameId (not MongoDB _id)
+    const gameRepo = await GameRepository.getInstance();
+    const game = await gameRepo.findByGameId(id);
 
-    if (gameIndex === -1) {
+    if (!game) {
       return new Response(
         JSON.stringify({ error: 'Game không tồn tại' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const game = registry.games[gameIndex];
-
-    // Update game information
-    game.title = title.trim();
-    game.owner = owner?.trim() || game.owner;
-    game.updatedAt = new Date().toISOString();
-
-    // Update manifest
-    if (game.manifest) {
-      game.manifest.title = title.trim();
-      game.manifest.runtime = runtime;
-      
-      if (capabilities && Array.isArray(capabilities)) {
-        game.manifest.capabilities = capabilities;
-        game.capabilities = capabilities; // Also update the top-level capabilities
-      }
-      
-      if (iconUrl && iconUrl.trim()) {
-        game.manifest.iconUrl = iconUrl.trim();
-      }
-      
-      if (minHubVersion && minHubVersion.trim()) {
-        game.manifest.minHubVersion = minHubVersion.trim();
-      }
-      
-      if (typeof disabled === 'boolean') {
-        game.manifest.disabled = disabled;
-      }
+    // Check ownership (only owner or admin can update)
+    const isOwner = game.ownerId === user._id.toString();
+    const isAdmin = user.roles.includes('admin');
+    if (!isOwner && !isAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Bạn không có quyền cập nhật game này' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Save updated registry
-    await RegistryManager.save(registry);
+    // Update game metadata
+    const updatedGame = await gameRepo.updateMetadata(game._id.toString(), {
+      title: title.trim(),
+      description: game.description, // Keep existing description
+      tags: capabilities && Array.isArray(capabilities) ? capabilities : game.tags,
+    });
+
+    if (!updatedGame) {
+      return new Response(
+        JSON.stringify({ error: 'Không thể cập nhật game' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Log audit entry
+    AuditLogger.log({
+      actor: {
+        user,
+        ip: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || undefined,
+      },
+      action: 'GAME_UPDATE_METADATA',
+      target: {
+        entity: 'GAME',
+        id: game.gameId,
+      },
+      changes: [
+        { field: 'title', oldValue: game.title, newValue: title.trim() },
+        { field: 'tags', oldValue: game.tags, newValue: capabilities },
+      ],
+    });
 
     console.log(`[Update Game] Successfully updated game ${id}`);
 
@@ -121,10 +140,9 @@ export const POST: APIRoute = async ({ request }) => {
         success: true,
         message: `Đã cập nhật thông tin game ${title} thành công!`,
         game: {
-          id: game.id,
-          title: game.title,
-          owner: game.owner,
-          updatedAt: game.updatedAt
+          id: updatedGame.gameId,
+          title: updatedGame.title,
+          updatedAt: updatedGame.updatedAt.toISOString()
         }
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }

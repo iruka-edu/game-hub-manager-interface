@@ -47,6 +47,14 @@ export const GET: APIRoute = async ({ params, request, url }) => {
       version = await versionRepo.findById(versionId);
     } else if (game.latestVersionId) {
       version = await versionRepo.findById(game.latestVersionId.toString());
+    } else {
+      // Fallback: Find the most recent version for this game
+      const versions = await versionRepo.findByGameId(gameId);
+      if (versions.length > 0) {
+        version = versions[0]; // Most recent version
+        // Update game's latestVersionId for future calls
+        await gameRepo.updateLatestVersion(gameId, version._id);
+      }
     }
 
     if (!version) {
@@ -120,13 +128,21 @@ export const POST: APIRoute = async ({ params, request }) => {
     let targetVersionId = versionId;
     if (!targetVersionId && game.latestVersionId) {
       targetVersionId = game.latestVersionId.toString();
-    }
-
-    if (!targetVersionId) {
-      return new Response(JSON.stringify({ error: 'No version to update' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    } else if (!targetVersionId) {
+      // Fallback: Find the most recent version for this game
+      const versions = await versionRepo.findByGameId(gameId);
+      if (versions.length === 0) {
+        return new Response(JSON.stringify({ error: 'No version found for this game. Please upload a version first.' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const latestVersion = versions[0];
+      targetVersionId = latestVersion._id.toString();
+      
+      // Update game's latestVersionId for future calls
+      await gameRepo.updateLatestVersion(gameId, latestVersion._id);
     }
 
     const version = await versionRepo.findById(targetVersionId);

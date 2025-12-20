@@ -94,14 +94,26 @@ export const POST: APIRoute = async ({ request }) => {
         });
       }
 
-      if (!game.latestVersionId) {
-        return new Response(JSON.stringify({ error: 'No version found for this game' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
+      // Try to get latest version from Game.latestVersionId first
+      if (game.latestVersionId) {
+        targetVersionId = game.latestVersionId.toString();
+      } else {
+        // Fallback: Find the most recent version for this game
+        const versions = await versionRepo.findByGameId(gameId);
+        if (versions.length === 0) {
+          return new Response(JSON.stringify({ error: 'No version found for this game. Please upload a version first.' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        
+        // Get the most recent version (versions are sorted by createdAt desc)
+        const latestVersion = versions[0];
+        targetVersionId = latestVersion._id.toString();
+        
+        // Update game's latestVersionId for future calls
+        await gameRepo.updateLatestVersion(gameId, latestVersion._id);
       }
-
-      targetVersionId = game.latestVersionId.toString();
     }
 
     // Get the version

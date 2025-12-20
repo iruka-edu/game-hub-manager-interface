@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../models/Game';
 import { GameVersionRepository, type SelfQAChecklist } from '../../../models/GameVersion';
 import { getUserFromRequest } from '../../../lib/session';
+import { ObjectId } from 'mongodb';
 
 /**
  * POST /api/games/self-qa
@@ -56,14 +57,67 @@ export const POST: APIRoute = async ({ request }) => {
         });
       }
 
-      if (!game.latestVersionId) {
-        return new Response(JSON.stringify({ error: 'No version found for this game' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
+      // Try to get latest version from Game.latestVersionId first
+      if (game.latestVersionId) {
+        targetVersionId = game.latestVersionId.toString();
+      } else {
+        // Fallback: Find the most recent version for this game
+        const versions = await versionRepo.findByGameId(gameId);
+        if (versions.length === 0) {
+          // Try to sync from GCS registry as last resort
+          try {
+            const { RegistryManager } = await import('../../../lib/registry');
+            const registry = await RegistryManager.get();
+            const registryEntry = registry.games.find(g => g.id === game.gameId);
+            
+            if (registryEntry && registryEntry.versions.length > 0) {
+              console.log(`[Self-QA] Auto-syncing game ${game.gameId} from GCS registry`);
+              
+              // Create GameVersion records from registry
+              let latestVersionId: any = null;
+              for (const versionInfo of registryEntry.versions) {
+                const gameVersion = await versionRepo.create({
+                  gameId: game._id,
+                  version: versionInfo.version,
+                  storagePath: `games/${game.gameId}/${versionInfo.version}/`,
+                  entryFile: 'index.html',
+                  buildSize: versionInfo.size,
+                  status: 'published', // Assume published since it's in registry
+                  submittedBy: new ObjectId(user._id.toString()),
+                  submittedAt: new Date(versionInfo.uploadedAt),
+                  isDeleted: false,
+                });
+                latestVersionId = gameVersion._id;
+              }
+              
+              // Update game's latestVersionId
+              if (latestVersionId) {
+                await gameRepo.updateLatestVersion(gameId, latestVersionId);
+                targetVersionId = latestVersionId.toString();
+              }
+            }
+          } catch (syncError) {
+            console.error('[Self-QA] Auto-sync failed:', syncError);
+          }
+          
+          // If still no version after sync attempt
+          if (!targetVersionId) {
+            return new Response(JSON.stringify({ 
+              error: 'No version found for this game. Please upload a version first or sync from GCS registry.',
+              suggestion: 'Use Admin Tools → Debug Games to sync this game from GCS registry.'
+            }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+        } else {
+          const latestVersion = versions[0];
+          targetVersionId = latestVersion._id.toString();
+          
+          // Update game's latestVersionId for future calls
+          await gameRepo.updateLatestVersion(gameId, latestVersion._id);
+        }
       }
-
-      targetVersionId = game.latestVersionId.toString();
     }
 
     // Get the version
