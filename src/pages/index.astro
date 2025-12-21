@@ -5,6 +5,7 @@ import { GameRepository } from "../models/Game";
 import { GameVersionRepository } from "../models/GameVersion";
 import { getUserFromRequest } from "../lib/session";
 import type { User } from "../models/User";
+import { UserRepository } from "../models/User";
 
 // Check authentication
 const user = (await getUserFromRequest(Astro.request)) as User | null;
@@ -120,6 +121,18 @@ const roleLabels: Record<string, string> = {
 };
 const userRoleDisplay =
   user?.roles?.map((r) => roleLabels[r] || r).join(", ") || "";
+
+// Format date helper
+function formatDate(date?: Date): string {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 ---
 
 <Layout title="Game Hub Manager - Bảng điều khiển">
@@ -596,7 +609,7 @@ const userRoleDisplay =
   tableViewBtn?.addEventListener('click', () => updateViewMode('table'));
   updateViewMode(currentView);
 
-  // Search and Filter functionality
+  // Search and Filter functionality - Define elements BEFORE using them
   const searchInput = document.getElementById('searchInput') as HTMLInputElement;
   const statusFilter = document.getElementById('statusFilter') as HTMLSelectElement;
   const sortBy = document.getElementById('sortBy') as HTMLSelectElement;
