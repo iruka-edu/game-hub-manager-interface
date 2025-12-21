@@ -1,0 +1,305 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import type { User } from '../../models/User';
+import { getUserFromRequest } from '../../lib/session';
+import { hasPermissionString } from '../../auth/auth-rbac';
+import { getMongoClient } from '../../lib/mongodb';
+
+// Auth check
+const user = await getUserFromRequest(Astro.request) as User | null;
+if (!user) {
+  return Astro.redirect('/login?redirect=/admin/fix-game-owners');
+}
+
+// Permission check
+if (!hasPermissionString(user, 'system:admin')) {
+  return Astro.redirect('/console?error=unauthorized');
+}
+
+// Check how many games need fixing
+const { db } = await getMongoClient();
+const gamesColl = db.collection('games');
+const gamesToFix = await gamesColl.find({
+  $or: [
+    { ownerId: { $exists: false } },
+    { ownerId: null },
+    { ownerId: "" }
+  ]
+}).toArray();
+
+const needsFixing = gamesToFix.length > 0;
+---
+
+<Layout title="Sửa lỗi Game Owner - Admin">
+  <div class="max-w-4xl mx-auto space-y-8">
+    <!-- Header -->
+    <div class="text-center py-8">
+      <h1 class="text-3xl font-bold text-slate-900">Sửa lỗi Game Owner</h1>
+      <p class="text-slate-500 mt-2">Công cụ sửa lỗi thiếu thông tin ownerId trong games collection</p>
+    </div>
+
+    <!-- Status Card -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+      <div class="flex items-start gap-4">
+        <div class={`w-12 h-12 rounded-full flex items-center justify-center ${
+          needsFixing ? 'bg-amber-100' : 'bg-green-100'
+        }`}>
+          {needsFixing ? (
+            <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+          ) : (
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          )}
+        </div>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold text-slate-900">
+            {needsFixing ? 'Phát hiện games thiếu ownerId' : 'Tất cả games đã có ownerId'}
+          </h3>
+          <p class="text-slate-600 mt-1">
+            {needsFixing 
+              ? `Có ${gamesToFix.length} games cần được sửa lỗi thiếu thông tin chủ sở hữu.`
+              : 'Tất cả games trong database đã có thông tin ownerId đầy đủ.'
+            }
+          </p>
+          
+          {needsFixing && (
+            <div class="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <h4 class="font-medium text-amber-800 mb-2">Vấn đề:</h4>
+              <p class="text-sm text-amber-700 mb-3">
+                Một số games được tạo trước khi hệ thống có tính năng lưu ownerId, 
+                khiến chúng không hiển thị trong trang "Game của tôi" của developer.
+              </p>
+              <h4 class="font-medium text-amber-800 mb-2">Giải pháp:</h4>
+              <ul class="text-sm text-amber-700 space-y-1">
+                <li>• Tìm owner từ GameVersion records (người upload gần nhất)</li>
+                <li>• Nếu không tìm thấy, gán cho admin đầu tiên</li>
+                <li>• Cập nhật trường ownerId trong database</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <!-- Games List (if any need fixing) -->
+    {needsFixing && (
+      <div class="bg-white rounded-xl border border-slate-200 mb-6">
+        <div class="px-6 py-4 border-b border-slate-200">
+          <h3 class="text-lg font-semibold text-slate-900">Games cần sửa</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="text-left px-6 py-3 text-sm font-semibold text-slate-700">Game ID</th>
+                <th class="text-left px-6 py-3 text-sm font-semibold text-slate-700">Tiêu đề</th>
+                <th class="text-left px-6 py-3 text-sm font-semibold text-slate-700">Tạo lúc</th>
+                <th class="text-left px-6 py-3 text-sm font-semibold text-slate-700">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {gamesToFix.slice(0, 10).map(game => (
+                <tr>
+                  <td class="px-6 py-3 text-sm font-mono text-slate-700">{game.gameId}</td>
+                  <td class="px-6 py-3 text-sm text-slate-900">{game.title || '(Không có tiêu đề)'}</td>
+                  <td class="px-6 py-3 text-sm text-slate-500">
+                    {game.createdAt ? new Date(game.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                  </td>
+                  <td class="px-6 py-3">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                      Thiếu ownerId
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {gamesToFix.length > 10 && (
+            <div class="px-6 py-3 text-sm text-slate-500 bg-slate-50">
+              ... và {gamesToFix.length - 10} games khác
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    <!-- Action Section -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Thao tác</h3>
+      
+      {needsFixing ? (
+        <div class="space-y-4">
+          <p class="text-slate-600">
+            Nhấn nút bên dưới để tự động sửa lỗi thiếu ownerId cho tất cả games.
+          </p>
+          <button 
+            id="fixButton"
+            class="btn-primary flex items-center gap-2"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Sửa lỗi tự động ({gamesToFix.length} games)
+          </button>
+        </div>
+      ) : (
+        <div class="text-center py-8">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 mb-2">Tất cả đã ổn!</h3>
+          <p class="text-slate-500">Không có games nào cần sửa lỗi ownerId.</p>
+        </div>
+      )}
+    </div>
+
+    <!-- Results Section (hidden initially) -->
+    <div id="resultsSection" class="hidden mt-6 bg-white rounded-xl border border-slate-200 p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Kết quả</h3>
+      <div id="resultsContent"></div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const fixButton = document.getElementById('fixButton');
+  const resultsSection = document.getElementById('resultsSection');
+  const resultsContent = document.getElementById('resultsContent');
+
+  fixButton?.addEventListener('click', async () => {
+    if (!confirm('Bạn có chắc chắn muốn sửa lỗi ownerId cho tất cả games? Thao tác này không thể hoàn tác.')) {
+      return;
+    }
+
+    // Disable button and show loading
+    (fixButton as HTMLButtonElement).disabled = true;
+    fixButton.innerHTML = `
+      <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+      Đang xử lý...
+    `;
+
+    try {
+      const response = await fetch('/api/admin/fix-game-owners', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Show success results
+        resultsContent!.innerHTML = `
+          <div class="space-y-4">
+            <div class="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+              <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              <div>
+                <h4 class="font-semibold text-green-800">Hoàn thành thành công!</h4>
+                <p class="text-green-700">${data.message}</p>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-4">
+              <div class="text-center p-4 bg-slate-50 rounded-lg">
+                <div class="text-2xl font-bold text-slate-900">${data.results.total}</div>
+                <div class="text-sm text-slate-600">Tổng số games</div>
+              </div>
+              <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl font-bold text-green-600">${data.results.fixed}</div>
+                <div class="text-sm text-green-700">Đã sửa</div>
+              </div>
+              <div class="text-center p-4 bg-red-50 rounded-lg">
+                <div class="text-2xl font-bold text-red-600">${data.results.failed}</div>
+                <div class="text-sm text-red-700">Thất bại</div>
+              </div>
+            </div>
+
+            ${data.results.details.length > 0 ? `
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="bg-slate-50">
+                    <tr>
+                      <th class="text-left px-3 py-2 font-semibold text-slate-700">Game</th>
+                      <th class="text-left px-3 py-2 font-semibold text-slate-700">Trạng thái</th>
+                      <th class="text-left px-3 py-2 font-semibold text-slate-700">Owner mới</th>
+                      <th class="text-left px-3 py-2 font-semibold text-slate-700">Phương pháp</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    ${data.results.details.map((detail: any) => `
+                      <tr>
+                        <td class="px-3 py-2">
+                          <div class="font-medium">${detail.title}</div>
+                          <div class="text-xs text-slate-500">${detail.gameId}</div>
+                        </td>
+                        <td class="px-3 py-2">
+                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            detail.status === 'success' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }">
+                            ${detail.status === 'success' ? 'Thành công' : 'Thất bại'}
+                          </span>
+                        </td>
+                        <td class="px-3 py-2 font-mono text-xs">
+                          ${detail.newOwnerId || 'N/A'}
+                        </td>
+                        <td class="px-3 py-2 text-xs">
+                          ${detail.method === 'version' ? 'Từ version' : 'Admin fallback'}
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <div class="text-center pt-4">
+              <button onclick="window.location.reload()" class="btn-primary">
+                Tải lại trang
+              </button>
+            </div>
+          </div>
+        `;
+        resultsSection?.classList.remove('hidden');
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
+    } catch (error) {
+      // Show error
+      resultsContent!.innerHTML = `
+        <div class="p-4 bg-red-50 rounded-lg border border-red-200">
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <h4 class="font-semibold text-red-800">Có lỗi xảy ra</h4>
+              <p class="text-red-700">${(error as Error).message}</p>
+            </div>
+          </div>
+        </div>
+      `;
+      resultsSection?.classList.remove('hidden');
+      
+      // Re-enable button
+      (fixButton as HTMLButtonElement).disabled = false;
+      fixButton.innerHTML = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        Thử lại
+      `;
+    }
+  });
+</script>

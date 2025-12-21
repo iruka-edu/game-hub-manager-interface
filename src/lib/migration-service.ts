@@ -1,9 +1,9 @@
-import { ObjectId } from 'mongodb';
-import type { Game } from '../models/Game';
-import { GameRepository } from '../models/Game';
-import type { GameVersion, VersionStatus } from '../models/GameVersion';
-import { GameVersionRepository } from '../models/GameVersion';
-import { generateStoragePath } from './storage-path';
+import { ObjectId } from "mongodb";
+import type { Game } from "../models/Game";
+import { GameRepository } from "../models/Game";
+import type { GameVersion, VersionStatus } from "../models/GameVersion";
+import { GameVersionRepository } from "../models/GameVersion";
+import { generateStoragePath } from "./storage-path";
 
 /**
  * Old Game format (before versioning)
@@ -20,7 +20,7 @@ export interface OldGame {
   grade?: string;
   unit?: string;
   gameType?: string;
-  priority?: 'low' | 'medium' | 'high';
+  priority?: "low" | "medium" | "high";
   selfQaChecklist?: unknown[];
   selfQaNote?: string;
   submittedAt?: Date;
@@ -74,27 +74,27 @@ export class MigrationService {
    */
   private mapStatus(oldStatus: string): VersionStatus {
     const statusMap: Record<string, VersionStatus> = {
-      'draft': 'draft',
-      'uploaded': 'uploaded',
-      'qc_passed': 'qc_passed',
-      'qc_failed': 'qc_failed',
-      'approved': 'approved',
-      'published': 'published',
-      'archived': 'published' // Map archived to published
+      draft: "draft",
+      uploaded: "uploaded",
+      qc_passed: "qc_passed",
+      qc_failed: "qc_failed",
+      approved: "approved",
+      published: "published",
+      archived: "published", // Map archived to published
     };
 
-    return statusMap[oldStatus] || 'draft';
+    return statusMap[oldStatus] || "draft";
   }
 
   /**
    * Migrate a single game from old format to new format
-   * 
+   *
    * @param oldGame - Old game document
    * @returns Migrated game and version
    */
   async migrateGame(oldGame: OldGame): Promise<GameMigrationResult> {
     // Create new Game document (without status)
-    const newGame: Omit<Game, '_id'> = {
+    const newGame: Omit<Game, "_id"> = {
       gameId: oldGame.gameId,
       title: oldGame.title,
       description: oldGame.description,
@@ -107,6 +107,8 @@ export class MigrationService {
       priority: oldGame.priority,
       tags: [],
       isDeleted: oldGame.isDeleted,
+      disabled: false,
+      rolloutPercentage: 0,
       createdAt: oldGame.createdAt,
       updatedAt: oldGame.updatedAt,
     };
@@ -115,20 +117,19 @@ export class MigrationService {
     const gameResult = await this.gameRepo.create(newGame);
 
     // Create initial GameVersion (version 1.0.0)
-    const version = '1.0.0';
+    const version = "1.0.0";
     const storagePath = generateStoragePath(oldGame.gameId, version);
     const status = this.mapStatus(oldGame.status);
 
-    const newVersion: Omit<GameVersion, '_id' | 'createdAt' | 'updatedAt'> = {
+    const newVersion: Omit<GameVersion, "_id" | "createdAt" | "updatedAt"> = {
       gameId: gameResult._id,
       version,
       storagePath,
-      entryFile: 'index.html',
+      entryFile: "index.html",
       status,
+      isDeleted: false,
       submittedBy: new ObjectId(oldGame.ownerId),
       submittedAt: oldGame.submittedAt,
-      createdAt: oldGame.createdAt,
-      updatedAt: oldGame.updatedAt,
     };
 
     // Insert GameVersion
@@ -141,7 +142,7 @@ export class MigrationService {
     );
 
     // If status is published, also set as liveVersionId
-    if (status === 'published') {
+    if (status === "published") {
       await this.gameRepo.updateLiveVersion(
         gameResult._id.toString(),
         versionResult._id
@@ -150,13 +151,13 @@ export class MigrationService {
 
     return {
       game: gameResult,
-      version: versionResult
+      version: versionResult,
     };
   }
 
   /**
    * Migrate all games from old format to new format
-   * 
+   *
    * @param dryRun - If true, only simulate migration without making changes
    * @returns Migration result summary
    */
@@ -165,7 +166,7 @@ export class MigrationService {
       gamesProcessed: 0,
       versionsCreated: 0,
       errors: [],
-      skipped: 0
+      skipped: 0,
     };
 
     try {
@@ -178,7 +179,9 @@ export class MigrationService {
         try {
           // Check if game already has latestVersionId (already migrated)
           if (game.latestVersionId) {
-            console.log(`[Migration] Skipping ${game.gameId} - already migrated`);
+            console.log(
+              `[Migration] Skipping ${game.gameId} - already migrated`
+            );
             result.skipped++;
             continue;
           }
@@ -191,23 +194,27 @@ export class MigrationService {
             // Migrate the game
             const oldGame = game as unknown as OldGame;
             await this.migrateGame(oldGame);
-            
+
             console.log(`[Migration] Migrated: ${game.gameId}`);
             result.gamesProcessed++;
             result.versionsCreated++;
           }
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          console.error(`[Migration] Error migrating ${game.gameId}:`, errorMsg);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          console.error(
+            `[Migration] Error migrating ${game.gameId}:`,
+            errorMsg
+          );
           result.errors.push(`${game.gameId}: ${errorMsg}`);
         }
       }
 
-      console.log('[Migration] Complete:', result);
+      console.log("[Migration] Complete:", result);
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error('[Migration] Fatal error:', errorMsg);
+      console.error("[Migration] Fatal error:", errorMsg);
       result.errors.push(`Fatal: ${errorMsg}`);
       return result;
     }
@@ -216,7 +223,7 @@ export class MigrationService {
   /**
    * Rollback migration for a single game
    * WARNING: This will delete the GameVersion and reset the Game
-   * 
+   *
    * @param gameId - Game ID to rollback
    */
   async rollbackGame(gameId: string): Promise<void> {
@@ -227,13 +234,13 @@ export class MigrationService {
 
     // This is a simplified rollback - in production you'd want more sophisticated logic
     console.log(`[Migration] Rollback not fully implemented for: ${gameId}`);
-    console.log('[Migration] Manual intervention may be required');
+    console.log("[Migration] Manual intervention may be required");
   }
 
   /**
    * Verify migration integrity
    * Checks that all games have corresponding versions
-   * 
+   *
    * @returns Object with verification results
    */
   async verifyMigration(): Promise<{
@@ -250,11 +257,15 @@ export class MigrationService {
     for (const game of allGames) {
       if (game.latestVersionId) {
         migratedCount++;
-        
+
         // Verify version exists
-        const version = await this.versionRepo.findById(game.latestVersionId.toString());
+        const version = await this.versionRepo.findById(
+          game.latestVersionId.toString()
+        );
         if (!version) {
-          issues.push(`Game ${game.gameId} has latestVersionId but version not found`);
+          issues.push(
+            `Game ${game.gameId} has latestVersionId but version not found`
+          );
         }
       } else {
         unmigratedCount++;
@@ -266,7 +277,7 @@ export class MigrationService {
       totalGames: allGames.length,
       migratedGames: migratedCount,
       unmigratedGames: unmigratedCount,
-      issues
+      issues,
     };
   }
 }

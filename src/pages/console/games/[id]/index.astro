@@ -4,10 +4,12 @@ import StatusChip from '../../../../components/StatusChip.astro';
 import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
+import { GameVersionRepository } from '../../../../models/GameVersion';
 import { UserRepository } from '../../../../models/User';
 import { QcReportRepository } from '../../../../models/QcReport';
 import { GameHistoryService } from '../../../../lib/game-history';
 import { getUserFromRequest } from '../../../../lib/session';
+import { VersionStateMachine } from '../../../../lib/version-state-machine';
 
 // Auth check
 const user = await getUserFromRequest(Astro.request) as User | null;
@@ -18,6 +20,7 @@ if (!user) {
 // Get game
 const { id } = Astro.params;
 const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
 const qcRepo = await QcReportRepository.getInstance();
 const game = await gameRepo.findById(id || '');
@@ -25,6 +28,20 @@ const game = await gameRepo.findById(id || '');
 if (!game) {
   return Astro.redirect('/console/library?error=not-found');
 }
+
+// Get latest version
+const latestVersion = game.latestVersionId 
+  ? await versionRepo.findById(game.latestVersionId.toString())
+  : null;
+
+const currentStatus = latestVersion?.status || 'draft';
+const selfQa = latestVersion?.selfQAChecklist || {
+  testedDevices: false,
+  testedAudio: false,
+  gameplayComplete: false,
+  contentVerified: false,
+  note: ''
+};
 
 // Get owner info
 const owner = await userRepo.findById(game.ownerId);
@@ -44,11 +61,16 @@ const isCEO = hasRole('ceo');
 const isAdmin = hasRole('admin');
 
 // Action permissions
-const canEdit = isOwner && ['draft', 'qc_failed'].includes(game.status);
-const canSubmitQC = isOwner && ['draft', 'qc_failed'].includes(game.status);
-const canReview = (isQC || isAdmin) && game.status === 'uploaded';
-const canApprove = (isCTO || isCEO || isAdmin) && game.status === 'qc_passed';
-const canPublish = isAdmin && game.status === 'approved';
+const canEdit = isOwner && ['draft', 'qc_failed'].includes(currentStatus);
+const canSubmitQC = isOwner && ['draft', 'qc_failed'].includes(currentStatus);
+const canReview = (isQC || isAdmin) && currentStatus === 'uploaded';
+const canApprove = (isCTO || isCEO || isAdmin) && currentStatus === 'qc_passed';
+const canPublish = isAdmin && currentStatus === 'approved';
+
+// Check if Self-QA is complete
+const stateMachine = await VersionStateMachine.getInstance();
+const isSelfQaComplete = stateMachine.validateSelfQA(selfQa);
+const needsSelfQaWarning = canSubmitQC && !isSelfQaComplete;
 
 // Tab from URL
 const tab = Astro.url.searchParams.get('tab') || 'info';
@@ -71,7 +93,7 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
       <div>
         <div class="flex items-center gap-3 mb-2">
           <h1 class="text-2xl font-bold text-slate-900">{game.title || game.gameId}</h1>
-          <StatusChip status={game.status} />
+          <StatusChip status={currentStatus} />
         </div>
         <p class="text-slate-500">{game.gameId}</p>
         <p class="text-sm text-slate-400 mt-1">
@@ -109,8 +131,22 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
     <!-- Workflow Timeline -->
     <div class="bg-white rounded-xl border border-slate-200 p-6 mb-8">
       <h3 class="text-sm font-semibold text-slate-700 mb-4">Tiến trình phê duyệt</h3>
-      <WorkflowTimeline currentStatus={game.status} />
+      <WorkflowTimeline currentStatus={currentStatus} />
     </div>
+
+    {needsSelfQaWarning && (
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8 flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <div>
+          <h4 class="text-sm font-semibold text-amber-800">Self-QA chưa hoàn tất</h4>
+          <p class="text-sm text-amber-700 mt-1">
+            Bạn cần tích chọn và lưu tất cả mục trong checklist Self-QA bên dưới trước khi có thể gửi cho QC kiểm tra.
+          </p>
+        </div>
+      </div>
+    )}
 
     <!-- Tabs -->
     <div class="bg-white rounded-xl border border-slate-200 mb-8">
@@ -162,7 +198,7 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
             </div>
             <div>
               <dt class="text-sm text-slate-500">Trạng thái</dt>
-              <dd><StatusChip status={game.status} size="sm" /></dd>
+              <dd><StatusChip status={currentStatus} size="sm" /></dd>
             </div>
             <div>
               <dt class="text-sm text-slate-500">Team</dt>
@@ -196,42 +232,83 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
         </div>
 
         <!-- Self-QA Checklist -->
-        {game.selfQaChecklist && game.selfQaChecklist.length > 0 && (
-          <div class="bg-white rounded-xl border border-slate-200 p-6">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-semibold text-slate-900">Self-QA Checklist</h3>
-              {canEdit && (
-                <span class="text-xs text-slate-500">Nhấn để cập nhật</span>
-              )}
-            </div>
-            <div class="space-y-3" id="self-qa-list" data-game-id={game._id.toString()} data-can-edit={canEdit ? 'true' : 'false'}>
-              {game.selfQaChecklist.map(item => (
-                <label class={`flex items-center gap-3 ${canEdit ? 'cursor-pointer' : ''}`}>
-                  <input 
-                    type="checkbox" 
-                    class="self-qa-check w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    data-item-id={item.id}
-                    checked={item.checked}
-                    disabled={!canEdit}
-                  />
-                  <span class={item.checked ? 'text-slate-900' : 'text-slate-500'}>{item.label}</span>
-                </label>
-              ))}
-            </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-900">Self-QA Checklist</h3>
             {canEdit && (
-              <div class="mt-4 pt-4 border-t border-slate-200">
-                <label class="block text-sm font-medium text-slate-700 mb-2">Ghi chú</label>
-                <textarea 
-                  id="self-qa-note"
-                  rows="2"
-                  class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Ghi chú thêm cho QC..."
-                >{game.selfQaNote || ''}</textarea>
-                <button id="save-self-qa" class="mt-2 btn-secondary text-sm">Lưu Self-QA</button>
-              </div>
+              <span class="text-xs text-slate-500">Nhấn để cập nhật</span>
             )}
           </div>
-        )}
+          <div class="space-y-4" id="self-qa-list" data-game-id={game._id.toString()} data-can-edit={canEdit ? 'true' : 'false'}>
+            <label class={`flex items-start gap-3 p-3 rounded-lg border ${selfQa.testedDevices ? 'border-green-100 bg-green-50/30' : 'border-slate-100'} ${canEdit ? 'cursor-pointer hover:border-indigo-200' : ''}`}>
+              <input 
+                type="checkbox" 
+                class="self-qa-check w-5 h-5 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                data-item-id="testedDevices"
+                checked={selfQa.testedDevices}
+                disabled={!canEdit}
+              />
+              <div>
+                <span class={`font-medium block ${selfQa.testedDevices ? 'text-slate-900' : 'text-slate-500'}`}>Đã test trên thiết bị</span>
+                <p class="text-xs text-slate-500">Đảm bảo game hoạt động tốt trên cả mobile và desktop</p>
+              </div>
+            </label>
+
+            <label class={`flex items-start gap-3 p-3 rounded-lg border ${selfQa.testedAudio ? 'border-green-100 bg-green-50/30' : 'border-slate-100'} ${canEdit ? 'cursor-pointer hover:border-indigo-200' : ''}`}>
+              <input 
+                type="checkbox" 
+                class="self-qa-check w-5 h-5 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                data-item-id="testedAudio"
+                checked={selfQa.testedAudio}
+                disabled={!canEdit}
+              />
+              <div>
+                <span class={`font-medium block ${selfQa.testedAudio ? 'text-slate-900' : 'text-slate-500'}`}>Âm thanh hoạt động tốt</span>
+                <p class="text-xs text-slate-500">Kiểm tra nhạc nền, hiệu ứng âm thanh và lồng tiếng</p>
+              </div>
+            </label>
+
+            <label class={`flex items-start gap-3 p-3 rounded-lg border ${selfQa.gameplayComplete ? 'border-green-100 bg-green-50/30' : 'border-slate-100'} ${canEdit ? 'cursor-pointer hover:border-indigo-200' : ''}`}>
+              <input 
+                type="checkbox" 
+                class="self-qa-check w-5 h-5 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                data-item-id="gameplayComplete"
+                checked={selfQa.gameplayComplete}
+                disabled={!canEdit}
+              />
+              <div>
+                <span class={`font-medium block ${selfQa.gameplayComplete ? 'text-slate-900' : 'text-slate-500'}`}>Gameplay hoàn chỉnh</span>
+                <p class="text-xs text-slate-500">Người chơi có thể hoàn thành game mà không gặp lỗi logic</p>
+              </div>
+            </label>
+
+            <label class={`flex items-start gap-3 p-3 rounded-lg border ${selfQa.contentVerified ? 'border-green-100 bg-green-50/30' : 'border-slate-100'} ${canEdit ? 'cursor-pointer hover:border-indigo-200' : ''}`}>
+              <input 
+                type="checkbox" 
+                class="self-qa-check w-5 h-5 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                data-item-id="contentVerified"
+                checked={selfQa.contentVerified}
+                disabled={!canEdit}
+              />
+              <div>
+                <span class={`font-medium block ${selfQa.contentVerified ? 'text-slate-900' : 'text-slate-500'}`}>Nội dung chính xác</span>
+                <p class="text-xs text-slate-500">Đã kiểm tra text, câu hỏi, đáp án theo đúng yêu cầu chuyên môn</p>
+              </div>
+            </label>
+          </div>
+          {canEdit && (
+            <div class="mt-4 pt-4 border-t border-slate-200">
+              <label class="block text-sm font-medium text-slate-700 mb-2">Ghi chú cho QC</label>
+              <textarea 
+                id="self-qa-note"
+                rows="2"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                placeholder="Ví dụ: Cần chú ý phần âm thanh ở màn 3..."
+              >{selfQa.note || ''}</textarea>
+              <button id="save-self-qa" class="mt-2 btn-secondary text-sm">Lưu Checklist</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <!-- Sidebar -->
@@ -240,16 +317,17 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
         <div class="bg-white rounded-xl border border-slate-200 p-6">
           <h3 class="font-semibold text-slate-900 mb-4">Trạng thái hiện tại</h3>
           <div class="flex items-center gap-3 mb-4">
-            <StatusChip status={game.status} />
+            <StatusChip status={currentStatus} />
           </div>
           <p class="text-sm text-slate-600">
-            {game.status === 'draft' && 'Game đang ở trạng thái nháp. Dev có thể chỉnh sửa và gửi QC khi sẵn sàng.'}
-            {game.status === 'uploaded' && 'Game đang chờ QC kiểm tra chất lượng.'}
-            {game.status === 'qc_passed' && 'Game đã qua QC và đang chờ CTO/CEO phê duyệt.'}
-            {game.status === 'qc_failed' && 'Game cần được Dev chỉnh sửa theo feedback của QC.'}
-            {game.status === 'approved' && 'Game đã được duyệt và đang chờ Admin xuất bản.'}
-            {game.status === 'published' && 'Game đã được xuất bản và học sinh có thể chơi.'}
-            {game.status === 'archived' && 'Game đã bị ngừng hiển thị.'}
+            {currentStatus === 'draft' && 'Game đang ở trạng thái nháp. Dev có thể chỉnh sửa và gửi QC khi sẵn sàng.'}
+            {currentStatus === 'uploaded' && 'Game đang chờ QC kiểm tra chất lượng.'}
+            {currentStatus === 'qc_processing' && 'QC đang tiến hành kiểm tra game này.'}
+            {currentStatus === 'qc_passed' && 'Game đã qua QC và đang chờ CTO/CEO phê duyệt.'}
+            {currentStatus === 'qc_failed' && 'Game cần được Dev chỉnh sửa theo feedback của QC.'}
+            {currentStatus === 'approved' && 'Game đã được duyệt và đang chờ Admin xuất bản.'}
+            {currentStatus === 'published' && 'Game đã được xuất bản và học sinh có thể chơi.'}
+            {currentStatus === 'archived' && 'Game đã bị ngừng hiển thị.'}
           </p>
         </div>
 
@@ -389,9 +467,18 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId })
       });
-      if (response.ok) window.location.reload();
-      else alert('Có lỗi xảy ra');
-    } catch { alert('Có lỗi xảy ra'); }
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        alert(data.error || 'Có lỗi xảy ra khi gửi QC');
+      }
+    } catch (error) { 
+      console.error(error);
+      alert('Có lỗi mạng hoặc lỗi server xảy ra'); 
+    }
   });
   
   // Approve
@@ -435,11 +522,13 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
     const checkboxes = selfQaList?.querySelectorAll('.self-qa-check') as NodeListOf<HTMLInputElement>;
     const noteInput = document.getElementById('self-qa-note') as HTMLTextAreaElement;
     
-    const checklist = Array.from(checkboxes).map(cb => ({
-      id: cb.dataset.itemId,
-      label: cb.parentElement?.querySelector('span')?.textContent || '',
-      checked: cb.checked,
-    }));
+    const checklist: any = {};
+    checkboxes.forEach(cb => {
+      const fieldId = cb.dataset.itemId;
+      if (fieldId) {
+        checklist[fieldId] = cb.checked;
+      }
+    });
     
     try {
       const response = await fetch('/api/games/self-qa', {
@@ -448,11 +537,14 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
         body: JSON.stringify({ gameId, checklist, note: noteInput?.value })
       });
       
+      const data = await response.json();
+      
       if (response.ok) {
         alert('Đã lưu Self-QA');
+        window.location.reload(); // Reload to refresh warning state
       } else {
-        alert('Có lỗi xảy ra');
+        alert(data.error || 'Có lỗi xảy ra');
       }
-    } catch { alert('Có lỗi xảy ra'); }
+    } catch { alert('Có lỗi mạng hoặc lỗi server xảy ra'); }
   });
 </script>

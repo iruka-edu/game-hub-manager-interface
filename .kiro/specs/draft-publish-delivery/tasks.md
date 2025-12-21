@@ -56,7 +56,7 @@
     - **Validates: Requirements 2.4, 2.5**
 
 
-  - [ ] 3.3 Implement filtering logic for published and enabled games
+  - [x] 3.3 Implement filtering logic for published and enabled games
     - Query MongoDB for games with published versions
     - Filter out games where `disabled === true`
     - Extract only necessary metadata for PublicGameEntry

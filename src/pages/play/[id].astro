@@ -1,22 +1,49 @@
 ---
-import { RegistryManager } from '../../lib/registry';
+import { GameRepository } from '../../models/Game';
+import { GameVersionRepository } from '../../models/GameVersion';
 
 const { id } = Astro.params;
 const version = Astro.url.searchParams.get('v');
 
-// Find game in registry
+// Find game in database
 let game = null;
 let gameVersion = version;
 let entryUrl = '';
+let versions: any[] = [];
 
 try {
-  const registry = await RegistryManager.get();
-  game = registry.games.find(g => g.id === id);
+  const gameRepo = await GameRepository.getInstance();
+  const versionRepo = await GameVersionRepository.getInstance();
+  
+  // 1. Try lookup by ID (ObjectId)
+  game = await gameRepo.findById(id || '');
+  
+  // 2. If not found, try lookup by GameId (slug)
+  if (!game) {
+    game = await gameRepo.findByGameId(id || '');
+  }
   
   if (game) {
-    gameVersion = version || game.activeVersion;
-    const CDN_BASE = `https://storage.googleapis.com/${import.meta.env.GCLOUD_BUCKET_NAME || 'iruka-edu-mini-game'}`;
-    entryUrl = `${CDN_BASE}/games/${id}/${gameVersion}/index.html`;
+    versions = await versionRepo.findByGameId(game._id.toString());
+    
+    // Find specific version or latest
+    let targetVersion = null;
+    if (version) {
+      targetVersion = versions.find(v => v.version === version);
+    } else if (game.latestVersionId) {
+      targetVersion = await versionRepo.findById(game.latestVersionId.toString());
+    } else if (versions.length > 0) {
+      targetVersion = versions[0];
+    }
+
+    if (targetVersion) {
+      gameVersion = targetVersion.version;
+      const CDN_BASE = `https://storage.googleapis.com/${import.meta.env.GCLOUD_BUCKET_NAME || 'iruka-edu-mini-game'}`;
+      
+      // Cache bust with timestamp
+      const timestamp = new Date(targetVersion.updatedAt).getTime();
+      entryUrl = `${CDN_BASE}/games/${game.gameId}/${gameVersion}/index.html?t=${timestamp}`;
+    }
   }
 } catch (error) {
   console.error('Failed to load game:', error);
@@ -60,12 +87,12 @@ try {
           
           <div class="flex items-center gap-2">
             {/* Version Selector */}
-            {game.versions.length > 1 && (
+            {versions.length > 1 && (
               <select 
                 id="versionSelect"
                 class="bg-white border border-slate-200 rounded-md px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                {game.versions.slice().reverse().map((versionInfo) => (
+                {versions.slice().reverse().map((versionInfo) => (
                   <option value={versionInfo.version} selected={versionInfo.version === gameVersion}>v{versionInfo.version}</option>
                 ))}
               </select>
@@ -91,7 +118,7 @@ try {
           allow="fullscreen; autoplay; gamepad"
         ></iframe>
         
-        <script define:vars={{ id }}>
+        <script define:vars={{ id: game.gameId }}>
           // Version selector
           const versionSelect = document.getElementById('versionSelect');
           if (versionSelect) {

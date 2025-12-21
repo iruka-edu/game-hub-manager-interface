@@ -33,6 +33,24 @@ export const STATE_TRANSITIONS: Record<string, StateTransition> = {
       );
     }
   },
+  resubmit: {
+    from: ['published', 'approved'],
+    to: 'uploaded',
+    requiredPermission: 'games:submit',
+    validate: async (version: GameVersion) => {
+      // Check Self-QA completion for resubmission
+      if (!version.selfQAChecklist) {
+        return false;
+      }
+      const checklist = version.selfQAChecklist;
+      return (
+        checklist.testedDevices === true &&
+        checklist.testedAudio === true &&
+        checklist.gameplayComplete === true &&
+        checklist.contentVerified === true
+      );
+    }
+  },
   startReview: {
     from: ['uploaded'],
     to: 'qc_processing',

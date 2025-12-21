@@ -1,5 +1,5 @@
-import type { User, Role } from '../models/User';
-import type { Game, GameStatus } from '../models/Game';
+import type { User, Role } from "../models/User";
+import type { Game, GameStatus } from "../models/Game";
 
 /**
  * Permission check can be a boolean or a function that evaluates based on user and resource
@@ -29,7 +29,7 @@ type RolePermissions = {
 /**
  * Statuses where dev can update their own game
  */
-const DEV_UPDATABLE_STATUSES: GameStatus[] = ['draft', 'uploaded', 'qc_failed'];
+const DEV_UPDATABLE_STATUSES: GameStatus[] = ["draft", "uploaded", "qc_failed"];
 
 /**
  * Check if user owns the game
@@ -42,7 +42,7 @@ const isOwner = (user: User, game: Game): boolean => {
  * Check if game has specific status
  */
 const hasStatus = (game: Game, statuses: GameStatus[]): boolean => {
-  return statuses.includes(game.status);
+  return !!game.status && statuses.includes(game.status);
 };
 
 /**
@@ -53,8 +53,10 @@ export const ROLES: Record<Role, RolePermissions> = {
     games: {
       view: (user, game) => isOwner(user, game),
       create: true,
-      update: (user, game) => isOwner(user, game) && hasStatus(game, DEV_UPDATABLE_STATUSES),
-      submit: (user, game) => isOwner(user, game) && hasStatus(game, ['draft', 'qc_failed']),
+      update: (user, game) =>
+        isOwner(user, game) && hasStatus(game, DEV_UPDATABLE_STATUSES),
+      submit: (user, game) =>
+        isOwner(user, game) && hasStatus(game, ["draft", "qc_failed"]),
       review: false,
       approve: false,
       publish: false,
@@ -63,34 +65,34 @@ export const ROLES: Record<Role, RolePermissions> = {
 
   qc: {
     games: {
-      view: (_, game) => hasStatus(game, ['uploaded']),
+      view: (_, game) => hasStatus(game, ["uploaded"]),
       create: false,
       update: false,
       submit: false,
-      review: (_, game) => hasStatus(game, ['uploaded']),
+      review: (_, game) => hasStatus(game, ["uploaded"]),
       approve: false,
       publish: false,
     },
   },
   cto: {
     games: {
-      view: (_, game) => hasStatus(game, ['qc_passed']),
+      view: (_, game) => hasStatus(game, ["qc_passed"]),
       create: false,
       update: false,
       submit: false,
       review: false,
-      approve: (_, game) => hasStatus(game, ['qc_passed']),
+      approve: (_, game) => hasStatus(game, ["qc_passed"]),
       publish: false,
     },
   },
   ceo: {
     games: {
-      view: (_, game) => hasStatus(game, ['qc_passed']),
+      view: (_, game) => hasStatus(game, ["qc_passed"]),
       create: false,
       update: false,
       submit: false,
       review: false,
-      approve: (_, game) => hasStatus(game, ['qc_passed']),
+      approve: (_, game) => hasStatus(game, ["qc_passed"]),
       publish: false,
     },
   },
@@ -102,14 +104,14 @@ export const ROLES: Record<Role, RolePermissions> = {
       submit: true,
       review: true,
       approve: true,
-      publish: (_, game) => hasStatus(game, ['approved']),
+      publish: (_, game) => hasStatus(game, ["approved"]),
     },
   },
 };
 
 /**
  * Check if a user has permission to perform an action on a resource
- * 
+ *
  * @param user - The user to check permissions for
  * @param resource - The resource type (currently only 'games')
  * @param action - The action to check
@@ -118,7 +120,7 @@ export const ROLES: Record<Role, RolePermissions> = {
  */
 export function hasPermission(
   user: User,
-  resource: 'games',
+  resource: "games",
   action: keyof GamePermissions,
   data?: Game
 ): boolean {
@@ -134,13 +136,13 @@ export function hasPermission(
     if (permission === undefined) continue;
 
     // If permission is a boolean
-    if (typeof permission === 'boolean') {
+    if (typeof permission === "boolean") {
       if (permission) return true;
       continue;
     }
 
     // If permission is a function, evaluate it
-    if (typeof permission === 'function' && data) {
+    if (typeof permission === "function" && data) {
       if (permission(user, data)) return true;
     }
   }
@@ -151,7 +153,18 @@ export function hasPermission(
 /**
  * Get all actions a user can perform on a specific game
  */
-export function getPermittedActions(user: User, game: Game): (keyof GamePermissions)[] {
-  const actions: (keyof GamePermissions)[] = ['view', 'create', 'update', 'submit', 'review', 'approve', 'publish'];
-  return actions.filter(action => hasPermission(user, 'games', action, game));
+export function getPermittedActions(
+  user: User,
+  game: Game
+): (keyof GamePermissions)[] {
+  const actions: (keyof GamePermissions)[] = [
+    "view",
+    "create",
+    "update",
+    "submit",
+    "review",
+    "approve",
+    "publish",
+  ];
+  return actions.filter((action) => hasPermission(user, "games", action, game));
 }

@@ -1,43 +1,33 @@
-import type { APIRoute } from 'astro';
-import { GameRepository } from '../../../models/Game';
-import { GameVersionRepository } from '../../../models/GameVersion';
-import { getUserFromRequest } from '../../../lib/session';
-import { hasPermissionString } from '../../../auth/auth-rbac';
-import { AuditLogger } from '../../../lib/audit';
-import { PublicRegistryManager } from '../../../lib/public-registry';
-import { VersionStateMachine } from '../../../lib/version-state-machine';
+import type { APIRoute } from "astro";
+import { GameRepository } from "../../../models/Game";
+import { GameVersionRepository } from "../../../models/GameVersion";
+import { getUserFromRequest } from "../../../lib/session";
+import { canArchiveGame } from "../../../auth/deletion-rules";
+import { AuditLogger } from "../../../lib/audit";
+import { PublicRegistryManager } from "../../../lib/public-registry";
+import { VersionStateMachine } from "../../../lib/version-state-machine";
 
 /**
  * POST /api/games/archive
- * Admin archives a published game version
- * Changes version status: published -> archived
- * Removes game from Public Registry while preserving all data
+ * CTO/Admin archives a game to remove it from production
  */
 export const POST: APIRoute = async ({ request }) => {
   try {
     const user = await getUserFromRequest(request);
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Check permission
-    if (!hasPermissionString(user, 'games:publish')) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     const body = await request.json();
-    const { gameId, versionId } = body;
+    const { gameId } = body;
 
     if (!gameId) {
-      return new Response(JSON.stringify({ error: 'gameId is required' }), {
+      return new Response(JSON.stringify({ error: "gameId is required" }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     }
 
@@ -46,91 +36,131 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Find the game
     const game = await gameRepo.findById(gameId);
-    if (!game) {
-      return new Response(JSON.stringify({ error: 'Game not found' }), {
+    if (!game || game.isDeleted) {
+      return new Response(JSON.stringify({ error: "Game not found" }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Get target version (live version or specified version)
-    let targetVersionId = versionId;
-    if (!targetVersionId && game.liveVersionId) {
-      targetVersionId = game.liveVersionId.toString();
+    // Check permissions using ABAC rules
+    if (!canArchiveGame(user, game)) {
+      return new Response(
+        JSON.stringify({
+          error: "Forbidden. You do not have permission to archive games.",
+        }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
-    if (!targetVersionId) {
-      return new Response(JSON.stringify({ error: 'No version to archive' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    // Get the live version if it exists
+    let liveVersion = null;
+    if (game.liveVersionId) {
+      liveVersion = await versionRepo.findById(game.liveVersionId.toString());
     }
 
-    const version = await versionRepo.findById(targetVersionId);
-    if (!version) {
-      return new Response(JSON.stringify({ error: 'Version not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    // Archive the live version using state machine
+    if (liveVersion && liveVersion.status === "published") {
+      const stateMachine = await VersionStateMachine.getInstance();
 
-    // Use state machine for transition
-    const stateMachine = await VersionStateMachine.getInstance();
-    
-    if (!stateMachine.canTransition(version.status, 'archive')) {
-      return new Response(JSON.stringify({ 
-        error: `Cannot archive version in "${version.status}" status. Only published versions can be archived.` 
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      try {
+        await stateMachine.transition(
+          liveVersion._id.toString(),
+          "archive",
+          user._id.toString()
+        );
+      } catch (error) {
+        console.error("Failed to archive version:", error);
+        return new Response(
+          JSON.stringify({
+            error: "Failed to archive game version",
+            details: error instanceof Error ? error.message : "Unknown error",
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
     }
-
-    const oldStatus = version.status;
-    const updatedVersion = await stateMachine.transition(targetVersionId, 'archive', user._id.toString());
 
     // Remove from Public Registry
     try {
       await PublicRegistryManager.removeGame(game.gameId);
-    } catch (syncError) {
-      console.error('[Archive] Failed to remove from Public Registry:', syncError);
+    } catch (error) {
+      console.error("Failed to remove from registry:", error);
+      // Continue - this is not critical for the archive operation
     }
 
-    // Audit log
+    // Update game metadata
+    const now = new Date();
+    const updatedGame = await gameRepo.update(gameId, {
+      disabled: true,
+      updatedAt: now,
+    });
+
+    if (!updatedGame) {
+      return new Response(JSON.stringify({ error: "Failed to update game" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Log audit entry
     AuditLogger.log({
       actor: {
         user,
-        ip: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent') || undefined,
+        ip: request.headers.get("x-forwarded-for") || "unknown",
+        userAgent: request.headers.get("user-agent") || undefined,
       },
-      action: 'GAME_STATUS_CHANGE',
+      action: "GAME_ARCHIVE",
       target: {
-        entity: 'GAME_VERSION',
-        id: targetVersionId,
+        entity: "GAME",
+        id: gameId,
       },
       changes: [
-        { field: 'status', oldValue: oldStatus, newValue: 'archived' },
+        { field: "disabled", oldValue: game.disabled, newValue: true },
+        {
+          field: "liveVersionStatus",
+          oldValue: liveVersion?.status || null,
+          newValue: "archived",
+        },
       ],
       metadata: {
-        gameId: game.gameId,
-        version: version.version,
-        action: 'archive',
+        gameTitle: game.title,
+        gameSlug: game.gameId,
+        liveVersionId: game.liveVersionId?.toString() || null,
+        removedFromRegistry: true,
+        preserveData: true,
       },
     });
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      version: updatedVersion,
-      message: 'Game archived successfully'
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        message: "Game archived successfully",
+        gameId: gameId,
+        archivedAt: now.toISOString(),
+        removedFromRegistry: true,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
-    console.error('Archive error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error("Archive game error:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 };

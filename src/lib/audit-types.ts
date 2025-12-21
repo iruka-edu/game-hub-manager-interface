@@ -1,25 +1,32 @@
-import type { ObjectId } from 'mongodb';
+import type { ObjectId } from "mongodb";
 
 /**
  * Types of actions that can be logged in the audit system
  */
 export type ActionType =
-  | 'GAME_UPLOAD'
-  | 'GAME_UPDATE_METADATA'
-  | 'GAME_DELETE_VERSION'
-  | 'GAME_DELETE_FULL'
-  | 'GAME_STATUS_CHANGE'
-  | 'GAME_SET_LIVE'
-  | 'GAME_DISABLE'
-  | 'GAME_RESET_TO_DRAFT'
-  | 'GAME_SYNC_FROM_GCS'
-  | 'USER_LOGIN'
-  | 'USER_LOGOUT';
+  | "GAME_UPLOAD"
+  | "GAME_UPDATE_METADATA"
+  | "GAME_DELETE_VERSION"
+  | "GAME_DELETE_FULL"
+  | "GAME_STATUS_CHANGE"
+  | "GAME_SUBMIT_QC"
+  | "GAME_RESUBMIT_QC"
+  | "GAME_SET_LIVE"
+  | "GAME_DISABLE"
+  | "GAME_RESET_TO_DRAFT"
+  | "GAME_SYNC_FROM_GCS"
+  | "GAME_ARCHIVE" // Archive game (remove from production)
+  | "GAME_SOFT_DELETE" // Soft delete (move to trash)
+  | "GAME_HARD_DELETE_REQUEST" // Request hard deletion
+  | "GAME_HARD_DELETE_EXECUTED" // Hard deletion completed
+  | "GAME_RESTORE" // Restore from trash
+  | "USER_LOGIN"
+  | "USER_LOGOUT";
 
 /**
  * Entity types that can be targeted by actions
  */
-export type TargetEntity = 'GAME' | 'GAME_VERSION' | 'USER' | 'SYSTEM';
+export type TargetEntity = "GAME" | "GAME_VERSION" | "USER" | "SYSTEM";
 
 /**
  * Information about the user who performed the action

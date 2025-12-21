@@ -1,31 +1,31 @@
-import { ObjectId, type Collection, type Db } from 'mongodb';
-import { getMongoClient } from '../lib/mongodb';
+import { ObjectId, type Collection, type Db } from "mongodb";
+import { getMongoClient } from "../lib/mongodb";
 
 /**
  * Version status in the workflow
  */
-export type VersionStatus = 
-  | 'draft'           // Dev is working on it
-  | 'uploaded'        // Submitted to QC, waiting
-  | 'qc_processing'   // QC is actively testing
-  | 'qc_passed'       // QC approved
-  | 'qc_failed'       // QC rejected
-  | 'approved'        // CTO/Admin approved
-  | 'published'       // Live for users
-  | 'archived';       // Removed from public, preserved in DB
+export type VersionStatus =
+  | "draft" // Dev is working on it
+  | "uploaded" // Submitted to QC, waiting
+  | "qc_processing" // QC is actively testing
+  | "qc_passed" // QC approved
+  | "qc_failed" // QC rejected
+  | "approved" // CTO/Admin approved
+  | "published" // Live for users
+  | "archived"; // Removed from public, preserved in DB
 
 /**
  * Valid version statuses for validation
  */
 export const VALID_VERSION_STATUSES: VersionStatus[] = [
-  'draft',
-  'uploaded',
-  'qc_processing',
-  'qc_passed',
-  'qc_failed',
-  'approved',
-  'published',
-  'archived'
+  "draft",
+  "uploaded",
+  "qc_processing",
+  "qc_passed",
+  "qc_failed",
+  "approved",
+  "published",
+  "archived",
 ];
 
 /**
@@ -44,26 +44,26 @@ export interface SelfQAChecklist {
  */
 export interface GameVersion {
   _id: ObjectId;
-  gameId: ObjectId;          // Reference to Game
-  version: string;           // SemVer (e.g., "1.0.1")
-  
+  gameId: ObjectId; // Reference to Game
+  version: string; // SemVer (e.g., "1.0.1")
+
   // Storage
-  storagePath: string;       // "games/{slug}/{version}/"
-  entryFile: string;         // "index.html"
-  buildSize?: number;        // Bytes
-  
+  storagePath: string; // "games/{slug}/{version}/"
+  entryFile: string; // "index.html"
+  buildSize?: number; // Bytes
+
   // Status
   status: VersionStatus;
-  isDeleted: boolean;        // Soft delete flag
-  
+  isDeleted: boolean; // Soft delete flag
+
   // Self-QA
   selfQAChecklist?: SelfQAChecklist;
-  releaseNote?: string;      // What changed in this version
-  
+  releaseNote?: string; // What changed in this version
+
   // Submission
-  submittedBy: ObjectId;     // User._id
+  submittedBy: ObjectId; // User._id
   submittedAt?: Date;
-  
+
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
@@ -72,7 +72,10 @@ export interface GameVersion {
 /**
  * Input type for creating a new GameVersion
  */
-export type CreateGameVersionInput = Omit<GameVersion, '_id' | 'createdAt' | 'updatedAt'>;
+export type CreateGameVersionInput = Omit<
+  GameVersion,
+  "_id" | "createdAt" | "updatedAt"
+>;
 
 /**
  * Validate that a status is valid
@@ -92,15 +95,17 @@ export function isValidSemVer(version: string): boolean {
 /**
  * Parse SemVer string into components
  */
-export function parseSemVer(version: string): { major: number; minor: number; patch: number } | null {
+export function parseSemVer(
+  version: string
+): { major: number; minor: number; patch: number } | null {
   if (!isValidSemVer(version)) {
     return null;
   }
-  const parts = version.split('.').map(Number);
+  const parts = version.split(".").map(Number);
   return {
     major: parts[0],
     minor: parts[1],
-    patch: parts[2]
+    patch: parts[2],
   };
 }
 
@@ -122,11 +127,11 @@ export function incrementPatchVersion(version: string): string {
 export function compareSemVer(v1: string, v2: string): number {
   const p1 = parseSemVer(v1);
   const p2 = parseSemVer(v2);
-  
+
   if (!p1 || !p2) {
-    throw new Error('Invalid SemVer format');
+    throw new Error("Invalid SemVer format");
   }
-  
+
   if (p1.major !== p2.major) return p1.major - p2.major;
   if (p1.minor !== p2.minor) return p1.minor - p2.minor;
   return p1.patch - p2.patch;
@@ -139,7 +144,7 @@ export class GameVersionRepository {
   private collection: Collection<GameVersion>;
 
   constructor(db: Db) {
-    this.collection = db.collection<GameVersion>('game_versions');
+    this.collection = db.collection<GameVersion>("game_versions");
   }
 
   /**
@@ -166,11 +171,20 @@ export class GameVersionRepository {
    */
   async findByGameId(gameId: string): Promise<GameVersion[]> {
     try {
-      return this.collection
+      // Validate ObjectId format
+      if (!ObjectId.isValid(gameId)) {
+        console.warn(`Invalid ObjectId format for gameId: ${gameId}`);
+        return [];
+      }
+
+      const result = await this.collection
         .find({ gameId: new ObjectId(gameId), isDeleted: { $ne: true } })
         .sort({ createdAt: -1 })
         .toArray();
-    } catch {
+
+      return result;
+    } catch (error) {
+      console.error(`Error finding versions for gameId ${gameId}:`, error);
       return [];
     }
   }
@@ -192,11 +206,14 @@ export class GameVersionRepository {
   /**
    * Find a specific version by game ID and version string
    */
-  async findByVersion(gameId: string, version: string): Promise<GameVersion | null> {
+  async findByVersion(
+    gameId: string,
+    version: string
+  ): Promise<GameVersion | null> {
     try {
       return this.collection.findOne({
         gameId: new ObjectId(gameId),
-        version
+        version,
       });
     } catch {
       return null;
@@ -219,7 +236,7 @@ export class GameVersionRepository {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { isDeleted: true, updatedAt: new Date() } },
-        { returnDocument: 'after' }
+        { returnDocument: "after" }
       );
       return result;
     } catch {
@@ -235,7 +252,7 @@ export class GameVersionRepository {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { isDeleted: false, updatedAt: new Date() } },
-        { returnDocument: 'after' }
+        { returnDocument: "after" }
       );
       return result;
     } catch {
@@ -250,7 +267,7 @@ export class GameVersionRepository {
     try {
       const versions = await this.findByGameId(gameId);
       if (versions.length === 0) return null;
-      
+
       // Sort by SemVer
       versions.sort((a, b) => compareSemVer(b.version, a.version));
       return versions[0];
@@ -264,11 +281,11 @@ export class GameVersionRepository {
    */
   async getNextVersion(gameId: string): Promise<string> {
     const latest = await this.getLatestVersion(gameId);
-    
+
     if (!latest) {
-      return '1.0.0'; // First version
+      return "1.0.0"; // First version
     }
-    
+
     return incrementPatchVersion(latest.version);
   }
 
@@ -278,24 +295,26 @@ export class GameVersionRepository {
   async create(input: Partial<CreateGameVersionInput>): Promise<GameVersion> {
     // Validate required fields
     if (!input.gameId) {
-      throw new Error('gameId is required');
+      throw new Error("gameId is required");
     }
-    if (!input.version || input.version.trim() === '') {
-      throw new Error('version is required and cannot be empty');
+    if (!input.version || input.version.trim() === "") {
+      throw new Error("version is required and cannot be empty");
     }
-    if (!input.storagePath || input.storagePath.trim() === '') {
-      throw new Error('storagePath is required and cannot be empty');
+    if (!input.storagePath || input.storagePath.trim() === "") {
+      throw new Error("storagePath is required and cannot be empty");
     }
-    if (!input.entryFile || input.entryFile.trim() === '') {
-      throw new Error('entryFile is required and cannot be empty');
+    if (!input.entryFile || input.entryFile.trim() === "") {
+      throw new Error("entryFile is required and cannot be empty");
     }
     if (!input.submittedBy) {
-      throw new Error('submittedBy is required');
+      throw new Error("submittedBy is required");
     }
 
     // Validate version format
     if (!isValidSemVer(input.version)) {
-      throw new Error(`Invalid version format. Must be SemVer (X.Y.Z): ${input.version}`);
+      throw new Error(
+        `Invalid version format. Must be SemVer (X.Y.Z): ${input.version}`
+      );
     }
 
     // Check version uniqueness
@@ -308,13 +327,15 @@ export class GameVersionRepository {
     }
 
     // Validate status if provided
-    const status = input.status || 'draft'; // Default status is 'draft'
+    const status = input.status || "draft"; // Default status is 'draft'
     if (!isValidVersionStatus(status)) {
-      throw new Error(`Invalid status. Must be one of: ${VALID_VERSION_STATUSES.join(', ')}`);
+      throw new Error(
+        `Invalid status. Must be one of: ${VALID_VERSION_STATUSES.join(", ")}`
+      );
     }
 
     const now = new Date();
-    const version: Omit<GameVersion, '_id'> = {
+    const version: Omit<GameVersion, "_id"> = {
       gameId: input.gameId,
       version: input.version.trim(),
       storagePath: input.storagePath.trim(),
@@ -335,18 +356,53 @@ export class GameVersionRepository {
   }
 
   /**
+   * Patch an existing build (overwrite)
+   * Resets status to draft and clears Self-QA
+   */
+  async patchBuild(id: string, buildSize: number): Promise<GameVersion | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            buildSize,
+            status: "draft",
+            selfQAChecklist: {
+              testedDevices: false,
+              testedAudio: false,
+              gameplayComplete: false,
+              contentVerified: false,
+              note: "Bản build đã được cập nhật (Patch)",
+            },
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: "after" }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Update version status
    */
-  async updateStatus(id: string, status: VersionStatus): Promise<GameVersion | null> {
+  async updateStatus(
+    id: string,
+    status: VersionStatus
+  ): Promise<GameVersion | null> {
     if (!isValidVersionStatus(status)) {
-      throw new Error(`Invalid status. Must be one of: ${VALID_VERSION_STATUSES.join(', ')}`);
+      throw new Error(
+        `Invalid status. Must be one of: ${VALID_VERSION_STATUSES.join(", ")}`
+      );
     }
 
     try {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { status, updatedAt: new Date() } },
-        { returnDocument: 'after' }
+        { returnDocument: "after" }
       );
       return result;
     } catch {
@@ -365,7 +421,7 @@ export class GameVersionRepository {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { selfQAChecklist: checklist, updatedAt: new Date() } },
-        { returnDocument: 'after' }
+        { returnDocument: "after" }
       );
       return result;
     } catch {
@@ -384,7 +440,7 @@ export class GameVersionRepository {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { releaseNote, updatedAt: new Date() } },
-        { returnDocument: 'after' }
+        { returnDocument: "after" }
       );
       return result;
     } catch {
@@ -400,7 +456,7 @@ export class GameVersionRepository {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { submittedAt: new Date(), updatedAt: new Date() } },
-        { returnDocument: 'after' }
+        { returnDocument: "after" }
       );
       return result;
     } catch {
@@ -413,7 +469,10 @@ export class GameVersionRepository {
    */
   async ensureIndexes(): Promise<void> {
     await this.collection.createIndex({ gameId: 1 });
-    await this.collection.createIndex({ gameId: 1, version: 1 }, { unique: true });
+    await this.collection.createIndex(
+      { gameId: 1, version: 1 },
+      { unique: true }
+    );
     await this.collection.createIndex({ status: 1 });
     await this.collection.createIndex({ submittedAt: -1 });
   }

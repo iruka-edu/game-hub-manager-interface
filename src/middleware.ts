@@ -1,18 +1,29 @@
-import { defineMiddleware } from 'astro:middleware';
-import { getUserFromRequest, clearSessionCookie } from './lib/session';
-import { checkPageAccess, getRequiredPermission, getUserPermissions } from './lib/page-permissions';
+import { defineMiddleware } from "astro:middleware";
+import { getUserFromRequest, clearSessionCookie } from "./lib/session";
+import {
+  checkPageAccess,
+  getRequiredPermission,
+  getUserPermissions,
+} from "./lib/page-permissions";
 
 /**
  * Protected route patterns
  */
-const PROTECTED_PAGE_PATTERNS = ['/dashboard', '/console'];
-const PROTECTED_API_PATTERNS = ['/api/games'];
+const PROTECTED_PAGE_PATTERNS = ["/dashboard", "/console", "/admin"];
+const PROTECTED_API_PATTERNS = [
+  "/api/games",
+  "/api/admin",
+  "/api/debug",
+  "/api/upload",
+  "/api/notifications",
+  "/api/audit-logs",
+];
 
 /**
  * Check if a path matches any of the patterns
  */
 function matchesPattern(path: string, patterns: string[]): boolean {
-  return patterns.some(pattern => path.startsWith(pattern));
+  return patterns.some((pattern) => path.startsWith(pattern));
 }
 
 /**
@@ -23,8 +34,8 @@ function generate403Response(pathname: string): Response {
   return new Response(null, {
     status: 302,
     headers: {
-      'Location': '/403',
-    }
+      Location: "/403",
+    },
   });
 }
 
@@ -33,11 +44,11 @@ function generate403Response(pathname: string): Response {
  */
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
-  
+
   // Check if route needs protection
   const isProtectedPage = matchesPattern(pathname, PROTECTED_PAGE_PATTERNS);
   const isProtectedApi = matchesPattern(pathname, PROTECTED_API_PATTERNS);
-  
+
   if (!isProtectedPage && !isProtectedApi) {
     // Not a protected route, continue
     return next();
@@ -50,16 +61,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // Session invalid or expired
     if (isProtectedApi) {
       // Return 401 for API routes
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401, 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Set-Cookie': clearSessionCookie(),
-          } 
-        }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: {
+          "Content-Type": "application/json",
+          "Set-Cookie": clearSessionCookie(),
+        },
+      });
     } else {
       // Redirect to login for page routes with return URL
       const returnUrl = encodeURIComponent(pathname + context.url.search);
@@ -70,7 +78,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Check page-level permissions for protected pages
   if (isProtectedPage) {
     const hasAccess = checkPageAccess(user, pathname);
-    
+
     if (!hasAccess) {
       // User doesn't have permission - attach user to locals for 403 page
       context.locals.user = user;

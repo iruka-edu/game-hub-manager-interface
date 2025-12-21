@@ -1,6 +1,7 @@
-import { ObjectId, type Collection, type Db } from 'mongodb';
-import { getMongoClient } from '../lib/mongodb';
-import type { GameStatus } from './Game';
+import { ObjectId, type Collection, type Db } from "mongodb";
+import { getMongoClient } from "../lib/mongodb";
+import type { GameStatus } from "./Game";
+import type { VersionStatus } from "./GameVersion";
 
 /**
  * Game history entry interface
@@ -11,8 +12,8 @@ export interface GameHistoryEntry {
   action: string;
   actorId: string;
   actorEmail: string;
-  oldStatus?: GameStatus;
-  newStatus?: GameStatus;
+  oldStatus?: GameStatus | VersionStatus;
+  newStatus?: GameStatus | VersionStatus;
   metadata?: Record<string, unknown>;
   createdAt: Date;
 }
@@ -20,7 +21,7 @@ export interface GameHistoryEntry {
 /**
  * Input for creating a history entry
  */
-export type CreateHistoryInput = Omit<GameHistoryEntry, '_id' | 'createdAt'>;
+export type CreateHistoryInput = Omit<GameHistoryEntry, "_id" | "createdAt">;
 
 /**
  * Game History Repository
@@ -29,7 +30,7 @@ export class GameHistoryRepository {
   private collection: Collection<GameHistoryEntry>;
 
   constructor(db: Db) {
-    this.collection = db.collection<GameHistoryEntry>('game_history');
+    this.collection = db.collection<GameHistoryEntry>("game_history");
   }
 
   static async getInstance(): Promise<GameHistoryRepository> {
@@ -41,7 +42,7 @@ export class GameHistoryRepository {
    * Add a history entry
    */
   async addEntry(input: CreateHistoryInput): Promise<GameHistoryEntry> {
-    const entry: Omit<GameHistoryEntry, '_id'> = {
+    const entry: Omit<GameHistoryEntry, "_id"> = {
       ...input,
       createdAt: new Date(),
     };

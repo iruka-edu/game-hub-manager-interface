@@ -52,68 +52,92 @@ export const PublicRegistryManager = {
   /**
    * Generate and upload the Public Registry from MongoDB
    * Only includes games that are published and not disabled
+   * 
+   * Filtering logic:
+   * 1. Query MongoDB for games with liveVersionId set and disabled !== true
+   * 2. For each game, verify the live version has status 'published'
+   * 3. Extract only necessary metadata for PublicGameEntry
+   * 
    * @returns The generated Public Registry
    */
   async sync(): Promise<PublicRegistry> {
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
     
-    // Get all published and enabled games
+    // Step 1: Get all games that are not disabled and have a live version
+    // This filters at the database level for efficiency
     const games = await gameRepo.findPublishedAndEnabled();
     
-    // Build public entries
+    console.log(`[PublicRegistry] Found ${games.length} candidate games (not disabled, has liveVersionId)`);
+    
+    // Step 2: Build public entries, filtering for published versions
     const entries: PublicGameEntry[] = [];
     
     for (const game of games) {
+      // buildPublicEntry will verify the live version is 'published'
+      // and extract only necessary metadata
       const entry = await this.buildPublicEntry(game, versionRepo);
       if (entry) {
         entries.push(entry);
       }
     }
     
-    // Create the registry
+    console.log(`[PublicRegistry] Built ${entries.length} public entries (with published versions)`);
+    
+    // Step 3: Create the registry
     const registry: PublicRegistry = {
       games: entries,
       generatedAt: new Date().toISOString(),
       version: PUBLIC_REGISTRY_VERSION
     };
     
-    // Save to GCS
+    // Save to GCS with no-cache header
     await saveFileContent(PUBLIC_REGISTRY_PATH, registry);
     
-    console.log(`[PublicRegistry] Synced ${entries.length} games to public registry`);
+    console.log(`[PublicRegistry] Synced ${entries.length} games to public registry at ${PUBLIC_REGISTRY_PATH}`);
     
     return registry;
   },
 
   /**
    * Build a PublicGameEntry from a Game and its live version
+   * 
+   * This method extracts only necessary metadata for the Public Registry:
+   * - id, title, entryUrl, iconUrl, capabilities, runtime, rolloutPercentage, version, updatedAt
+   * 
+   * Filtering logic:
+   * - Game must have a liveVersionId
+   * - Live version must exist and have status 'published'
+   * 
    * @param game - The game document
    * @param versionRepo - Version repository instance
-   * @returns PublicGameEntry or null if version not found
+   * @returns PublicGameEntry or null if version not found or not published
    */
   async buildPublicEntry(
     game: Game,
     versionRepo: GameVersionRepository
   ): Promise<PublicGameEntry | null> {
+    // Check if game has a live version set
     if (!game.liveVersionId) {
+      console.warn(`[PublicRegistry] Game ${game.gameId} has no liveVersionId, skipping`);
       return null;
     }
     
     // Get the live version
     const version = await versionRepo.findById(game.liveVersionId.toString());
     if (!version) {
-      console.warn(`[PublicRegistry] Live version not found for game ${game.gameId}`);
+      console.warn(`[PublicRegistry] Live version not found for game ${game.gameId}, skipping`);
       return null;
     }
     
-    // Only include published versions
+    // Only include published versions - this is the key filtering step
     if (version.status !== 'published') {
-      console.warn(`[PublicRegistry] Live version ${version.version} for game ${game.gameId} is not published`);
+      console.warn(`[PublicRegistry] Live version ${version.version} for game ${game.gameId} is not published (status: ${version.status}), skipping`);
       return null;
     }
     
-    return {
+    // Extract only necessary metadata for Public Registry
+    const entry: PublicGameEntry = {
       id: game.gameId,
       title: game.title,
       entryUrl: `${CDN_BASE}/${version.storagePath}${version.entryFile}`,
@@ -123,6 +147,12 @@ export const PublicRegistryManager = {
       version: version.version,
       updatedAt: game.updatedAt.toISOString()
     };
+    
+    // Add iconUrl if available (optional field)
+    // Note: Icon URL logic can be added here when icon storage is implemented
+    
+    console.log(`[PublicRegistry] Built entry for game ${game.gameId} v${version.version}`);
+    return entry;
   },
 
   /**
