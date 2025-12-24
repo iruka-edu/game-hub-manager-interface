@@ -1,56 +1,45 @@
 ---
 import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
-import StatusChip from '../../components/StatusChip.astro';
 import type { User } from '../../models/User';
-import { GameRepository } from '../../models/Game';
-import { GameVersionRepository } from '../../models/GameVersion';
-import { QcReportRepository } from '../../models/QcReport';
-import { UserRepository } from '../../models/User';
 
-// Get user from locals (set by middleware - auth and permission already checked)
+type QCInboxItem = {
+  versionId: string;
+  gameId: string;
+  gameTitle: string;
+  devName: string;
+  version: string;
+  submittedAt: string;
+  retestCount: number;
+  subject?: string;
+};
+
 const user = Astro.locals.user as User;
-const permissions = Astro.locals.permissions || [];
 
-// Get versions waiting for QC (status = 'uploaded')
-const gameRepo = await GameRepository.getInstance();
-const versionRepo = await GameVersionRepository.getInstance();
-const qcReportRepo = await QcReportRepository.getInstance();
-const userRepo = await UserRepository.getInstance();
+// gọi API nội bộ và forward cookie để auth hoạt động
+const res = await fetch(new URL('/api/qc/inbox', Astro.url.origin), {
+  headers: {
+    cookie: Astro.request.headers.get('cookie') ?? '',
+  },
+});
 
-// Find all versions with 'uploaded' status
-const uploadedVersions = await versionRepo.findByStatus('uploaded');
+let items: QCInboxItem[] = [];
+if (res.ok) {
+  const data = await res.json();
+  items = data.items;
+} else {
+  // optional: log lỗi
+  items = [];
+}
 
-// Get game and owner info for each version
-const gamesWithOwner = await Promise.all(uploadedVersions.map(async (version) => {
-  const game = await gameRepo.findById(version.gameId.toString());
-  if (!game) return null;
-  
-  const owner = await userRepo.findById(game.ownerId);
-  const qcAttempts = await qcReportRepo.countAttempts(game._id.toString());
-  const isRetest = qcAttempts > 0;
-  
-  return { 
-    ...game, 
-    version: version.version,
-    versionId: version._id.toString(),
-    versionStatus: version.status,
-    submittedAt: version.submittedAt || version.updatedAt,
-    ownerName: owner?.name || owner?.email || 'Unknown',
-    qcAttempts,
-    isRetest,
-  };
-}));
+// sort: ưu tiên re-test trước, rồi submittedAt mới nhất trước
+items.sort((a, b) => {
+  if (a.retestCount > 0 && b.retestCount === 0) return -1;
+  if (a.retestCount === 0 && b.retestCount > 0) return 1;
+  return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+});
 
-// Filter out null values and sort by submittedAt
-const games = gamesWithOwner
-  .filter(g => g !== null)
-  .sort((a, b) => {
-    // Prioritize re-tests
-    if (a.isRetest && !b.isRetest) return -1;
-    if (!a.isRetest && b.isRetest) return 1;
-    // Then by submittedAt
-    return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
-  });
+const devOptions = Array.from(new Set(items.map(i => i.devName))).sort((a, b) => a.localeCompare(b));
+const subjectOptions = Array.from(new Set(items.map(i => i.subject).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b));
 ---
 
 <ConsoleLayout title="QC Inbox" user={user} activeMenu="qc-inbox">
@@ -65,12 +54,37 @@ const games = gamesWithOwner
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <div class="bg-white rounded-xl p-6 border border-slate-200">
         <p class="text-sm text-slate-500">Đang chờ QC</p>
-        <p class="text-3xl font-bold text-blue-600 mt-1">{games.length}</p>
+        <p class="text-3xl font-bold text-blue-600 mt-1">{items.length}</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 mb-6">
+      <div class="flex flex-col md:flex-row md:items-end gap-4">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Theo Dev</label>
+          <select id="filter-dev" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white">
+            <option value="">Tất cả</option>
+            {devOptions.map(d => <option value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Theo môn học</label>
+          <select id="filter-subject" class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white">
+            <option value="">Tất cả</option>
+            {subjectOptions.map(s => <option value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div class="flex gap-2">
+          <button id="filter-reset" class="btn-secondary">Reset</button>
+        </div>
       </div>
     </div>
 
     <!-- Games List -->
-    {games.length > 0 ? (
+    {items.length > 0 ? (
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table class="w-full">
           <thead class="bg-slate-50 border-b border-slate-200">
@@ -84,43 +98,46 @@ const games = gamesWithOwner
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            {games.map(game => (
-              <tr class={`hover:bg-slate-50 transition-colors ${game.isRetest ? 'bg-amber-50' : ''}`}>
+            {items.map(item => (
+              <tr
+                class={`hover:bg-slate-50 transition-colors ${item.retestCount > 0 ? 'bg-amber-50' : ''}`}
+                data-dev={item.devName}
+                data-subject={item.subject || ''}
+              >
                 <td class="px-6 py-4">
-                  <a href={`/console/games/${game._id}/review?versionId=${game.versionId}`} class="block">
+                  <a href={`/console/games/${item.gameId}/review?versionId=${item.versionId}`} class="block">
                     <div class="flex items-center gap-2">
-                      <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
-                      {game.isRetest && (
+                      <p class="font-medium text-slate-900 hover:text-indigo-600">{item.gameTitle}</p>
+                      {item.retestCount > 0 && (
                         <span class="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
-                          Re-test
+                          QC Lại (Lần {item.retestCount + 1})
                         </span>
                       )}
                     </div>
-                    <p class="text-sm text-slate-500">{game.gameId}</p>
                   </a>
                 </td>
                 <td class="px-6 py-4">
                   <span class="px-2 py-1 text-sm font-mono bg-slate-100 text-slate-700 rounded">
-                    v{game.version}
+                    v{item.version}
                   </span>
                 </td>
                 <td class="px-6 py-4 text-sm text-slate-600">
-                  {game.ownerName}
+                  {item.devName}
                 </td>
                 <td class="px-6 py-4 text-sm text-slate-500">
-                  {game.submittedAt.toLocaleDateString('vi-VN')}
+                  {new Date(item.submittedAt).toLocaleDateString('vi-VN')}
                 </td>
                 <td class="px-6 py-4 text-sm text-slate-600">
-                  {game.qcAttempts > 0 ? (
-                    <span class="text-amber-600 font-medium">Lần {game.qcAttempts + 1}</span>
+                  {item.retestCount > 0 ? (
+                    <span class="text-amber-600 font-medium">Lần {item.retestCount + 1}</span>
                   ) : (
                     <span class="text-green-600">Lần đầu</span>
                   )}
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center justify-end gap-2">
-                    <a 
-                      href={`/console/games/${game._id}/review?versionId=${game.versionId}`}
+                    <a
+                      href={`/console/games/${item.gameId}/review?versionId=${item.versionId}`}
                       class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                     >
                       Mở review
@@ -147,4 +164,33 @@ const games = gamesWithOwner
       </div>
     )}
   </div>
+  <script is:inline>
+    const devSel = document.getElementById('filter-dev');
+    const subjectSel = document.getElementById('filter-subject');
+    const resetBtn = document.getElementById('filter-reset');
+
+    function applyFilter() {
+      const dev = devSel?.value || '';
+      const subject = subjectSel?.value || '';
+
+      document.querySelectorAll('tbody tr[data-dev]').forEach((tr) => {
+        const trDev = tr.getAttribute('data-dev') || '';
+        const trSubject = tr.getAttribute('data-subject') || '';
+        const okDev = !dev || trDev === dev;
+        const okSubject = !subject || trSubject === subject;
+
+        if (tr instanceof HTMLElement) {
+          tr.style.display = (okDev && okSubject) ? '' : 'none';
+        }
+      });
+    }
+
+    devSel?.addEventListener('change', applyFilter);
+    subjectSel?.addEventListener('change', applyFilter);
+    resetBtn?.addEventListener('click', () => {
+      if (devSel) devSel.value = '';
+      if (subjectSel) subjectSel.value = '';
+      applyFilter();
+    });
+  </script>
 </ConsoleLayout>

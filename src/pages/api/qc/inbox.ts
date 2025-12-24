@@ -10,6 +10,7 @@ export type QCInboxItem = {
   version: string;
   submittedAt: string;
   retestCount: number;
+  subject?: string;
 };
 
 /**
@@ -70,7 +71,7 @@ export const GET: APIRoute = async ({ request }) => {
           let: { gid: "$gameIdObj" },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$gid"] } } },
-            { $project: { title: 1, ownerId: 1, isDeleted: 1 } },
+            { $project: { title: 1, ownerId: 1, isDeleted: 1, subject: 1 } },
           ],
           as: "game",
         },
@@ -121,9 +122,9 @@ export const GET: APIRoute = async ({ request }) => {
       {
         $lookup: {
           from: "qc_reviews",
-          let: { vId: "$_id" },
+          let: { gId: "$gameId" },
           pipeline: [
-            { $match: { $expr: { $eq: ["$versionId", "$$vId"] } } },
+            { $match: { $expr: { $eq: ["$gameId", "$$gId"] } } },
             { $count: "count" },
           ],
           as: "qcCount",
@@ -158,6 +159,7 @@ export const GET: APIRoute = async ({ request }) => {
             },
           },
           retestCount: 1,
+          subject: "$game.subject",
         },
       },
 
@@ -166,8 +168,6 @@ export const GET: APIRoute = async ({ request }) => {
     ];
 
     const items = (await gameVersionsCol.aggregate(pipeline).toArray()) as QCInboxItem[];
-
-    console.log("QC inbox items:", items);
 
     return new Response(JSON.stringify({ items }), {
       status: 200,

@@ -33,19 +33,19 @@ if (!game) {
   return Astro.redirect('/console/qc-inbox?error=not-found');
 }
 
-// Get latest version or find uploaded version
+// Prefer versionId from query (?versionId=...), fallback latestVersionId
+const versionIdParam = Astro.url.searchParams.get('versionId');
+
 let version = null;
-if (game.latestVersionId) {
+
+if (versionIdParam) {
+  version = await versionRepo.findById(versionIdParam);
+} else if (game.latestVersionId) {
   version = await versionRepo.findById(game.latestVersionId.toString());
 } else {
-  // Fallback: find uploaded version
+  // Fallback: find uploaded version (NO DB mutation)
   const versions = await versionRepo.findByGameId(id || '');
-  const uploadedVersion = versions.find(v => v.status === 'uploaded');
-  if (uploadedVersion) {
-    version = uploadedVersion;
-    // Update game's latestVersionId
-    await gameRepo.updateLatestVersion(id || '', uploadedVersion._id);
-  }
+  version = versions.find(v => v.status === 'uploaded') || null;
 }
 
 if (!version) {
@@ -207,111 +207,143 @@ const lastReport = previousReports[0];
       </div>
     )}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="flex flex-col lg:flex-row gap-6">
       <!-- Game Preview -->
-      <div class="lg:col-span-2">
+      <div class="lg:w-[65%]">
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
             <h3 class="font-semibold text-slate-900">Preview Game</h3>
             <div class="flex items-center gap-2">
-              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="mobile">Mobile</button>
-              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-indigo-100 text-indigo-700" data-device="tablet">Tablet</button>
-              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="desktop">Desktop</button>
+              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="mobile">
+                Mobile
+              </button>
+              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-indigo-100 text-indigo-700" data-device="tablet">
+                Tablet
+              </button>
+              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="desktop">
+                Desktop
+              </button>
+
+              <!-- Button xoay chỉ hiện khi mobile -->
+              <button
+                id="rotate-btn"
+                class="hidden px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200"
+                type="button"
+                title="Xoay dọc/ngang"
+              >
+                Xoay
+              </button>
             </div>
           </div>
-          <div class="p-4 bg-slate-100 flex items-center justify-center min-h-[500px]">
-            <div id="preview-container" class="bg-white shadow-lg rounded-lg overflow-hidden transition-all" style="width: 768px; height: 500px;">
-              <iframe 
-                id="game-iframe"
-                src={`/play/${game._id}`}
-                class="w-full h-full border-0"
-                title="Game Preview"
-              ></iframe>
+
+          <!-- Stage cố định chiều cao -->
+          <div class="p-4 bg-slate-100" style="min-height: calc(100vh - 250px);">
+            <div id="preview-stage" class="w-full h-full flex items-center justify-center overflow-hidden">
+              <div
+                id="preview-frame"
+                class="bg-white shadow-lg rounded-lg overflow-hidden transition-all"
+                style="width: 768px; height: 500px;"
+              >
+                <iframe
+                  id="game-iframe"
+                  src={`/play/${game._id}?v=${version.version}&qc=1`}
+                  class="w-full h-full border-0 block"
+                  title="Game Preview"
+                ></iframe>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- QC Panel -->
-      <div class="space-y-6">
-        <!-- QC Checklist -->
-        <div class="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 class="font-semibold text-slate-900 mb-4">Checklist kiểm tra</h3>
-          <div class="space-y-4">
-            {QC_CHECKLIST_CATEGORIES.map(cat => (
-              <div class="qc-item border border-slate-200 rounded-lg p-3" data-category={cat.id}>
-                <div class="flex items-center justify-between mb-2">
-                  <span class="font-medium text-slate-700">{cat.label}</span>
-                  <div class="flex gap-1">
-                    <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200" data-status="ok">OK</button>
-                    <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200" data-status="warning">Cảnh báo</button>
-                    <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200" data-status="fail">Lỗi</button>
+      <div class="lg:w-[35%]">
+        <div class="lg:sticky lg:top-24">
+          <div class="max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 space-y-6">
+            
+            <!-- QC Checklist -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 class="font-semibold text-slate-900 mb-4">Checklist kiểm tra</h3>
+              <div class="space-y-4">
+                {QC_CHECKLIST_CATEGORIES.map(cat => (
+                  <div class="qc-item border border-slate-200 rounded-lg p-3" data-category={cat.id}>
+                    <div class="flex items-center justify-between mb-2 gap-2">
+                      <span class="font-medium text-slate-700">{cat.label}</span>
+                      <div class="flex gap-1 shrink-0">
+                        <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200" data-status="ok">OK</button>
+                        <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200" data-status="warning">Cảnh báo</button>
+                        <button type="button" class="status-btn px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200" data-status="fail">Lỗi</button>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      class="item-note w-full px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500"
+                      placeholder="Ghi chú (nếu có)..."
+                    />
                   </div>
-                </div>
-                <input 
-                  type="text" 
-                  class="item-note w-full px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-indigo-500"
-                  placeholder="Ghi chú (nếu có)..."
-                />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <!-- Severity (for fail) -->
-        <div class="bg-white rounded-xl border border-slate-200 p-6" id="severity-section">
-          <h3 class="font-semibold text-slate-900 mb-4">Mức độ nghiêm trọng</h3>
-          <div class="space-y-2">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="severity" value="minor" class="text-indigo-600" />
-              <span class="text-sm"><strong class="text-yellow-600">Nhỏ</strong> - Lỗi nhỏ, không ảnh hưởng gameplay</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="severity" value="major" class="text-indigo-600" />
-              <span class="text-sm"><strong class="text-orange-600">Lớn</strong> - Ảnh hưởng trải nghiệm người dùng</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="severity" value="critical" class="text-indigo-600" />
-              <span class="text-sm"><strong class="text-red-600">Nghiêm trọng</strong> - Game không thể chơi được</span>
-            </label>
-          </div>
-        </div>
+            <!-- Severity (for fail) -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6" id="severity-section">
+              <h3 class="font-semibold text-slate-900 mb-4">Mức độ nghiêm trọng</h3>
+              <div class="space-y-2">
+                <label class="flex items-start gap-2 cursor-pointer">
+                  <input type="radio" name="severity" value="minor" class="text-indigo-600 mt-1" />
+                  <span class="text-sm"><strong class="text-yellow-600">Nhỏ</strong> - Lỗi nhỏ, không ảnh hưởng gameplay</span>
+                </label>
+                <label class="flex items-start gap-2 cursor-pointer">
+                  <input type="radio" name="severity" value="major" class="text-indigo-600 mt-1" />
+                  <span class="text-sm"><strong class="text-orange-600">Lớn</strong> - Ảnh hưởng trải nghiệm người dùng</span>
+                </label>
+                <label class="flex items-start gap-2 cursor-pointer">
+                  <input type="radio" name="severity" value="critical" class="text-indigo-600 mt-1" />
+                  <span class="text-sm"><strong class="text-red-600">Nghiêm trọng</strong> - Game không thể chơi được</span>
+                </label>
+              </div>
+            </div>
 
-        <!-- Note -->
-        <div class="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 class="font-semibold text-slate-900 mb-4">Ghi chú cho Dev</h3>
-          <textarea 
-            id="qc-note"
-            rows="4"
-            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="Nhập ghi chú nếu có vấn đề cần sửa..."
-          ></textarea>
-        </div>
+            <!-- Note -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 class="font-semibold text-slate-900 mb-4">Ghi chú cho Dev</h3>
+              <textarea
+                id="qc-note"
+                rows="4"
+                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Nhập ghi chú nếu có vấn đề cần sửa..."
+              ></textarea>
+            </div>
 
-        <!-- Actions -->
-        <div class="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 class="font-semibold text-slate-900 mb-4">Kết quả QC</h3>
-          <div class="space-y-3">
-            <button 
-              id="qc-pass-btn"
-              class="w-full btn-success flex items-center justify-center gap-2"
-              data-version-id={version._id.toString()}
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-              QC Đạt
-            </button>
-            <button 
-              id="qc-fail-btn"
-              class="w-full btn-danger flex items-center justify-center gap-2"
-              data-version-id={version._id.toString()}
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-              QC Cần sửa
-            </button>
+            <!-- Actions -->
+            <div class="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 class="font-semibold text-slate-900 mb-4">Kết quả QC</h3>
+              <div class="space-y-3">
+                <button
+                  id="qc-pass-btn"
+                  class="w-full btn-success flex items-center justify-center gap-2"
+                  data-version-id={version._id.toString()}
+                  data-game-id={game._id.toString()}
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                  Đạt
+                </button>
+
+                <button
+                  id="qc-fail-btn"
+                  class="w-full btn-danger flex items-center justify-center gap-2"
+                  data-version-id={version._id.toString()}
+                  data-game-id={game._id.toString()}
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                  Cần sửa
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -319,115 +351,266 @@ const lastReport = previousReports[0];
   </div>
 </ConsoleLayout>
 
-<script>
-  const container = document.getElementById('preview-container') as HTMLElement;
+<script lang="ts" is:inline>
+  const frame = document.getElementById('preview-frame');
+  const stage = document.getElementById('preview-stage');
+  const rotateBtn = document.getElementById('rotate-btn');
   const deviceBtns = document.querySelectorAll('.device-btn');
-  
-  const sizes = {
-    mobile: { width: '375px', height: '667px' },
-    tablet: { width: '768px', height: '500px' },
-    desktop: { width: '100%', height: '500px' }
+
+  let currentDevice = 'tablet';
+  let mobileOrientation = 'portrait'; // 'portrait' | 'landscape'
+
+  const base = {
+    mobile: {
+      portrait: { w: 375, h: 667 },
+      landscape: { w: 667, h: 375 },
+    },
+    tablet: { w: 768, h: 500 },
+    desktop: { w: 1280, h: 720 }, // lấy 16:9 làm chuẩn
   };
-  
-  deviceBtns.forEach(btn => {
+
+  function setActiveButton(device) {
+    deviceBtns.forEach((b) => {
+      b.classList.remove('bg-indigo-100', 'text-indigo-700');
+      b.classList.add('bg-slate-100', 'text-slate-600');
+    });
+    const active = Array.from(deviceBtns).find((b) => b.dataset.device === device);
+    if (active) {
+      active.classList.remove('bg-slate-100', 'text-slate-600');
+      active.classList.add('bg-indigo-100', 'text-indigo-700');
+    }
+  }
+
+  // Fit một kích thước (baseW/baseH) vào khung stage mà vẫn giữ tỉ lệ
+  function fitIntoStage(baseW, baseH) {
+    if (!stage || !frame) return;
+
+    const pad = 0; // khoảng hở đẹp
+    const maxW = stage.clientWidth - pad * 2;
+    const maxH = stage.clientHeight - pad * 2;
+
+    const ratio = baseW / baseH;
+
+    let w = maxW;
+    let h = w / ratio;
+
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
+
+    // set trực tiếp width/height => không cần transform scale (đỡ lỗi “nẩy”)
+    frame.style.width = Math.round(w) + 'px';
+    frame.style.height = Math.round(h) + 'px';
+  }
+
+  function applyDevice() {
+    if (!frame || !stage) return;
+
+    // rotate button chỉ hiện khi mobile
+    if (currentDevice === 'mobile') rotateBtn?.classList.remove('hidden');
+    else rotateBtn?.classList.add('hidden');
+
+    if (currentDevice === 'mobile') {
+      const s = base.mobile[mobileOrientation];
+      fitIntoStage(s.w, s.h);
+      return;
+    }
+
+    if (currentDevice === 'tablet') {
+      fitIntoStage(base.tablet.w, base.tablet.h);
+      return;
+    }
+
+    // desktop
+    fitIntoStage(base.desktop.w, base.desktop.h);
+  }
+
+  deviceBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
-      const device = (btn as HTMLElement).dataset.device as keyof typeof sizes;
-      const size = sizes[device];
-      
-      container.style.width = size.width;
-      container.style.height = size.height;
-      
-      deviceBtns.forEach(b => {
-        b.classList.remove('bg-indigo-100', 'text-indigo-700');
-        b.classList.add('bg-slate-100', 'text-slate-600');
-      });
-      btn.classList.remove('bg-slate-100', 'text-slate-600');
-      btn.classList.add('bg-indigo-100', 'text-indigo-700');
+      currentDevice = btn.dataset.device || 'tablet';
+      if (currentDevice !== 'mobile') mobileOrientation = 'portrait';
+      setActiveButton(currentDevice);
+      applyDevice();
     });
   });
 
-  // QC Checklist status buttons
+  rotateBtn?.addEventListener('click', () => {
+    if (currentDevice !== 'mobile') return;
+    mobileOrientation = mobileOrientation === 'portrait' ? 'landscape' : 'portrait';
+    applyDevice();
+  });
+
+  window.addEventListener('resize', applyDevice);
+
+  setActiveButton(currentDevice);
+  applyDevice();
+
+  // ===== Checklist state =====
   const qcItems = document.querySelectorAll('.qc-item');
-  const checklistState: Record<string, { status: string; note: string }> = {};
+  const checklistState= {};
 
-  qcItems.forEach(item => {
-    const category = (item as HTMLElement).dataset.category!;
-    const statusBtns = item.querySelectorAll('.status-btn');
-    const noteInput = item.querySelector('.item-note') as HTMLInputElement;
-
-    checklistState[category] = { status: '', note: '' };
-
-    statusBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const status = (btn as HTMLElement).dataset.status!;
-        checklistState[category].status = status;
-
-        // Update button styles
-        statusBtns.forEach(b => {
-          b.classList.remove('ring-2', 'ring-offset-1');
-        });
-        btn.classList.add('ring-2', 'ring-offset-1');
-      });
-    });
-
-    noteInput?.addEventListener('input', () => {
-      checklistState[category].note = noteInput.value;
-    });
-  });
-  
-  // QC Actions
+  // ===== Elements =====
   const passBtn = document.getElementById('qc-pass-btn');
   const failBtn = document.getElementById('qc-fail-btn');
-  const noteInput = document.getElementById('qc-note') as HTMLTextAreaElement;
+  const noteEl = document.getElementById('qc-note');
+  const severitySection = document.getElementById('severity-section');
 
-  function getChecklist() {
-    return Object.entries(checklistState).map(([category, data]) => ({
-      category,
-      status: data.status || 'ok',
-      note: data.note || undefined,
-    }));
+  function isHTMLElement(el) {
+    return el && el instanceof HTMLElement;
   }
 
-  function getSeverity(): string | null {
-    const checked = document.querySelector('input[name="severity"]:checked') as HTMLInputElement;
-    return checked?.value || null;
+  function getMeta() {
+    // lấy từ nút nào cũng được (cả 2 đều có dataset)
+    const el = isHTMLElement(passBtn) ? passBtn : (isHTMLElement(failBtn) ? failBtn : null);
+    if (!el) return { gameId: null, versionId: null };
+    return { gameId: el.dataset.gameId || null, versionId: el.dataset.versionId || null };
   }
-  
-  async function submitQCResult(result: 'pass' | 'fail') {
-    const versionId = passBtn?.dataset.versionId;
-    const note = noteInput?.value || '';
-    const checklist = getChecklist();
-    const severity = getSeverity();
-    
-    if (result === 'fail' && !note.trim()) {
-      alert('Vui lòng nhập ghi chú khi QC không đạt');
+
+  function hasAnyFail() {
+    return Object.values(checklistState).some(v => v && v.status === 'fail');
+  }
+
+  function getSeverity() {
+    const checked = document.querySelector('input[name="severity"]:checked');
+    return checked ? checked.value : null;
+  }
+
+  // API payload đúng contract checklist là map
+  function getChecklistMap() {
+    const m = {};
+    Object.entries(checklistState).forEach(([category, data]) => {
+      const s = data && data.status ? data.status : 'ok';
+      m[category] = (s === 'ok' || s === 'warning' || s === 'fail') ? s : 'ok';
+    });
+    return m;
+  }
+
+  function syncActionButtons() {
+    const hasFail = hasAnyFail();
+
+    // 1) Nút Đạt chỉ hiện khi không có Fail
+    if (isHTMLElement(passBtn)) passBtn.style.display = hasFail ? 'none' : '';
+
+    // 2) Severity chỉ cần khi có Fail
+    if (isHTMLElement(severitySection)) {
+      severitySection.style.display = hasFail ? '' : 'none';
+    }
+
+    // 3) Nút Cần sửa luôn hiện, nhưng nếu đang có Fail thì bắt buộc note
+    if (isHTMLElement(failBtn)) {
+      failBtn.style.display = '';
+      if (hasFail) {
+        const note = (noteEl && noteEl.value ? noteEl.value : '').trim();
+        failBtn.disabled = note.length === 0;
+        failBtn.classList.toggle('opacity-60', note.length === 0);
+        failBtn.classList.toggle('cursor-not-allowed', note.length === 0);
+      } else {
+        // nếu không fail thì "Cần sửa" vẫn cho bấm (bắt buộc note)
+        failBtn.disabled = false;
+        failBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    }
+  }
+
+  // Bind checklist UI
+  qcItems.forEach((item) => {
+    if (!isHTMLElement(item)) return;
+    const category = item.dataset.category;
+    if (!category) return;
+
+    const statusBtns = item.querySelectorAll('.status-btn');
+    const itemNote = item.querySelector('.item-note');
+
+    checklistState[category] = { status: 'ok', note: '' };
+
+    statusBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!isHTMLElement(btn)) return;
+        const status = btn.dataset.status;
+
+        if (status !== 'ok' && status !== 'warning' && status !== 'fail') return;
+        checklistState[category].status = status;
+
+        // UI ring active
+        statusBtns.forEach((b) => b.classList.remove('ring-2', 'ring-offset-1'));
+        btn.classList.add('ring-2', 'ring-offset-1');
+
+        syncActionButtons();
+      });
+    });
+
+    if (itemNote) {
+      itemNote.addEventListener('input', () => {
+        checklistState[category].note = itemNote.value || '';
+      });
+    }
+  });
+
+  // Note change => enable/disable fail button realtime
+  if (noteEl) {
+    noteEl.addEventListener('input', syncActionButtons);
+  }
+
+  async function submitQCResult(result) {
+    const { gameId, versionId } = getMeta();
+    const note = (noteEl && noteEl.value ? noteEl.value : '').trim();
+
+    if (!gameId || !versionId) {
+      alert('Thiếu gameId/versionId');
       return;
     }
 
-    if (result === 'fail' && !severity) {
-      alert('Vui lòng chọn mức độ nghiêm trọng');
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/games/qc-result', {
+    const checklist = getChecklistMap();
+
+    if (result === 'fail') {
+      if (!note) {
+        alert('Vui lòng nhập ghi chú khi QC Cần sửa');
+        return;
+      }
+      const severity = getSeverity();
+      if (!severity) {
+        alert('Vui lòng chọn mức độ nghiêm trọng');
+        return;
+      }
+
+      const resp = await fetch('/api/qc/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ versionId, result, checklist, note, severity })
+        body: JSON.stringify({ gameId, versionId, result, checklist, note, severity })
       });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        window.location.href = '/console/qc-inbox';
-      } else {
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
         alert(data.error || 'Có lỗi xảy ra');
+        return;
       }
-    } catch {
-      alert('Có lỗi xảy ra');
+
+      // redirect inbox
+      window.location.href = '/console/qc-inbox';
+      return;
     }
+
+    // result === 'pass'
+    const resp = await fetch('/api/qc/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId, versionId, result, checklist, note: '' })
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      alert(data.error || 'Có lỗi xảy ra');
+      return;
+    }
+
+    // redirect inbox
+    window.location.href = '/console/qc-inbox';
   }
-  
-  passBtn?.addEventListener('click', () => submitQCResult('pass'));
-  failBtn?.addEventListener('click', () => submitQCResult('fail'));
+
+  if (passBtn) passBtn.addEventListener('click', () => submitQCResult('pass'));
+  if (failBtn) failBtn.addEventListener('click', () => submitQCResult('fail'));
+
+  // chạy ngay lúc load
+  syncActionButtons();
 </script>

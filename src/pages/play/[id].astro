@@ -40,8 +40,14 @@ try {
       gameVersion = targetVersion.version;
       const CDN_BASE = `https://storage.googleapis.com/${import.meta.env.GCLOUD_BUCKET_NAME || 'iruka-edu-mini-game'}`;
       
-      // Cache bust with timestamp
-      const timestamp = new Date(targetVersion.updatedAt).getTime();
+      // QC mode: always bust cache hard
+      const isQc = Astro.url.searchParams.get('qc') === '1';
+
+      // Cache busting
+      const timestamp = isQc
+        ? Date.now()
+        : new Date(targetVersion.updatedAt || targetVersion.createdAt).getTime();
+
       entryUrl = `${CDN_BASE}/games/${game.gameId}/${gameVersion}/index.html?t=${timestamp}`;
     }
   }
