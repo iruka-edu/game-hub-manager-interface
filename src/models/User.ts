@@ -1,5 +1,6 @@
 import { ObjectId, type Collection, type Db } from 'mongodb';
 import { getMongoClient } from '../lib/mongodb';
+import bcrypt from 'bcryptjs';
 
 /**
  * User roles in the system
@@ -17,10 +18,13 @@ export const VALID_ROLES: Role[] = ['dev', 'qc', 'cto', 'ceo', 'admin'];
 export interface User {
   _id: ObjectId;
   email: string;
+  passwordHash: string;
   name: string;
   roles: Role[];
+  isActive: boolean;
   avatar?: string;
   teamIds?: string[];
+  createdBy?: ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,7 +32,9 @@ export interface User {
 /**
  * Input type for creating a new user
  */
-export type CreateUserInput = Omit<User, '_id' | 'createdAt' | 'updatedAt'>;
+export type CreateUserInput = Omit<User, '_id' | 'createdAt' | 'updatedAt' | 'passwordHash'> & {
+  password: string;
+};
 
 /**
  * Validate that a role is valid
@@ -90,6 +96,11 @@ export class UserRepository {
       throw new Error('Email is required and cannot be empty');
     }
 
+    // Validate password
+    if (!input.password || input.password.trim() === '') {
+      throw new Error('Password is required and cannot be empty');
+    }
+
     // Check email uniqueness
     const existing = await this.findByEmail(input.email);
     if (existing) {
@@ -102,13 +113,19 @@ export class UserRepository {
       throw new Error(`Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`);
     }
 
+    // Hash password
+    const passwordHash = await bcrypt.hash(input.password, 10);
+
     const now = new Date();
     const user: Omit<User, '_id'> = {
       email: input.email.trim(),
+      passwordHash,
       name: input.name || '',
       roles,
+      isActive: input.isActive !== undefined ? input.isActive : true,
       avatar: input.avatar || '',
       teamIds: input.teamIds || [],
+      createdBy: input.createdBy,
       createdAt: now,
       updatedAt: now,
     };
@@ -129,6 +146,85 @@ export class UserRepository {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { roles, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Verify password for a user
+   */
+  async verifyPassword(email: string, password: string): Promise<User | null> {
+    const user = await this.findByEmail(email);
+    if (!user) return null;
+
+    // Check if user has a password hash (for migration safety)
+    if (!user.passwordHash) {
+      console.error(`[User] User ${email} has no password hash. Run migration script.`);
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    return isValid ? user : null;
+  }
+
+  /**
+   * Update user password
+   */
+  async updatePassword(id: string, newPassword: string): Promise<User | null> {
+    if (!newPassword || newPassword.trim() === '') {
+      throw new Error('Password cannot be empty');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { passwordHash, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update user active status
+   */
+  async updateActiveStatus(id: string, isActive: boolean): Promise<User | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { isActive, updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update user info (name, email)
+   */
+  async updateInfo(id: string, updates: { name?: string; email?: string }): Promise<User | null> {
+    // If email is being updated, check uniqueness
+    if (updates.email) {
+      const existing = await this.findByEmail(updates.email);
+      if (existing && existing._id.toString() !== id) {
+        throw new Error('Email already in use by another user');
+      }
+    }
+
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { ...updates, updatedAt: new Date() } },
         { returnDocument: 'after' }
       );
       return result;

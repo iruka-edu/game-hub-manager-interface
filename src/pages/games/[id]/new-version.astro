@@ -1,29 +1,44 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import GameVersionUploadForm from '../../../components/GameVersionUploadForm.astro';
-import { RegistryManager } from '../../../lib/registry';
+import { GameRepository } from '../../../models/Game';
+import { GameVersionRepository } from '../../../models/GameVersion';
 
 const { id } = Astro.params;
 
-// Find game in registry
+if (!id) {
+  return Astro.redirect('/console/my-games');
+}
+
+// Find game in MongoDB
 let game = null;
 let error = null;
 
 try {
-  const registry = await RegistryManager.get();
-  game = registry.games.find(g => g.id === id);
+  const gameRepo = await GameRepository.getInstance();
+  game = await gameRepo.findById(id);
   
   if (!game) {
-    error = `Game "${id}" không tồn tại trong registry`;
+    error = `Game "${id}" không tồn tại`;
   }
 } catch (err) {
   console.error('Failed to load game:', err);
   error = 'Không thể tải thông tin game';
 }
 
-// Get current version and manifest
-const currentVersion = game?.activeVersion || '1.0.0';
-const manifest = game?.manifest || {};
+// Get current version
+let currentVersion = '1.0.0';
+if (game && game.latestVersionId) {
+  try {
+    const versionRepo = await GameVersionRepository.getInstance();
+    const latestVersion = await versionRepo.findById(game.latestVersionId.toString());
+    if (latestVersion) {
+      currentVersion = latestVersion.version;
+    }
+  } catch (err) {
+    console.error('Failed to load version:', err);
+  }
+}
 ---
 
 <Layout title={game ? `${game.title} - Tải phiên bản mới` : 'Game không tìm thấy'}>
@@ -46,8 +61,8 @@ const manifest = game?.manifest || {};
         {game ? (
           <div>
             <h1 class="text-3xl font-bold text-slate-900 mb-2">Tải phiên bản mới</h1>
-            <p class="text-slate-500">Cập nhật game <span class="font-medium">{game.title}</span> với phiên bản mới</p>
-            <p class="text-slate-400 font-mono text-sm mt-1">{game.id}</p>
+            <p class="text-slate-500">Cập nhật game <span class="font-medium">{game.title || game.gameId}</span> với phiên bản mới</p>
+            <p class="text-slate-400 font-mono text-sm mt-1">{game._id.toString()}</p>
           </div>
         ) : (
           <div>
@@ -59,10 +74,10 @@ const manifest = game?.manifest || {};
 
       {game ? (
         <GameVersionUploadForm 
-          gameId={game.id}
-          gameTitle={game.title}
+          gameId={game._id.toString()}
+          gameTitle={game.title || game.gameId}
           currentVersion={currentVersion}
-          manifest={manifest}
+          manifest={{}}
         />
       ) : (
         <div class="card p-8 text-center">

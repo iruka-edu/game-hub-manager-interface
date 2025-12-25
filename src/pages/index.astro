@@ -1,4 +1,5 @@
 ---
+// @ts-nocheck
 import Layout from "../layouts/Layout.astro";
 import GameCard from "../components/GameCard.astro";
 import { GameRepository } from "../models/Game";
@@ -272,15 +273,6 @@ function formatDate(date?: Date): string {
           <option value="production">Đang chạy (Production)</option>
           <option value="draft">Bản nháp / Chưa chạy</option>
           <option value="error">Có lỗi</option>
-        </select>
-
-        <select
-          id="sortBy"
-          class="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm bg-white"
-        >
-          <option value="updated">Mới cập nhật</option>
-          <option value="name">Tên A-Z</option>
-          <option value="created">Mới tạo</option>
         </select>
 
         <div class="h-8 w-px bg-slate-200 mx-1"></div>
@@ -588,15 +580,11 @@ function formatDate(date?: Date): string {
     localStorage.setItem('gameViewMode', mode);
     
     if (mode === 'grid') {
-      gridView?.classList.remove('hidden');
-      tableView?.classList.add('hidden');
       gridViewBtn?.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
       gridViewBtn?.classList.remove('text-slate-500');
       tableViewBtn?.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
       tableViewBtn?.classList.add('text-slate-500');
     } else {
-      gridView?.classList.add('hidden');
-      tableView?.classList.remove('hidden');
       tableViewBtn?.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
       tableViewBtn?.classList.remove('text-slate-500');
       gridViewBtn?.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
@@ -607,24 +595,27 @@ function formatDate(date?: Date): string {
 
   gridViewBtn?.addEventListener('click', () => updateViewMode('grid'));
   tableViewBtn?.addEventListener('click', () => updateViewMode('table'));
-  updateViewMode(currentView);
-
+  
   // Search and Filter functionality - Define elements BEFORE using them
   const searchInput = document.getElementById('searchInput') as HTMLInputElement;
   const statusFilter = document.getElementById('statusFilter') as HTMLSelectElement;
-  const sortBy = document.getElementById('sortBy') as HTMLSelectElement;
   const noResults = document.getElementById('noResults') as HTMLElement;
   const clearFilters = document.getElementById('clearFilters') as HTMLButtonElement;
 
   function filterAndSort() {
-    const searchTerm = searchInput?.value.toLowerCase() || '';
+    console.log('filterAndSort called');
+    const searchTerm = searchInput?.value.toLowerCase().trim() || '';
     const statusValue = statusFilter?.value || '';
-    const sortValue = sortBy?.value || 'updated';
+    console.log('Search term:', searchTerm);
+    console.log('Status filter:', statusValue);
 
     const gridCards = Array.from(document.querySelectorAll('.game-card-wrapper')) as HTMLElement[];
     const tableRows = Array.from(document.querySelectorAll('.game-row')) as HTMLElement[];
+    console.log('Found grid cards:', gridCards.length);
+    console.log('Found table rows:', tableRows.length);
 
     function processItems(items: HTMLElement[]) {
+      // Filter items
       const filtered = items.filter(item => {
         const gameName = item.dataset.gameName || '';
         const gameId = item.dataset.gameId || '';
@@ -643,29 +634,18 @@ function formatDate(date?: Date): string {
         return matchesSearch && matchesStatus;
       });
 
-      filtered.sort((a, b) => {
-        const aName = a.dataset.gameName || '';
-        const bName = b.dataset.gameName || '';
-        const aUpdated = a.dataset.updatedAt || '';
-        const bUpdated = b.dataset.updatedAt || '';
-        
-        switch (sortValue) {
-          case 'name': return aName.localeCompare(bName);
-          case 'created':
-          case 'updated': return new Date(bUpdated).getTime() - new Date(aUpdated).getTime();
-          default: return 0;
-        }
+      console.log('Filtered items:', filtered.length, 'of', items.length);
+
+      // Hide all items first
+      items.forEach(item => {
+        item.style.display = 'none';
       });
 
-      // Update visibility and order
-      items.forEach(item => item.classList.add('hidden'));
+      // Show filtered items
       filtered.forEach((item, index) => {
-        item.classList.remove('hidden');
+        item.style.display = '';
         if (item.classList.contains('game-card-wrapper')) {
           item.style.animationDelay = `${index * 0.05}s`;
-          (item.parentElement as HTMLElement).appendChild(item); // Reorder in DOM
-        } else {
-          (item.parentElement as HTMLElement).appendChild(item); // Reorder rows
         }
       });
 
@@ -675,25 +655,36 @@ function formatDate(date?: Date): string {
     const gridMatches = processItems(gridCards);
     const tableMatches = processItems(tableRows);
     
-    const hasMatches = gridMatches > 0;
+    // Use the appropriate match count based on current view
+    const hasMatches = currentView === 'grid' ? gridMatches > 0 : tableMatches > 0;
+    console.log('Has matches:', hasMatches, '(view:', currentView, ')');
 
-    if (noResults) noResults.classList.toggle('hidden', hasMatches);
-    if (gridView) gridView.classList.toggle('hidden', currentView !== 'grid' || !hasMatches);
-    if (tableView) tableView.classList.toggle('hidden', currentView !== 'table' || !hasMatches);
+    // Update visibility of views and no results message
+    if (noResults) {
+      noResults.style.display = hasMatches ? 'none' : 'block';
+    }
+    
+    if (gridView) {
+      gridView.style.display = currentView === 'grid' && hasMatches ? 'grid' : 'none';
+    }
+    
+    if (tableView) {
+      tableView.style.display = currentView === 'table' && hasMatches ? 'block' : 'none';
+    }
   }
 
   function clearAllFilters() {
     if (searchInput) searchInput.value = '';
     if (statusFilter) statusFilter.value = '';
-    if (sortBy) sortBy.value = 'updated';
     filterAndSort();
   }
 
+  // Event listeners
   searchInput?.addEventListener('input', filterAndSort);
   statusFilter?.addEventListener('change', filterAndSort);
-  sortBy?.addEventListener('change', filterAndSort);
   clearFilters?.addEventListener('click', clearAllFilters);
 
-  filterAndSort();
+  // Initialize view mode and apply initial filters
+  updateViewMode(currentView);
   </script>
 </Layout>

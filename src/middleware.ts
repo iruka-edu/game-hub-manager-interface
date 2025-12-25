@@ -17,6 +17,7 @@ const PROTECTED_API_PATTERNS = [
   "/api/upload",
   "/api/notifications",
   "/api/audit-logs",
+  "/api/users",
 ];
 
 /**

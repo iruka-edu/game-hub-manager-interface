@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Filter Logic</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f8f9fa;
+    }
+    .controls {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    input, select, button {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    input {
+      flex: 1;
+      min-width: 200px;
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #4f46e5;
+    }
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .game-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .game-card h3 {
+      margin: 0 0 10px 0;
+      color: #1e293b;
+    }
+    .game-card .meta {
+      font-size: 12px;
+      color: #64748b;
+      margin: 5px 0;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .status.production {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .status.draft {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 8px;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test Filter & Search Logic</h1>
+  
+  <div class="controls">
+    <input 
+      type="text" 
+      id="searchInput" 
+      placeholder="Tìm kiếm game theo tên, ID hoặc người phụ trách..."
+    >
+    
+    <select id="statusFilter">
+      <option value="">Tất cả trạng thái</option>
+      <option value="production">Đang chạy (Production)</option>
+      <option value="draft">Bản nháp / Chưa chạy</option>
+      <option value="error">Có lỗi</option>
+    </select>
+    
+    <select id="sortBy">
+      <option value="updated">Mới cập nhật</option>
+      <option value="name">Tên A-Z</option>
+      <option value="created">Mới tạo</option>
+    </select>
+    
+    <button id="clearFilters">Xóa bộ lọc</button>
+  </div>
+
+  <div id="gamesGrid" class="games-grid">
+    <!-- Sample Game 1 -->
+    <div class="game-card-wrapper"
+         data-game-name="math adventure"
+         data-game-id="math-001"
+         data-game-owner="john doe"
+         data-game-status="production"
+         data-updated-at="2025-12-25T10:00:00Z">
+      <div class="game-card">
+        <h3>Math Adventure</h3>
+        <div class="meta">ID: math-001</div>
+        <div class="meta">Owner: John Doe</div>
+        <div class="meta"><span class="status production">Production</span></div>
+        <div class="meta">Updated: 2025-12-25</div>
+      </div>
+    </div>
+
+    <!-- Sample Game 2 -->
+    <div class="game-card-wrapper"
+         data-game-name="english quiz"
+         data-game-id="eng-002"
+         data-game-owner="jane smith"
+         data-game-status="draft"
+         data-updated-at="2025-12-24T15:30:00Z">
+      <div class="game-card">
+        <h3>English Quiz</h3>
+        <div class="meta">ID: eng-002</div>
+        <div class="meta">Owner: Jane Smith</div>
+        <div class="meta"><span class="status draft">Draft</span></div>
+        <div class="meta">Updated: 2025-12-24</div>
+      </div>
+    </div>
+
+    <!-- Sample Game 3 -->
+    <div class="game-card-wrapper"
+         data-game-name="science lab"
+         data-game-id="sci-003"
+         data-game-owner="bob wilson"
+         data-game-status="error"
+         data-updated-at="2025-12-23T08:15:00Z">
+      <div class="game-card">
+        <h3>Science Lab</h3>
+        <div class="meta">ID: sci-003</div>
+        <div class="meta">Owner: Bob Wilson</div>
+        <div class="meta"><span class="status error">Error</span></div>
+        <div class="meta">Updated: 2025-12-23</div>
+      </div>
+    </div>
+
+    <!-- Sample Game 4 -->
+    <div class="game-card-wrapper"
+         data-game-name="history timeline"
+         data-game-id="hist-004"
+         data-game-owner="alice brown"
+         data-game-status="production"
+         data-updated-at="2025-12-22T12:00:00Z">
+      <div class="game-card">
+        <h3>History Timeline</h3>
+        <div class="meta">ID: hist-004</div>
+        <div class="meta">Owner: Alice Brown</div>
+        <div class="meta"><span class="status production">Production</span></div>
+        <div class="meta">Updated: 2025-12-22</div>
+      </div>
+    </div>
+
+    <!-- Sample Game 5 -->
+    <div class="game-card-wrapper"
+         data-game-name="geography explorer"
+         data-game-id="geo-005"
+         data-game-owner="charlie davis"
+         data-game-status="draft"
+         data-updated-at="2025-12-21T09:45:00Z">
+      <div class="game-card">
+        <h3>Geography Explorer</h3>
+        <div class="meta">ID: geo-005</div>
+        <div class="meta">Owner: Charlie Davis</div>
+        <div class="meta"><span class="status draft">Draft</span></div>
+        <div class="meta">Updated: 2025-12-21</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="noResults" class="no-results hidden">
+    <h2>Không tìm thấy game</h2>
+    <p>Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc</p>
+  </div>
+
+  <script>
+    // Get DOM elements
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const sortBy = document.getElementById('sortBy');
+    const gamesGrid = document.getElementById('gamesGrid');
+    const noResults = document.getElementById('noResults');
+    const clearFiltersBtn = document.getElementById('clearFilters');
+
+    function filterAndSort() {
+      const searchTerm = searchInput.value.toLowerCase().trim();
+      const statusValue = statusFilter.value;
+      const sortValue = sortBy.value;
+
+      const cards = Array.from(document.querySelectorAll('.game-card-wrapper'));
+
+      // Filter items
+      const filtered = cards.filter(card => {
+        const gameName = card.dataset.gameName || '';
+        const gameId = card.dataset.gameId || '';
+        const gameOwner = card.dataset.gameOwner || '';
+        const gameStatus = card.dataset.gameStatus || '';
+        
+        const matchesSearch = !searchTerm || 
+          gameName.includes(searchTerm) || 
+          gameId.includes(searchTerm) ||
+          gameOwner.includes(searchTerm);
+
+        const matchesStatus = !statusValue || gameStatus === statusValue;
+
+        return matchesSearch && matchesStatus;
+      });
+
+      // Sort filtered items
+      filtered.sort((a, b) => {
+        const aName = a.dataset.gameName || '';
+        const bName = b.dataset.gameName || '';
+        const aUpdated = a.dataset.updatedAt || '';
+        const bUpdated = b.dataset.updatedAt || '';
+        
+        switch (sortValue) {
+          case 'name': 
+            return aName.localeCompare(bName);
+          case 'created':
+          case 'updated': 
+            return new Date(bUpdated).getTime() - new Date(aUpdated).getTime();
+          default: 
+            return 0;
+        }
+      });
+
+      // Hide all cards first
+      cards.forEach(card => {
+        card.style.display = 'none';
+      });
+
+      // Show filtered cards
+      filtered.forEach(card => {
+        card.style.display = '';
+      });
+
+      // Show/hide no results message
+      const hasMatches = filtered.length > 0;
+      noResults.classList.toggle('hidden', hasMatches);
+      gamesGrid.classList.toggle('hidden', !hasMatches);
+
+      // Log for debugging
+      console.log(`Filtered: ${filtered.length} of ${cards.length} games`);
+    }
+
+    function clearAllFilters() {
+      searchInput.value = '';
+      statusFilter.value = '';
+      sortBy.value = 'updated';
+      filterAndSort();
+    }
+
+    // Event listeners
+    searchInput.addEventListener('input', filterAndSort);
+    statusFilter.addEventListener('change', filterAndSort);
+    sortBy.addEventListener('change', filterAndSort);
+    clearFiltersBtn.addEventListener('click', clearAllFilters);
+
+    // Initial filter
+    filterAndSort();
+
+    console.log('Filter test page loaded successfully!');
+    console.log('Try searching, filtering, or sorting to test the logic.');
+  </script>
+</body>
+</html>

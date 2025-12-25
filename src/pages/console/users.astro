@@ -1,0 +1,940 @@
+---
+import ConsoleLayout from "../../layouts/ConsoleLayout.astro";
+import type { User } from "../../models/User";
+import { getUserFromRequest } from "../../lib/session";
+
+// Auth check
+const currentUser = (await getUserFromRequest(Astro.request)) as User | null;
+if (!currentUser) {
+  return Astro.redirect("/login?redirect=/console/users");
+}
+
+// Check if user has permission to access this page
+const canManageUsers =
+  currentUser.roles.includes("admin" as any) ||
+  currentUser.roles.includes("cto" as any);
+if (!canManageUsers) {
+  return Astro.redirect("/403");
+}
+
+const isAdmin = currentUser.roles.includes("admin" as any);
+const isCTO = currentUser.roles.includes("cto" as any);
+
+const roleLabels: Record<string, string> = {
+  dev: "Developer",
+  qc: "QC Tester",
+  cto: "CTO",
+  ceo: "CEO",
+  admin: "Administrator",
+};
+
+// Iruka Brand Colors
+const brandColor = "#2B9BF6";
+---
+
+<ConsoleLayout title="Quản lý User" user={currentUser} activeMenu="users">
+  <style is:inline>
+    :root {
+      --iruka-blue: #2b9bf6;
+      --iruka-blue-hover: #1e8ae0;
+      --iruka-blue-light: #eff6ff;
+    }
+    .btn-iruka {
+      background-color: var(--iruka-blue);
+      color: white;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-iruka:hover:not(:disabled) {
+      background-color: var(--iruka-blue-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(43, 155, 246, 0.25);
+    }
+    .btn-iruka:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    .btn-iruka:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .rounded-iruka {
+      border-radius: 12px;
+    }
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f8fafc;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #e2e8f0;
+      border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #cbd5e1;
+    }
+    /* Modal Animation */
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+    .animate-modal {
+      animation: modalFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+  </style>
+
+  <div class="p-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">
+          Quản lý User
+        </h1>
+        <p class="text-slate-500 mt-1.5 flex items-center gap-2 font-medium">
+          Hệ thống quản lý người dùng Iruka Hub
+          <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+          <span
+            class="text-xs font-bold text-iruka-blue bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100"
+          >
+            {isAdmin ? "QUẢN TRỊ VIÊN" : "CTO CONTENT"}
+          </span>
+        </p>
+      </div>
+      <button
+        id="createUserBtn"
+        class="btn-iruka px-6 py-3 rounded-iruka font-bold flex items-center gap-2.5 shadow-lg shadow-blue-500/10 group"
+      >
+        <div
+          class="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center group-hover:bg-white/30 transition-colors"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M12 4v16m8-8H4"></path>
+          </svg>
+        </div>
+        Thêm người dùng
+      </button>
+    </div>
+
+    <!-- Filters Area -->
+    <div
+      class="bg-white rounded-iruka border border-slate-200 p-5 mb-8 shadow-sm"
+    >
+      <div class="flex flex-col lg:flex-row gap-5">
+        <!-- Search -->
+        <div class="w-full lg:w-[45%]">
+          <label
+            class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1"
+            >Tìm kiếm</label
+          >
+          <div class="relative group">
+            <svg
+              class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-iruka-blue transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.5"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Nhập tên, email hoặc ID để tìm kiếm..."
+              class="w-full pl-12 pr-4 py-3 bg-slate-50/50 border border-slate-200 rounded-iruka focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all placeholder:text-slate-400 font-medium"
+            />
+          </div>
+        </div>
+
+        <!-- Role Filter -->
+        <div class="w-full lg:flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1"
+              >Lọc theo vai trò</label
+            >
+            <div class="relative">
+              <select
+                id="roleFilter"
+                class="w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-iruka focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none appearance-none bg-no-repeat bg-[right_16px_center] transition-all cursor-pointer font-medium"
+                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C/polyline%3E%3C/svg%3E')"
+              >
+                <option value="">Tất cả vai trò</option>
+                <option value="admin">Administrator</option>
+                <option value="ceo">CEO</option>
+                <option value="cto">CTO</option>
+                <option value="dev">Developer</option>
+                <option value="qc">QC Tester</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1"
+              >Trạng thái tài khoản</label
+            >
+            <div class="relative">
+              <select
+                id="statusFilter"
+                class="w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-iruka focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none appearance-none bg-no-repeat bg-[right_16px_center] transition-all cursor-pointer font-medium"
+                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C/polyline%3E%3C/svg%3E')"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Đã vô hiệu hóa</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users Table -->
+    <div
+      class="bg-white rounded-iruka border border-slate-200 overflow-hidden shadow-sm"
+    >
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead class="bg-slate-50/80 border-b border-slate-100">
+            <tr>
+              <th
+                class="text-left px-6 py-4 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400"
+                >Người dùng</th
+              >
+              <th
+                class="text-left px-6 py-4 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400"
+                >Vai trò</th
+              >
+              <th
+                class="text-left px-6 py-4 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400"
+                >Trạng thái</th
+              >
+              <th
+                class="text-right px-6 py-4 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400"
+                >Thao tác</th
+              >
+            </tr>
+          </thead>
+          <tbody id="usersTableBody" class="divide-y divide-slate-50">
+            <tr id="loadingState">
+              <td colspan="4" class="px-6 py-24 text-center">
+                <div class="flex flex-col items-center gap-4">
+                  <div class="relative">
+                    <div
+                      class="w-14 h-14 border-4 border-blue-50 border-t-iruka-blue rounded-full animate-spin"
+                    >
+                    </div>
+                    <div
+                      class="absolute inset-0 flex items-center justify-center"
+                    >
+                      <div
+                        class="w-6 h-6 bg-blue-100 rounded-full animate-pulse"
+                      >
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    class="text-sm font-bold text-slate-400 tracking-wide uppercase"
+                    >Đang đồng bộ dữ liệu...</span
+                  >
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        id="emptyState"
+        class="hidden p-24 text-center border-t border-slate-50 bg-slate-50/30"
+      >
+        <div
+          class="w-24 h-24 mx-auto mb-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-300"
+        >
+          <svg
+            class="w-12 h-12"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-900 mb-2">
+          Không tìm thấy kết quả
+        </h3>
+        <p class="text-slate-500 max-w-sm mx-auto font-medium">
+          Chúng tôi không tìm thấy người dùng nào khớp với yêu cầu của bạn. Hãy
+          thử thay đổi từ khóa hoặc bộ lọc.
+        </p>
+        <button
+          onclick="window.location.reload()"
+          class="mt-6 text-iruka-blue font-bold hover:underline flex items-center gap-2 mx-auto"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            ></path></svg
+          >
+          Làm mới trang
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create/Edit User Modal -->
+  <div id="userModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div
+      class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
+    >
+      <div
+        class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-md shadow-2xl"
+        id="modalBackdrop"
+      >
+      </div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen"
+        >&#8203;</span
+      >
+
+      <div
+        class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-white/20 animate-modal"
+      >
+        <!-- Decoration Line -->
+        <div class="h-2 bg-iruka-blue w-full"></div>
+
+        <div class="bg-white px-8 pt-8 pb-4 border-b border-slate-50">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div
+                class="w-12 h-12 bg-blue-50 text-iruka-blue rounded-2xl flex items-center justify-center shadow-inner"
+              >
+                <svg
+                  class="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                  ></path>
+                </svg>
+              </div>
+              <div>
+                <h3
+                  id="modalTitle"
+                  class="text-2xl font-black text-slate-900 tracking-tight"
+                >
+                  Thêm người dùng
+                </h3>
+                <p
+                  class="text-slate-400 text-sm font-medium mt-0.5"
+                  id="modalSubtitle"
+                >
+                  Tạo tài khoản mới để truy cập hệ thống
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              id="closeModalBtn"
+              class="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-all group"
+            >
+              <svg
+                class="w-6 h-6 group-hover:rotate-90 transition-transform duration-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <form id="userForm" class="p-8 pt-6 space-y-6">
+          <!-- Error Alert -->
+          <div
+            id="modalError"
+            class="hidden p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3"
+          >
+            <div class="mt-0.5 text-red-500">
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path></svg
+              >
+            </div>
+            <div>
+              <p class="text-sm font-bold text-red-700">Đã xảy ra lỗi</p>
+              <p
+                class="text-xs text-red-600 font-medium mt-0.5"
+                id="modalErrorMessage"
+              >
+                Vui lòng kiểm tra lại thông tin nhập.
+              </p>
+            </div>
+          </div>
+
+          <input type="hidden" id="userId" />
+
+          <div class="grid grid-cols-1 gap-6">
+            <div class="space-y-2">
+              <label
+                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
+                >Họ và tên</label
+              >
+              <div class="relative">
+                <input
+                  type="text"
+                  id="userName"
+                  required
+                  placeholder="Ví dụ: Nguyễn Thế Anh"
+                  class="w-full px-4 py-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all font-bold text-slate-900 group"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label
+                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
+                >Địa chỉ Email</label
+              >
+              <div class="relative">
+                <input
+                  type="email"
+                  id="userEmail"
+                  required
+                  placeholder="name@iruka.vn"
+                  class="w-full px-4 py-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all font-bold text-slate-900"
+                />
+              </div>
+            </div>
+
+            <div id="passwordField" class="space-y-2 transition-all">
+              <label
+                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
+                >Mật khẩu ban đầu</label
+              >
+              <div class="relative">
+                <input
+                  type="password"
+                  id="userPassword"
+                  placeholder="••••••••"
+                  class="w-full px-4 py-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all font-bold text-slate-900"
+                />
+              </div>
+              <p
+                class="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1"
+              >
+                Mật khẩu nên chứa ít nhất 8 ký tự
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <label
+                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
+                >Phân quyền hệ thống</label
+              >
+              <div class="relative group">
+                <select
+                  id="userRoles"
+                  multiple
+                  required
+                  class="w-full px-2 py-2 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none h-40 transition-all custom-scrollbar font-bold text-slate-900"
+                >
+                  <option
+                    value="dev"
+                    class="p-3 my-1 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors"
+                    >Developer (Phát triển)</option
+                  >
+                  <option
+                    value="qc"
+                    class="p-3 my-1 rounded-xl cursor-pointer hover:bg-emerald-50 transition-colors"
+                    >QC Tester (Chất lượng)</option
+                  >
+                  <option
+                    value="cto"
+                    class="p-3 my-1 rounded-xl cursor-pointer hover:bg-indigo-50 transition-colors"
+                    >CTO (Kỹ thuật)</option
+                  >
+                  <option
+                    value="ceo"
+                    class="p-3 my-1 rounded-xl cursor-pointer hover:bg-amber-50 transition-colors"
+                    >CEO (Điều hành)</option
+                  >
+                  <option
+                    value="admin"
+                    class="p-3 my-1 rounded-xl cursor-pointer hover:bg-red-50 transition-colors"
+                    >Admin (Hệ thống)</option
+                  >
+                </select>
+                <div
+                  class="absolute top-2 right-4 pointer-events-none opacity-40"
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"
+                    ><path
+                      d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"
+                    ></path></svg
+                  >
+                </div>
+              </div>
+              <p
+                class="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1"
+              >
+                Giữ phím ⌘/Ctrl để chọn nhiều phân quyền
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 mt-4 pt-6">
+            <button
+              type="button"
+              id="cancelBtn"
+              class="px-6 py-3.5 text-sm font-black text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-2xl transition-all"
+            >
+              HỦY BỎ
+            </button>
+            <button
+              type="submit"
+              id="submitBtn"
+              class="btn-iruka px-10 py-3.5 text-sm font-black rounded-2xl shadow-xl shadow-blue-500/20 relative overflow-hidden group"
+            >
+              <span id="btnText" class="relative z-10">LƯU THÔNG TIN</span>
+              <div
+                id="btnLoading"
+                class="hidden absolute inset-0 flex items-center justify-center bg-iruka-blue z-20"
+              >
+                <svg
+                  class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                  viewBox="0 0 24 24"></svg>
+              </div>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Toast Holder (Hidden by default) -->
+  <div
+    id="toast"
+    class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-300 translate-y-20 opacity-0 bg-white"
+  >
+    <div id="toastIcon"></div>
+    <p id="toastMessage" class="text-sm font-black tracking-tight"></p>
+  </div>
+
+  <script define:vars={{ isAdmin, isCTO, roleLabels }}>
+    let users = [];
+    const searchInput = document.getElementById("searchInput");
+    const roleFilter = document.getElementById("roleFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const tbody = document.getElementById("usersTableBody");
+    const emptyState = document.getElementById("emptyState");
+    const loadingState = document.getElementById("loadingState");
+    const submitBtn = document.getElementById("submitBtn");
+    const btnText = document.getElementById("btnText");
+    const btnLoading = document.getElementById("btnLoading");
+    const modalError = document.getElementById("modalError");
+    const modalErrorMessage = document.getElementById("modalErrorMessage");
+    const toast = document.getElementById("toast");
+    const toastMessage = document.getElementById("toastMessage");
+    const toastIcon = document.getElementById("toastIcon");
+
+    // Toast Function
+    function showToast(msg, type = "success") {
+      toastMessage.textContent = msg;
+      toast.classList.remove("bg-emerald-500", "bg-red-500", "text-white");
+
+      if (type === "success") {
+        toast.className =
+          "fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-300 bg-emerald-600 text-white translate-y-0 opacity-100";
+        toastIcon.innerHTML =
+          '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
+      } else {
+        toast.className =
+          "fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-300 bg-red-600 text-white translate-y-0 opacity-100";
+        toastIcon.innerHTML =
+          '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+      }
+
+      setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0");
+        toast.classList.remove("translate-y-0", "opacity-100");
+      }, 3000);
+    }
+
+    // Set Loading State
+    function setLoading(loading) {
+      if (loading) {
+        submitBtn.disabled = true;
+        btnText.classList.add("opacity-0");
+        btnLoading.classList.remove("hidden");
+      } else {
+        submitBtn.disabled = false;
+        btnText.classList.remove("opacity-0");
+        btnLoading.classList.add("hidden");
+      }
+    }
+
+    // Copy ID Helper
+    window.copyToClipboard = (text, btn) => {
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML =
+          '<svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
+        setTimeout(() => {
+          btn.innerHTML = original;
+        }, 2000);
+        showToast("Đã sao chép ID người dùng");
+      });
+    };
+
+    // Load users
+    async function loadUsers() {
+      try {
+        const response = await fetch("/api/users");
+        if (!response.ok) throw new Error("Failed to load users");
+
+        const data = await response.json();
+        users = data.users;
+        renderUsers();
+      } catch (error) {
+        console.error("Error loading users:", error);
+        showToast("Lỗi kết nối máy chủ", "error");
+      }
+    }
+
+    // Role Badge Helper
+    function getRoleBadge(role) {
+      const config = {
+        admin: "bg-red-50 text-red-600 border-red-100",
+        ceo: "bg-amber-50 text-amber-600 border-amber-100",
+        cto: "bg-indigo-50 text-indigo-600 border-indigo-100",
+        dev: "bg-blue-50 text-blue-600 border-blue-100",
+        qc: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      };
+      const style =
+        config[role] || "bg-slate-50 text-slate-500 border-slate-100";
+      const label = roleLabels[role] || role;
+      return `<span class="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${style} shadow-sm">${label}</span>`;
+    }
+
+    // Render logic
+    function renderUsers() {
+      const query = searchInput.value.toLowerCase();
+      const roleQuery = roleFilter.value;
+      const statusQuery = statusFilter.value;
+
+      const filteredUsers = users.filter((u) => {
+        const matchesSearch =
+          u.name?.toLowerCase().includes(query) ||
+          u.email?.toLowerCase().includes(query) ||
+          u.id?.toLowerCase().includes(query);
+        const matchesRole = !roleQuery || u.roles.includes(roleQuery);
+        const matchesStatus =
+          !statusQuery || (statusQuery === "active" ? u.isActive : !u.isActive);
+
+        return matchesSearch && matchesRole && matchesStatus;
+      });
+
+      if (filteredUsers.length === 0) {
+        tbody.classList.add("hidden");
+        emptyState.classList.remove("hidden");
+        loadingState?.classList.add("hidden");
+        return;
+      }
+
+      tbody.classList.remove("hidden");
+      emptyState.classList.add("hidden");
+      loadingState?.classList.add("hidden");
+
+      tbody.innerHTML = filteredUsers
+        .map(
+          (user) => `
+        <tr class="group hover:bg-slate-50/70 transition-all">
+          <td class="px-6 py-5">
+            <div class="flex items-center gap-5">
+              <div class="relative flex-shrink-0">
+                <div class="w-14 h-14 rounded-2xl bg-white border border-slate-100 flex items-center justify-center font-black text-slate-400 text-xl shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all">
+                  ${(user.name?.charAt(0) || user.email.charAt(0)).toUpperCase()}
+                </div>
+                ${user.isActive ? '<div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-3 border-white rounded-full shadow-sm"></div>' : ""}
+              </div>
+              <div class="flex flex-col min-w-0">
+                <p class="font-extrabold text-slate-900 truncate text-base">${user.name || "N/A"}</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                   <p class="text-xs text-slate-400 font-bold truncate tracking-tight lowercase">${user.email}</p>
+                   <span class="text-slate-200 text-[10px] sm:block hidden">•</span>
+                   <div class="hidden sm:flex items-center gap-2 group/id">
+                      <code class="text-[10px] font-mono bg-slate-50 px-2 py-0.5 rounded-lg text-slate-400 font-bold border border-slate-100">ID: ${user.id.slice(-8).toUpperCase()}</code>
+                      <button onclick="copyToClipboard('${user.id}', this)" class="p-1 opacity-0 group-hover/id:opacity-100 transition-opacity hover:bg-slate-200 rounded-lg" title="Sao chép ID">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                      </button>
+                   </div>
+                </div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-5">
+            <div class="flex flex-wrap gap-2 max-w-[220px]">
+              ${user.roles.map((role) => getRoleBadge(role)).join("")}
+            </div>
+          </td>
+          <td class="px-6 py-5">
+            ${
+              user.isActive
+                ? '<span class="inline-flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 uppercase tracking-widest"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>Hoạt động</span>'
+                : '<span class="inline-flex items-center gap-2 text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 uppercase tracking-widest">Đã vô hiệu</span>'
+            }
+          </td>
+          <td class="px-6 py-5">
+            <div class="flex items-center justify-end gap-2">
+              <button onclick="editUser('${user.id}')" class="p-2.5 text-slate-400 hover:text-iruka-blue hover:bg-blue-50 rounded-xl transition-all shadow-sm hover:shadow-inner" title="Cập nhật">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+              </button>
+              
+              <div class="relative group/action">
+                <button class="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all shadow-sm hover:shadow-inner">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                  </svg>
+                </button>
+                <div class="invisible group-hover/action:visible opacity-0 group-hover/action:opacity-100 absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 z-20 overflow-hidden transform group-hover/action:translate-y-0 translate-y-2 transition-all duration-300">
+                  <div class="p-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50">Tùy chọn nhanh</div>
+                  <button onclick="resetPassword('${user.id}')" class="w-full text-left px-5 py-3.5 text-sm font-bold text-slate-600 hover:bg-blue-50 hover:text-iruka-blue flex items-center gap-3 transition-colors">
+                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                     Đặt lại mật khẩu
+                  </button>
+                  ${
+                    isAdmin
+                      ? `
+                    <button onclick="toggleUserStatus('${user.id}', ${!user.isActive})" class="w-full text-left px-5 py-3.5 text-sm font-bold ${user.isActive ? "text-amber-500 hover:bg-amber-50" : "text-emerald-500 hover:bg-emerald-50"} flex items-center gap-3 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                      ${user.isActive ? "Vô hiệu hóa tài khoản" : "Kích hoạt lại"}
+                    </button>
+                  `
+                      : ""
+                  }
+                  <div class="border-t border-slate-50 mt-1"></div>
+                  <button onclick="deleteUser('${user.id}')" class="w-full text-left px-5 py-3.5 text-sm font-bold text-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Xóa vĩnh viễn
+                  </button>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `
+        )
+        .join("");
+    }
+
+    // Modal helpers
+    function showModal() {
+      document.getElementById("userModal").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      modalError.classList.add("hidden");
+    }
+
+    function hideModal() {
+      document.getElementById("userModal").classList.add("hidden");
+      document.body.style.overflow = "";
+      document.getElementById("userForm").reset();
+      setLoading(false);
+    }
+
+    // Event Listeners
+    searchInput.addEventListener("input", renderUsers);
+    roleFilter.addEventListener("change", renderUsers);
+    statusFilter.addEventListener("change", renderUsers);
+    document.getElementById("createUserBtn").addEventListener("click", () => {
+      document.getElementById("modalTitle").textContent = "Thêm người dùng";
+      document.getElementById("modalSubtitle").textContent =
+        "Tạo tài khoản mới để truy cập hệ thống";
+      document.getElementById("userId").value = "";
+      document.getElementById("passwordField").classList.remove("hidden");
+      document.getElementById("userPassword").required = true;
+      showModal();
+    });
+    document
+      .getElementById("closeModalBtn")
+      .addEventListener("click", hideModal);
+    document.getElementById("cancelBtn").addEventListener("click", hideModal);
+    document
+      .getElementById("modalBackdrop")
+      .addEventListener("click", hideModal);
+
+    // Form submission
+    document
+      .getElementById("userForm")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        modalError.classList.add("hidden");
+
+        const userId = document.getElementById("userId").value;
+        const name = document.getElementById("userName").value;
+        const email = document.getElementById("userEmail").value;
+        const password = document.getElementById("userPassword").value;
+        const rolesSelect = document.getElementById("userRoles");
+        const roles = Array.from(rolesSelect.selectedOptions).map(
+          (opt) => opt.value
+        );
+
+        try {
+          let response;
+          if (userId) {
+            response = await fetch(`/api/users/${userId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, email, roles }),
+            });
+          } else {
+            response = await fetch("/api/users", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, email, password, roles }),
+            });
+          }
+
+          const data = await response.json();
+          if (!response.ok)
+            throw new Error(data.error || "Có lỗi xảy ra khi lưu dữ liệu");
+
+          hideModal();
+          await loadUsers();
+          showToast(
+            userId
+              ? "Đã cập nhật thông tin thành công"
+              : "Đã tạo người dùng mới thành công"
+          );
+        } catch (error) {
+          setLoading(false);
+          modalError.classList.remove("hidden");
+          modalErrorMessage.textContent = error.message;
+        }
+      });
+
+    // Edit function
+    window.editUser = (id) => {
+      const u = users.find((x) => x.id === id);
+      if (!u) return;
+
+      document.getElementById("modalTitle").textContent = "Chỉnh sửa";
+      document.getElementById("modalSubtitle").textContent =
+        `Đang cập nhật: ${u.email}`;
+      document.getElementById("userId").value = u.id;
+      document.getElementById("userName").value = u.name || "";
+      document.getElementById("userEmail").value = u.email;
+      document.getElementById("passwordField").classList.add("hidden");
+      document.getElementById("userPassword").required = false;
+
+      const sel = document.getElementById("userRoles");
+      Array.from(sel.options).forEach((o) => {
+        o.selected = u.roles.includes(o.value);
+      });
+
+      showModal();
+    };
+
+    // Toggle status
+    window.toggleUserStatus = async (id, status) => {
+      if (
+        !confirm(
+          `Xác nhận ${status ? "Kích hoạt" : "Vô hiệu hóa"} tài khoản này?`
+        )
+      )
+        return;
+      try {
+        const res = await fetch(`/api/users/${id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: status }),
+        });
+        if (!res.ok) throw new Error();
+        await loadUsers();
+        showToast("Trạng thái đã được cập nhật");
+      } catch {
+        showToast("Không thể cập nhật trạng thái", "error");
+      }
+    };
+
+    // Reset password
+    window.resetPassword = async (id) => {
+      const pass = prompt("Nhập mật khẩu mới cho người dùng này:");
+      if (!pass) return;
+      try {
+        const res = await fetch(`/api/users/${id}/password`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newPassword: pass }),
+        });
+        if (!res.ok) throw new Error();
+        showToast("Mật khẩu đã được đặt lại");
+      } catch {
+        showToast("Lỗi khi đặt lại mật khẩu", "error");
+      }
+    };
+
+    // Delete user
+    window.deleteUser = async (id) => {
+      if (!confirm("CẢNH BÁO: Xóa người dùng này vĩnh viễn?")) return;
+      try {
+        const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error();
+        await loadUsers();
+        showToast("Đã xóa người dùng thành công");
+      } catch {
+        showToast("Không thể xóa người dùng", "error");
+      }
+    };
+
+    loadUsers();
+  </script>
+</ConsoleLayout>

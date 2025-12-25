@@ -123,4 +123,61 @@ export const GameHistoryService = {
     const repo = await GameHistoryRepository.getInstance();
     return repo.getHistory(gameId);
   },
+
+  /**
+   * Record version activation
+   */
+  async recordVersionActivation(
+    gameId: string,
+    versionId: string,
+    versionNumber: string,
+    actor: User
+  ): Promise<void> {
+    await this.addEntry(
+      gameId,
+      "Kích hoạt phiên bản",
+      actor,
+      undefined,
+      undefined,
+      { versionId, versionNumber }
+    );
+  },
+
+  /**
+   * Record version deletion
+   */
+  async recordVersionDeletion(
+    gameId: string,
+    versionId: string,
+    versionNumber: string,
+    actor: User
+  ): Promise<void> {
+    await this.addEntry(
+      gameId,
+      "Xóa phiên bản",
+      actor,
+      undefined,
+      undefined,
+      { versionId, versionNumber }
+    );
+  },
+
+  /**
+   * Record version creation
+   */
+  async recordVersionCreation(
+    gameId: string,
+    versionId: string,
+    versionNumber: string,
+    actor: User
+  ): Promise<void> {
+    await this.addEntry(
+      gameId,
+      "Tạo phiên bản mới",
+      actor,
+      undefined,
+      undefined,
+      { versionId, versionNumber }
+    );
+  },
 };

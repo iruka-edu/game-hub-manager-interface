@@ -4,12 +4,12 @@ import { createSession, createSessionCookie } from '../../../lib/session';
 
 /**
  * POST /api/auth/login
- * Mock login endpoint for development - accepts email only
+ * Login endpoint with email and password authentication
  */
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { email } = body;
+    const { email, password } = body;
 
     if (!email || typeof email !== 'string') {
       return new Response(
@@ -18,14 +18,29 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // Find user by email
+    if (!password || typeof password !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Password is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user credentials
     const userRepo = await UserRepository.getInstance();
-    const user = await userRepo.findByEmail(email.trim());
+    const user = await userRepo.verifyPassword(email.trim(), password);
 
     if (!user) {
       return new Response(
         JSON.stringify({ error: 'Invalid email or password' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return new Response(
+        JSON.stringify({ error: 'Account is disabled. Please contact administrator.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

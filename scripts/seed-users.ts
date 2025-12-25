@@ -5,12 +5,12 @@ import { UserRepository, type Role } from '../src/models/User';
 /**
  * Test users to seed
  */
-const TEST_USERS: Array<{ email: string; name: string; roles: Role[] }> = [
-  { email: 'dev@iruka.com', name: 'Developer User', roles: ['dev'] },
-  { email: 'qc@iruka.com', name: 'QC User', roles: ['qc'] },
-  { email: 'cto@iruka.com', name: 'CTO User', roles: ['cto'] },
-  { email: 'ceo@iruka.com', name: 'CEO User', roles: ['ceo'] },
-  { email: 'admin@iruka.com', name: 'Admin User', roles: ['admin'] },
+const TEST_USERS: Array<{ email: string; name: string; roles: Role[]; password: string }> = [
+  { email: 'dev@iruka.com', name: 'Developer User', roles: ['dev'], password: 'dev123' },
+  { email: 'qc@iruka.com', name: 'QC User', roles: ['qc'], password: 'qc123' },
+  { email: 'cto@iruka.com', name: 'CTO User', roles: ['cto'], password: 'cto123' },
+  { email: 'ceo@iruka.com', name: 'CEO User', roles: ['ceo'], password: 'ceo123' },
+  { email: 'admin@iruka.com', name: 'Admin User', roles: ['admin'], password: 'admin123' },
 ];
 
 async function seedUsers() {
@@ -33,8 +33,15 @@ async function seedUsers() {
       const existing = await userRepo.findByEmail(userData.email);
       
       if (existing) {
-        console.log(`⏭️  Skipped: ${userData.email} (already exists)`);
-        skipped++;
+        // Check if user needs password migration
+        if (!existing.passwordHash) {
+          await userRepo.updatePassword(existing._id.toString(), userData.password);
+          console.log(`🔄 Updated: ${userData.email} (added password)`);
+          created++;
+        } else {
+          console.log(`⏭️  Skipped: ${userData.email} (already exists)`);
+          skipped++;
+        }
       } else {
         await userRepo.create(userData);
         console.log(`✅ Created: ${userData.email} (${userData.roles.join(', ')})`);

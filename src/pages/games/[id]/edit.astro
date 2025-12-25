@@ -1,35 +1,28 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
-import { RegistryManager } from '../../../lib/registry';
+import { GameRepository } from '../../../models/Game';
 
 const { id } = Astro.params;
 
-// Find game in registry
+if (!id) {
+  return Astro.redirect('/console/my-games');
+}
+
+// Find game in MongoDB
 let game = null;
 let error = null;
 
 try {
-  const registry = await RegistryManager.get();
-  game = registry.games.find(g => g.id === id);
+  const gameRepo = await GameRepository.getInstance();
+  game = await gameRepo.findById(id);
   
   if (!game) {
-    error = `Game "${id}" không tồn tại trong registry`;
+    error = `Game "${id}" không tồn tại`;
   }
 } catch (err) {
   console.error('Failed to load game:', err);
   error = 'Không thể tải thông tin game';
 }
-
-// Available capabilities
-const AVAILABLE_CAPABILITIES = [
-  { id: 'score', label: 'Score', icon: '🎯' },
-  { id: 'save-progress', label: 'Save Progress', icon: '💾' },
-  { id: 'levels', label: 'Levels', icon: '🎮' },
-  { id: 'hints', label: 'Hints', icon: '💡' },
-  { id: 'audio', label: 'Audio', icon: '🔊' },
-  { id: 'telemetry', label: 'Telemetry', icon: '📊' },
-  { id: 'leaderboard', label: 'Leaderboard', icon: '🏆' }
-];
 ---
 
 <Layout title={game ? `Sửa ${game.title}` : 'Game không tìm thấy'}>
@@ -52,7 +45,7 @@ const AVAILABLE_CAPABILITIES = [
         {game ? (
           <div>
             <h1 class="text-3xl font-bold text-slate-900 mb-2">Sửa thông tin Game</h1>
-            <p class="text-slate-500 font-mono text-sm">{game.id}</p>
+            <p class="text-slate-500 font-mono text-sm">{game._id.toString()}</p>
           </div>
         ) : (
           <div>

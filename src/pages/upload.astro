@@ -5,134 +5,322 @@ import { getUserFromRequest } from "../lib/session";
 import type { User } from "../models/User";
 
 // Check authentication
-const user = await getUserFromRequest(Astro.request) as User | null;
+const user = (await getUserFromRequest(Astro.request)) as User | null;
 
 // Check if user can upload (only dev and admin)
 const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
-const canUpload = hasRole('dev') || hasRole('admin');
+const canUpload = hasRole("dev") || hasRole("admin");
 
 // Redirect if not authenticated or not authorized
 if (!user) {
-  return Astro.redirect('/login?redirect=/upload');
+  return Astro.redirect("/login?redirect=/upload");
 }
 
 if (!canUpload) {
-  return Astro.redirect('/dashboard?error=unauthorized');
+  return Astro.redirect("/dashboard?error=unauthorized");
 }
+
+const isAdmin = hasRole("admin");
 ---
 
-<Layout title="Tải Game - Game Hub Manager">
-  <!-- Breadcrumb -->
-  <div class="mb-8 flex items-center justify-between">
-    <a
-      href="/"
-      class="text-slate-500 hover:text-slate-900 transition-colors inline-flex items-center gap-2 group text-sm font-medium"
-    >
-      <svg
-        class="w-4 h-4 group-hover:-translate-x-1 transition-transform"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M15 19l-7-7 7-7"></path>
-      </svg>
-      Quay lại Bảng điều khiển
-    </a>
-
-    <!-- User info -->
-    <div class="flex items-center gap-3">
-      <div class="text-right">
-        <p class="text-sm font-medium text-slate-900">{user.name || user.email}</p>
-        <p class="text-xs text-slate-500 capitalize">{user.roles.join(', ')}</p>
-      </div>
-      <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-semibold">
-        {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-      </div>
-    </div>
-  </div>
-
-  <div class="max-w-2xl mx-auto">
-    <!-- Page Header -->
-    <div class="text-center mb-10">
-      <h1 class="text-2xl font-bold text-slate-900 mb-2">Tải Game Mới</h1>
-      <p class="text-slate-500">
-        Tải thư mục build game lên để triển khai lên cloud
-      </p>
-    </div>
-
-    <!-- Role-based info -->
-    <div class="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-100">
-      <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
+<Layout title="Tải lên bản Build - Game Hub Manager">
+  <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a
+          href="/"
+          class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-iruka-blue hover:border-blue-200 transition-all shadow-sm group"
+          title="Quay lại"
+        >
+          <svg
+            class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </a>
         <div>
-          <p class="text-sm font-medium text-blue-900">Quy trình upload game</p>
-          <p class="text-sm text-blue-700 mt-1">
-            {hasRole('admin') 
-              ? 'Với quyền Admin, game của bạn sẽ được upload và có thể publish trực tiếp.'
-              : 'Sau khi upload, game sẽ ở trạng thái "Draft". Bạn cần submit để QC kiểm tra, CTO/CEO phê duyệt, Admin publish.'}
+          <h1 class="text-2xl font-black text-slate-900 tracking-tight">
+            Tải lên Game
+          </h1>
+          <p class="text-slate-500 text-sm font-medium">
+            Bản build game HTML5 cho hệ thống Iruka
           </p>
         </div>
       </div>
-    </div>
 
-    <!-- Workflow Steps -->
-    <div class="mb-8 p-4 rounded-lg bg-slate-50 border border-slate-200">
-      <p class="text-sm font-medium text-slate-700 mb-3">Quy trình phê duyệt:</p>
-      <div class="flex items-center justify-between text-xs">
-        <div class="flex flex-col items-center">
-          <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold">1</div>
-          <span class="mt-1 text-slate-600">Upload</span>
-          <span class="text-slate-400">(Dev)</span>
+      <div class="flex items-center gap-4">
+        <div class="hidden sm:flex flex-col items-end">
+          <p class="text-sm font-bold text-slate-900">
+            {user.name || user.email}
+          </p>
+          <p
+            class="text-[10px] font-black text-iruka-blue bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 uppercase tracking-wider"
+          >
+            {user.roles.join(" • ")}
+          </p>
         </div>
-        <div class="flex-1 h-0.5 bg-slate-300 mx-2"></div>
-        <div class="flex flex-col items-center">
-          <div class="w-8 h-8 rounded-full bg-slate-300 text-slate-600 flex items-center justify-center font-semibold">2</div>
-          <span class="mt-1 text-slate-600">Review</span>
-          <span class="text-slate-400">(QC)</span>
-        </div>
-        <div class="flex-1 h-0.5 bg-slate-300 mx-2"></div>
-        <div class="flex flex-col items-center">
-          <div class="w-8 h-8 rounded-full bg-slate-300 text-slate-600 flex items-center justify-center font-semibold">3</div>
-          <span class="mt-1 text-slate-600">Approve</span>
-          <span class="text-slate-400">(CTO/CEO)</span>
-        </div>
-        <div class="flex-1 h-0.5 bg-slate-300 mx-2"></div>
-        <div class="flex flex-col items-center">
-          <div class="w-8 h-8 rounded-full bg-slate-300 text-slate-600 flex items-center justify-center font-semibold">4</div>
-          <span class="mt-1 text-slate-600">Publish</span>
-          <span class="text-slate-400">(Admin)</span>
+        <div
+          class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-blue-500/20"
+        >
+          {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
         </div>
       </div>
     </div>
 
-    <!-- Upload Form -->
-    <GameUploadForm />
+    <div class="flex flex-col lg:flex-row gap-8">
+      <!-- CỘT TRÁI (Main - 70%) -->
+      <div class="flex-1 lg:w-[70%] space-y-6">
+        <GameUploadForm />
+      </div>
 
-    <!-- Manifest Example -->
-    <div class="mt-8 card p-6">
-      <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-        </svg>
-        Ví dụ manifest.json
-      </h3>
-      <pre class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-700 overflow-x-auto"><code>{`{
-  "id": "com.iruka.bubbles-game",
-  "title": "Bubbles Game",
-  "version": "1.0.0",
-  "runtime": "iframe-html",
-  "entryUrl": "https://storage.googleapis.com/.../index.html",
-  "iconUrl": "https://storage.googleapis.com/.../icon.png",
-  "capabilities": ["score", "audio", "save-progress"],
-  "minHubVersion": "1.0.0",
-  "disabled": false
-}`}</code></pre>
+      <!-- CỘT PHẢI (Guidance - 30%) -->
+      <div class="lg:w-[350px] space-y-6">
+        <!-- Vertical Stepper -->
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+          <h3
+            class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6"
+          >
+            Quy trình vận hành
+          </h3>
+
+          <div class="space-y-0 relative">
+            <div class="absolute left-[15px] top-2 bottom-2 w-0.5 bg-slate-100">
+            </div>
+
+            <!-- Step 1 -->
+            <div class="relative flex items-start gap-4 pb-8">
+              <div
+                class="relative z-10 w-8 h-8 rounded-full bg-iruka-blue text-white flex items-center justify-center shadow-lg shadow-blue-500/30"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="3"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  ></path></svg
+                >
+              </div>
+              <div>
+                <p
+                  class="text-sm font-black text-slate-900 uppercase tracking-tight"
+                >
+                  1. Tải lên Build
+                </p>
+                <p class="text-xs text-slate-500 mt-0.5 font-medium">
+                  Bản build & manifest.json
+                </p>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="relative flex items-start gap-4 pb-8">
+              <div
+                class="relative z-10 w-8 h-8 rounded-full bg-white border-2 border-slate-200 text-slate-300 flex items-center justify-center"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="3"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path></svg
+                >
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-400">2. Kiểm tra QC</p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Xác nhận chất lượng nội dung
+                </p>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="relative flex items-start gap-4 pb-8">
+              <div
+                class="relative z-10 w-8 h-8 rounded-full bg-white border-2 border-slate-200 text-slate-300 flex items-center justify-center"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="3"
+                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                  ></path></svg
+                >
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-400">3. Phê duyệt</p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Xác nhận bởi CTO hoặc CEO
+                </p>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="relative flex items-start gap-4">
+              <div
+                class="relative z-10 w-8 h-8 rounded-full bg-white border-2 border-slate-200 text-slate-300 flex items-center justify-center"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="3"
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg
+                >
+              </div>
+              <div>
+                <p class="text-sm font-bold text-slate-400">4. Phát hành</p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Publish lên Game Hub
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Technical Checklist -->
+        <div
+          class="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-blue-600/20"
+        >
+          <h3
+            class="text-xs font-black text-white/60 uppercase tracking-[0.2em] mb-4"
+          >
+            Danh mục kỹ thuật
+          </h3>
+
+          <ul class="space-y-4" id="tech-checklist">
+            <li class="flex items-start gap-3" data-req="index-html">
+              <div
+                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+              >
+                <svg
+                  class="w-3.5 h-3.5 hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="4"
+                    d="M5 13l4 4L19 7"></path></svg
+                >
+              </div>
+              <div>
+                <p class="text-sm font-bold">index.html tại root</p>
+                <p class="text-[10px] text-white/70">
+                  Điểm truy cập chính của game
+                </p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3" data-req="manifest-json">
+              <div
+                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+              >
+                <svg
+                  class="w-3.5 h-3.5 hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="4"
+                    d="M5 13l4 4L19 7"></path></svg
+                >
+              </div>
+              <div>
+                <p class="text-sm font-bold">manifest.json</p>
+                <p class="text-[10px] text-white/70">
+                  Khai báo ID, version, title...
+                </p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3" data-req="game-id">
+              <div
+                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+              >
+                <svg
+                  class="w-3.5 h-3.5 hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="4"
+                    d="M5 13l4 4L19 7"></path></svg
+                >
+              </div>
+              <div>
+                <p class="text-sm font-bold">Format: com.iruka.xxx</p>
+                <p class="text-[10px] text-white/70">
+                  Sử dụng kebab-case chuẩn Iruka
+                </p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3" data-req="file-size">
+              <div
+                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+              >
+                <svg
+                  class="w-3.5 h-3.5 hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="4"
+                    d="M5 13l4 4L19 7"></path></svg
+                >
+              </div>
+              <div>
+                <p class="text-sm font-bold">Dung lượng &lt; 10MB</p>
+                <p class="text-[10px] text-white/70">Khuyên dùng &lt; 3MB</p>
+              </div>
+            </li>
+          </ul>
+
+          <div class="mt-6 pt-6 border-t border-white/10">
+            <p class="text-xs font-medium text-white/60 leading-relaxed italic">
+              * Hệ thống sẽ tự động phân tích cấu trúc file khi bạn tải lên để
+              hỗ trợ kiểm tra nhanh.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
+  <style is:inline>
+    :root {
+      --iruka-blue: #2b9bf6;
+    }
+  </style>
 </Layout>

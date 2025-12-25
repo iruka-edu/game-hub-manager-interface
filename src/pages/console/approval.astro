@@ -15,21 +15,43 @@ const gameRepo = await GameRepository.getInstance();
 const versionRepo = await GameVersionRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
 
-// Find games with qc_passed versions
+// Find games with qc_passed LATEST versions
 const allGames = await gameRepo.findAll();
-const qcPassedVersions = await versionRepo.findByStatus('qc_passed');
-const gameIdsWithQcPassed = new Set(qcPassedVersions.map(v => v.gameId.toString()));
-const games = allGames.filter(g => gameIdsWithQcPassed.has(g._id.toString()));
+const gamesWithQcPassedLatest = [];
+
+for (const game of allGames) {
+  if (!game.latestVersionId) continue;
+  
+  const latestVersion = await versionRepo.findById(game.latestVersionId.toString());
+  if (latestVersion && latestVersion.status === 'qc_passed') {
+    gamesWithQcPassedLatest.push(game);
+  }
+}
+
+const games = gamesWithQcPassedLatest;
 
 // Get stats
-const approvedVersions = await versionRepo.findByStatus('approved');
-const gameIdsWithApproved = new Set(approvedVersions.map(v => v.gameId.toString()));
-const approvedCount = allGames.filter(g => gameIdsWithApproved.has(g._id.toString())).length;
+const approvedGames = [];
+const publishedGames = [];
 
-const publishedVersions = await versionRepo.findByStatus('published');
-const publishedThisMonth = publishedVersions.filter(v => {
+for (const game of allGames) {
+  if (!game.latestVersionId) continue;
+  
+  const latestVersion = await versionRepo.findById(game.latestVersionId.toString());
+  if (latestVersion) {
+    if (latestVersion.status === 'approved') {
+      approvedGames.push(game);
+    } else if (latestVersion.status === 'published') {
+      publishedGames.push(game);
+    }
+  }
+}
+
+const approvedCount = approvedGames.length;
+
+const publishedThisMonth = publishedGames.filter(g => {
   const now = new Date();
-  return v.updatedAt.getMonth() === now.getMonth() && v.updatedAt.getFullYear() === now.getFullYear();
+  return g.updatedAt.getMonth() === now.getMonth() && g.updatedAt.getFullYear() === now.getFullYear();
 }).length;
 
 // Get owner info for each game

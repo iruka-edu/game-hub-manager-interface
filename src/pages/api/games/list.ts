@@ -58,7 +58,7 @@ async function filterGamesByRole(
   return [];
 }
 
-export const GET: APIRoute = async ({ locals }) => {
+export const GET: APIRoute = async ({ locals, url }) => {
   try {
     // Get user from middleware (attached to locals)
     const user = locals.user as User | undefined;
@@ -70,10 +70,50 @@ export const GET: APIRoute = async ({ locals }) => {
       );
     }
 
+    // Parse query parameters for filtering
+    const searchParams = url.searchParams;
+    const statusFilter = searchParams.get('status') || undefined;
+    const ownerIdFilter = searchParams.get('ownerId') || undefined;
+    const subjectFilter = searchParams.get('subject') || undefined;
+    const gradeFilter = searchParams.get('grade') || undefined;
+    const isDeletedFilter = searchParams.get('isDeleted');
+    
+    // Default: exclude deleted games unless explicitly requested
+    const includeDeleted = isDeletedFilter === 'true';
+
     // Get games from MongoDB
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
-    const allGames = await gameRepo.findAll();
+    
+    // Fetch games based on deletion filter
+    let allGames: Game[];
+    if (includeDeleted) {
+      // Get all games including deleted ones
+      allGames = await gameRepo.findDeleted();
+      const nonDeleted = await gameRepo.findAll();
+      allGames = [...nonDeleted, ...allGames];
+    } else {
+      // Default: only non-deleted games
+      allGames = await gameRepo.findAll();
+    }
+    
+    // Apply filters (AND logic - all conditions must be satisfied)
+    if (statusFilter) {
+      // Filter by game status (note: status is deprecated, but kept for compatibility)
+      allGames = allGames.filter(game => game.status === statusFilter);
+    }
+    
+    if (ownerIdFilter) {
+      allGames = allGames.filter(game => game.ownerId === ownerIdFilter);
+    }
+    
+    if (subjectFilter) {
+      allGames = allGames.filter(game => game.subject === subjectFilter);
+    }
+    
+    if (gradeFilter) {
+      allGames = allGames.filter(game => game.grade === gradeFilter);
+    }
     
     // Enrich games with version info
     const gamesWithVersions: GameWithVersion[] = await Promise.all(

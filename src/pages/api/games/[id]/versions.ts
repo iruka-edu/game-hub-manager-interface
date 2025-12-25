@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../../models/Game';
 import { GameVersionRepository, compareSemVer } from '../../../../models/GameVersion';
 import { QcReportRepository } from '../../../../models/QcReport';
+import { UserRepository } from '../../../../models/User';
 import { getUserFromRequest } from '../../../../lib/session';
 
 /**
@@ -29,6 +30,7 @@ export const GET: APIRoute = async ({ params, request }) => {
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
     const qcRepo = await QcReportRepository.getInstance();
+    const userRepo = await UserRepository.getInstance();
 
     // Find the game
     const game = await gameRepo.findById(gameId);
@@ -39,16 +41,20 @@ export const GET: APIRoute = async ({ params, request }) => {
       });
     }
 
-    // Get all versions for this game
+    // Get all versions for this game (excluding deleted)
     const versions = await versionRepo.findByGameId(gameId);
 
-    // Sort by version number (descending - newest first)
-    versions.sort((a, b) => compareSemVer(b.version, a.version));
+    // Sort by createdAt descending (newest first) - this is the requirement
+    versions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    // Get QC results for each version
+    // Get QC results and user names for each version
     const versionsWithQc = await Promise.all(versions.map(async (version) => {
       const qcReports = await qcRepo.findByVersionId(version._id.toString());
       const latestQc = qcReports.length > 0 ? qcReports[0] : null;
+      
+      // Get creator name
+      const creator = await userRepo.findById(version.submittedBy.toString());
+      const creatorName = creator?.name || 'Unknown';
 
       return {
         _id: version._id.toString(),
@@ -60,6 +66,7 @@ export const GET: APIRoute = async ({ params, request }) => {
         selfQAChecklist: version.selfQAChecklist,
         releaseNote: version.releaseNote,
         submittedBy: version.submittedBy.toString(),
+        submittedByName: creatorName, // Added creator name
         submittedAt: version.submittedAt?.toISOString(),
         createdAt: version.createdAt.toISOString(),
         updatedAt: version.updatedAt.toISOString(),
