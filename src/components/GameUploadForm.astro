@@ -2,180 +2,144 @@
 // Server-side component - all logic happens on client
 ---
 
-<div class="space-y-6 animate-fade-in">
-  <!-- Section 1: Build Upload -->
+<div class="flex flex-col h-full animate-fade-in gap-6">
+  <!-- Section 1: Upload Card (Tabs + Dropzone) -->
   <div
-    class="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm"
+    class="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden flex-shrink-0"
   >
-    <div class="p-8 pb-10">
-      <div class="flex items-center gap-4 mb-8">
-        <div
-          class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-iruka-blue"
+    <!-- Tabs Header -->
+    <div class="flex border-b border-slate-100">
+      <button
+        id="tabZip"
+        class="flex-1 py-4 text-center text-sm font-black text-iruka-blue border-b-2 border-iruka-blue bg-blue-50/50 transition-all hover:bg-blue-50 flex items-center justify-center gap-2 group"
+      >
+        <svg
+          class="w-5 h-5 text-iruka-blue"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l2 2 4-4"
+          ></path></svg
         >
+        FILE ZIP <span
+          class="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700 ml-1"
+          >KHUYÊN DÙNG</span
+        >
+      </button>
+      <button
+        id="tabFolder"
+        class="flex-1 py-4 text-center text-sm font-bold text-slate-500 border-b-2 border-transparent hover:text-slate-700 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+      >
+        <svg
+          class="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+          ></path></svg
+        >
+        THƯ MỤC
+      </button>
+      <button
+        id="tabFile"
+        class="flex-1 py-4 text-center text-sm font-bold text-slate-500 border-b-2 border-transparent hover:text-slate-700 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+      >
+        <svg
+          class="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          ></path></svg
+        >
+        FILE LẺ
+      </button>
+    </div>
+
+    <!-- Dropzone Area -->
+    <div class="p-8">
+      <div
+        id="dropZone"
+        class="relative border-4 border-dashed border-blue-100 rounded-[20px] bg-sky-50/20 hover:bg-sky-50/50 hover:border-iruka-blue transition-all duration-300 group cursor-pointer h-[320px] flex flex-col items-center justify-center text-center"
+      >
+        <div
+          class="mb-5 p-4 rounded-full bg-white shadow-sm ring-4 ring-blue-50 group-hover:scale-110 transition-transform duration-300"
+        >
+          <!-- Illustration Icon changes based on Tab -->
           <svg
-            class="w-6 h-6"
+            id="dropIcon"
+            class="w-10 h-10 text-iruka-blue"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-          >
-            <path
+            ><path
               stroke-linecap="round"
               stroke-linejoin="round"
-              stroke-width="2.5"
+              stroke-width="2"
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-            ></path>
-          </svg>
-        </div>
-        <div>
-          <h2 class="text-xl font-black text-slate-900 tracking-tight">
-            Tải lên bản Build
-          </h2>
-          <p class="text-slate-500 text-sm font-medium">
-            Hệ thống hỗ trợ thư mục zip, folder hoặc file lẻ.
-          </p>
-        </div>
-      </div>
-
-      <!-- Main Drop Zone -->
-      <div
-        id="dropZone"
-        class="relative border-4 border-dashed border-blue-100 rounded-[32px] p-12 text-center cursor-pointer
-               bg-blue-50/30 hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 group"
-      >
-        <!-- Illustration -->
-        <div
-          class="mb-6 transform group-hover:scale-110 transition-transform duration-500"
-        >
-          <svg
-            class="w-24 h-24 mx-auto text-blue-400 opacity-60"
-            viewBox="0 0 100 100"
-            fill="currentColor"
+            ></path></svg
           >
-            <path
-              d="M95,50c0-11.1-4.7-21.1-12.3-28.1c-1.1-1-2.2-1.9-3.4-2.8c-0.1-0.1-0.2-0.1-0.3-0.2c-0.2-0.1-0.3-0.2-0.5-0.3 c-0.6-0.4-1.2-0.8-1.8-1.2c-0.1,0-0.1-0.1-0.2-0.1c-1-0.6-2-1.1-3.1-1.6c-11-4.5-23.4-4.5-34.4,0c-1.1,0.5-2.1,1-3.1,1.6 c-0.1,0-0.1,0.1-0.2,0.1c-0.6,0.4-1.2,0.8-1.8,1.2c-0.2,0.1-0.3,0.2-0.5,0.3c-0.1,0.1-0.2,0.1-0.3,0.2c-1.2,0.9-2.3,1.8-3.4,2.8 C21,28.9,16.3,38.9,16.3,50c0,10.6,4.3,20.2,11.3,27.1c0.1,0.1,0.3,0.3,0.4,0.4c0.2,0.2,0.5,0.4,0.7,0.7c0.2,0.2,0.5,0.4,0.7,0.6 c0.4,0.3,0.8,0.6,1.2,0.9c0.1,0.1,0.1,0.1,0.2,0.2c0.8,0.5,1.5,1,2.3,1.4c0.1,0,0.3,0.2,0.4,0.2c0.7,0.4,1.4,0.7,2.2,1.1 C41.6,85,48.2,86.3,55,86.3c15.2,0,28.7-8.1,36.4-20.3C93.7,60.8,95,55.5,95,50z M55,75.3c-14,0-25.3-11.3-25.3-25.3 S41,24.7,55,24.7s25.3,11.3,25.3,25.3S69,75.3,55,75.3z"
-            ></path>
-            <path
-              d="M55,34.7c-8.5,0-15.3,6.9-15.3,15.3S46.5,65.3,55,65.3s15.3-6.9,15.3-15.3S63.5,34.7,55,34.7z M55,55.3 c-2.9,0-5.3-2.4-5.3-5.3S52.1,44.7,55,44.7s5.3,2.4,5.3,5.3S57.9,55.3,55,55.3z"
-            ></path>
-          </svg>
         </div>
 
+        <h3 id="dropTitle" class="text-xl font-black text-slate-900 mb-2">
+          Kéo thả file ZIP vào đây
+        </h3>
         <p
-          id="dropZoneText"
-          class="text-xl font-black text-slate-900 tracking-tight"
+          id="dropHint"
+          class="text-slate-400 font-bold text-sm mb-6 max-w-xs mx-auto leading-relaxed"
         >
-          Kéo thả file Game vào đây
-        </p>
-        <p id="dropZoneHint" class="text-slate-400 text-sm mt-2 font-medium">
-          Hoặc bạn có thể chọn thủ công từng loại bản build
+          Hệ thống sẽ tự động giải nén và phân tích gói build của bạn
         </p>
 
-        <!-- Selection Buttons Inside Zone -->
-        <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <button
-            type="button"
-            id="selectZipBtn"
-            class="relative py-3 px-6 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10 transition-all flex items-center gap-3 active:scale-95 group/btn"
-          >
-            <span
-              class="absolute -top-3 -right-2 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 uppercase tracking-widest"
-              >Khuyên dùng</span
-            >
-            <div
-              class="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 transition-colors group-hover/btn:bg-emerald-500 group-hover/btn:text-white"
-            >
-              <svg
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.5"
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l2 2 4-4"
-                ></path></svg
-              >
-            </div>
-            <span class="text-slate-800 text-sm font-bold">Gói ZIP</span>
-          </button>
+        <button
+          type="button"
+          id="triggerInputBtn"
+          class="px-6 py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-black text-sm hover:border-iruka-blue hover:text-iruka-blue hover:shadow-lg hover:shadow-blue-500/10 transition-all active:scale-95"
+        >
+          Chọn file ZIP từ máy
+        </button>
 
-          <button
-            type="button"
-            id="selectFolderBtn"
-            class="py-3 px-6 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10 transition-all flex items-center gap-3 active:scale-95 group/btn"
-          >
-            <div
-              class="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 transition-colors group-hover/btn:bg-amber-500 group-hover/btn:text-white"
-            >
-              <svg
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.5"
-                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                ></path></svg
-              >
-            </div>
-            <span class="text-slate-800 text-sm font-bold">Thư mục</span>
-          </button>
-
-          <button
-            type="button"
-            id="selectFilesBtn"
-            class="py-3 px-6 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10 transition-all flex items-center gap-3 active:scale-95 group/btn"
-          >
-            <div
-              class="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 transition-colors group-hover/btn:bg-blue-500 group-hover/btn:text-white"
-            >
-              <svg
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.5"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                ></path></svg
-              >
-            </div>
-            <span class="text-slate-800 text-sm font-bold">File lẻ</span>
-          </button>
-        </div>
+        <!-- Hidden Inputs -->
+        <input type="file" id="zipInput" accept=".zip" class="hidden" />
+        <input
+          type="file"
+          id="folderInput"
+          multiple
+          class="hidden"
+          webkitdirectory
+        />
+        <input type="file" id="fileInput" multiple class="hidden" />
       </div>
-
-      <!-- Hidden file inputs -->
-      <input type="file" id="fileInput" multiple class="hidden" />
-      <input type="file" id="folderInput" multiple class="hidden" />
-      <input type="file" id="zipInput" accept=".zip" class="hidden" />
-    </div>
-
-    <!-- Status Message -->
-    <div
-      id="statusMessage"
-      class="hidden mx-8 mb-6 p-4 rounded-2xl text-sm font-bold transition-all"
-    >
     </div>
   </div>
 
-  <!-- Section 2: File List -->
+  <!-- Section 2: Validation Summary (Auto Check) - Initially Hidden -->
   <div
-    id="fileListContainer"
-    class="hidden bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm"
+    id="validationCard"
+    class="hidden bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden animate-fade-in-up"
   >
-    <div class="flex items-center justify-between mb-6">
+    <!-- Header -->
+    <div
+      class="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between"
+    >
       <div class="flex items-center gap-3">
         <div
-          class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400"
+          class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center"
         >
           <svg
-            class="w-5 h-5"
+            class="w-4 h-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -183,786 +147,575 @@
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2.5"
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-            ></path></svg
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg
           >
         </div>
         <div>
-          <h3
-            id="fileCountLabel"
-            class="text-lg font-black text-slate-900 tracking-tight"
+          <h4 class="text-sm font-black text-slate-900 uppercase">
+            Kết quả kiểm tra
+          </h4>
+          <p
+            id="fileNameDisplay"
+            class="text-xs font-bold text-slate-500 truncate max-w-[200px]"
           >
-            0 file đã chọn
-          </h3>
-          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">
-            Danh sách tài nguyên tải lên
+            Checking...
           </p>
         </div>
       </div>
       <button
-        type="button"
-        id="clearFilesBtn"
-        class="px-4 py-2 rounded-xl text-xs font-black text-red-500 hover:bg-red-50 transition-all uppercase tracking-widest border border-transparent hover:border-red-100"
+        id="resetBtn"
+        class="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
       >
-        Làm mới tất cả
+        Hủy bỏ
       </button>
     </div>
 
-    <div
-      id="fileList"
-      class="max-h-80 overflow-y-auto space-y-3 pr-4 custom-scrollbar"
-    >
-      <!-- File items will be rendered here -->
-    </div>
-  </div>
-
-  <!-- Section 3: Manifest Editor & Validation -->
-  <div id="manifestEditor" class="hidden space-y-6">
-    <!-- Validation Panel -->
-    <div id="validationDetails" class="hidden space-y-4">
-      <div
-        id="validationErrors"
-        class="hidden p-5 bg-red-50 border border-red-100 rounded-[24px]"
-      >
-        <div class="flex items-center gap-3 text-red-700 mb-3">
-          <svg
-            class="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2.5"
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg
+    <!-- Content -->
+    <div class="p-6 grid gap-6">
+      <!-- Metadata Grid -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <label
+            class="block text-[10px] font-black text-slate-400 uppercase mb-1"
+            >Game ID</label
           >
-          <span class="font-black text-sm uppercase tracking-widest"
-            >Lỗi cấu hình Cần sửa</span
-          >
+          <div id="metaId" class="text-sm font-bold text-slate-800 break-all">
+            Checking...
+          </div>
         </div>
-        <ul
-          id="errorsList"
-          class="text-sm text-red-600/80 font-bold space-y-1 ml-8 list-disc"
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <label
+            class="block text-[10px] font-black text-slate-400 uppercase mb-1"
+            >Version</label
+          >
+          <div id="metaVersion" class="text-sm font-bold text-slate-800">
+            Checking...
+          </div>
+        </div>
+        <div
+          class="p-3 rounded-xl bg-slate-50 border border-slate-100 col-span-2"
         >
-        </ul>
+          <label
+            class="block text-[10px] font-black text-slate-400 uppercase mb-1"
+            >Tên hiển thị</label
+          >
+          <div id="metaTitle" class="text-sm font-bold text-slate-800">
+            Checking...
+          </div>
+        </div>
       </div>
 
-      <div
-        id="validationWarnings"
-        class="hidden p-5 bg-amber-50 border border-amber-100 rounded-[24px]"
-      >
-        <div class="flex items-center gap-3 text-amber-700 mb-3">
-          <svg
-            class="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            ><path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2.5"
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-            ></path></svg
-          >
-          <span class="font-black text-sm uppercase tracking-widest"
-            >Cảnh báo kỹ thuật</span
-          >
-        </div>
-        <ul
-          id="warningsList"
-          class="text-sm text-amber-600/80 font-bold space-y-1 ml-8 list-disc"
+      <!-- Checklist Status -->
+      <div class="space-y-3 pt-4 border-t border-slate-50">
+        <div
+          id="checkIndex"
+          class="flex items-center gap-3 text-sm font-bold text-slate-400"
         >
-        </ul>
-      </div>
-    </div>
-
-    <!-- Main Config Card -->
-    <div
-      class="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm"
-    >
-      <div class="p-8">
-        <div class="flex items-center justify-between mb-8">
-          <div class="flex items-center gap-4">
-            <div
-              class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner"
-            >
-              <svg
-                class="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2.5"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                ></path></svg
-              >
-            </div>
-            <div>
-              <h3 class="text-xl font-black text-slate-900 tracking-tight">
-                Cấu hình hệ thống
-              </h3>
-              <p
-                id="manifestSource"
-                class="text-xs font-bold mt-0.5 uppercase tracking-widest"
-              >
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            id="toggleManifestView"
-            class="px-4 py-2 rounded-xl text-xs font-black text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all uppercase tracking-[0.2em]"
+          <div
+            class="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0"
           >
-            Chế độ JSON
-          </button>
+          </div>
+          <span>File index.html</span>
         </div>
-
-        <!-- Form Editor -->
-        <div id="manifestFields" class="space-y-8">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-2">
-              <label
-                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
-                >Game Identity ID</label
-              >
-              <input
-                type="text"
-                id="manifestId"
-                class="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all font-bold text-slate-900"
-                placeholder="com.iruka.my-game"
-              />
-              <p class="text-[10px] text-slate-400 font-bold px-1 italic">
-                Dạng: com.iruka.&lt;tên-game&gt;
-              </p>
-            </div>
-            <div class="space-y-2">
-              <label
-                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
-                >Phiên bản (SemVer)</label
-              >
-              <input
-                type="text"
-                id="manifestVersion"
-                class="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all font-bold text-slate-900"
-                placeholder="1.0.0"
-              />
-              <p class="text-[10px] text-slate-400 font-bold px-1 italic">
-                Sử dụng định dạng x.y.z
-              </p>
-            </div>
+        <div
+          id="checkManifest"
+          class="flex items-center gap-3 text-sm font-bold text-slate-400"
+        >
+          <div
+            class="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0"
+          >
           </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-2">
-              <label
-                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
-                >Tên game hiển thị</label
-              >
-              <input
-                type="text"
-                id="manifestTitle"
-                class="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all font-bold text-slate-900"
-                placeholder="Tên game của bạn"
-              />
-            </div>
-            <div class="space-y-2">
-              <label
-                class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
-                >Cơ chế vận hành (Runtime)</label
-              >
-              <select
-                id="manifestRuntime"
-                class="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 focus:bg-white outline-none transition-all font-bold text-slate-900 appearance-none bg-no-repeat bg-[right_20px_center]"
-                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C/polyline%3E%3C/svg%3E')"
-              >
-                <option value="iframe-html">Web Iframe (Phổ biến nhất)</option>
-                <option value="esm-module">ES Module (Nâng cao)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="space-y-3 pt-6 border-t border-slate-50">
-            <label
-              class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
-              >Tính năng tích hợp (Capabilities)</label
-            >
-            <div id="capabilitiesSelector" class="flex flex-wrap gap-3">
-              <!-- Capability tags -->
-            </div>
-          </div>
+          <span>File manifest.json</span>
         </div>
+        <div
+          id="checkSize"
+          class="flex items-center gap-3 text-sm font-bold text-slate-400"
+        >
+          <div
+            class="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0"
+          >
+          </div>
+          <span>Dung lượng tối ưu</span>
+        </div>
+      </div>
 
-        <!-- Raw JSON View (hidden by default) -->
-        <div id="manifestJsonView" class="hidden">
+      <!-- Error Box -->
+      <div
+        id="validationErrorBox"
+        class="hidden p-4 bg-red-50 border border-red-100 rounded-xl"
+      >
+        <p id="validationErrorMsg" class="text-xs font-bold text-red-600"></p>
+      </div>
+
+      <!-- Manual Edit Toggle -->
+      <button
+        id="toggleEdit"
+        class="w-full py-2 text-xs font-bold text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors uppercase tracking-wider"
+      >
+        + Chỉnh sửa thông tin Manifest
+      </button>
+
+      <!-- Hidden Editor -->
+      <div
+        id="manualEditor"
+        class="hidden space-y-4 pt-4 border-t border-slate-100"
+      >
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-slate-500">Manifest JSON</label>
           <textarea
-            id="manifestJsonText"
-            class="w-full h-64 bg-slate-900 text-blue-400 rounded-2xl p-6 text-sm font-mono focus:ring-4 focus:ring-blue-100 outline-none scrollbar-thin scrollbar-thumb-slate-700"
-            placeholder='{ "id": "com.iruka.game", ... }'></textarea>
+            id="jsonEditor"
+            class="w-full h-32 text-xs font-mono bg-slate-800 text-green-400 p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+            spellcheck="false"></textarea>
+          <button
+            id="saveJson"
+            class="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-200"
+            >Áp dụng thay đổi</button
+          >
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Progress Bar Overlay (for uploading) -->
+  <!-- Section 3: Primary Interaction (Sticky Bottom) -->
   <div
-    id="progressContainer"
-    class="hidden fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6"
+    class="mt-auto pt-4 sticky bottom-0 bg-gradient-to-t from-slate-50 to-transparent pb-4 z-20"
+  >
+    <button
+      id="submitBtn"
+      disabled
+      class="w-full py-4 rounded-xl bg-iruka-blue text-white font-black text-base shadow-xl shadow-blue-500/20 hover:bg-blue-600 hover:translate-y-[-2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
+    >
+      <span>Đăng bản Build</span>
+      <svg
+        id="btnSpinner"
+        class="hidden w-5 h-5 animate-spin"
+        fill="none"
+        viewBox="0 0 24 24"
+        ><circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          stroke-width="4"></circle><path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path></svg
+      >
+    </button>
+  </div>
+
+  <!-- Progress Overlay -->
+  <div
+    id="progressOverlay"
+    class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center"
   >
     <div
-      class="bg-white rounded-[40px] p-10 max-w-lg w-full shadow-2xl animate-modal text-center"
+      class="bg-white rounded-[32px] p-8 w-[320px] text-center shadow-2xl animate-fade-in-up"
     >
-      <div class="relative w-32 h-32 mx-auto mb-8">
-        <svg class="w-full h-full transform -rotate-90">
-          <circle
-            cx="64"
-            cy="64"
-            r="58"
-            stroke="currentColor"
-            stroke-width="8"
-            fill="transparent"
-            class="text-slate-100"></circle>
-          <circle
-            id="progressCircle"
-            cx="64"
-            cy="64"
-            r="58"
-            stroke="currentColor"
-            stroke-width="8"
-            fill="transparent"
-            stroke-dasharray="364.4"
-            stroke-dashoffset="364.4"
-            class="text-iruka-blue transition-all duration-300"></circle>
-        </svg>
-        <div class="absolute inset-0 flex items-center justify-center">
-          <span id="progressPercent" class="text-3xl font-black text-slate-900"
-            >0%</span
-          >
-        </div>
-      </div>
-      <h3 class="text-2xl font-black text-slate-900 mb-2">
-        Đang tải lên Hệ thống
-      </h3>
-      <p
-        id="progressLabel"
-        class="text-slate-500 font-bold uppercase tracking-widest text-xs"
-      >
-        Phân tích build...
-      </p>
-
-      <div
-        id="progressBar"
-        class="hidden h-1.5 bg-slate-100 rounded-full mt-8 overflow-hidden"
-      >
-        <div
-          id="progressBarFill"
-          class="h-full bg-iruka-blue transition-all duration-300 w-0"
+      <div class="w-20 h-20 mx-auto mb-6 relative">
+        <svg class="w-full h-full transform -rotate-90"
+          ><circle
+            cx="40"
+            cy="40"
+            r="36"
+            stroke="#f1f5f9"
+            stroke-width="6"
+            fill="none"></circle><circle
+            id="progCircle"
+            cx="40"
+            cy="40"
+            r="36"
+            stroke="#2b9bf6"
+            stroke-width="6"
+            fill="none"
+            stroke-dasharray="226"
+            stroke-dashoffset="226"
+            class="transition-all duration-300"></circle></svg
         >
+        <div
+          class="absolute inset-0 flex items-center justify-center font-black text-xl text-slate-800"
+          id="progText"
+        >
+          0%
         </div>
       </div>
+      <h3 class="font-black text-slate-900 mb-1">Đang tải lên</h3>
+      <p
+        class="text-xs font-bold text-slate-400 uppercase tracking-wider"
+        id="progLabel"
+      >
+        Khởi tạo...
+      </p>
     </div>
-  </div>
-
-  <!-- Action Button -->
-  <div class="pt-4">
-    <button
-      id="uploadBtn"
-      type="button"
-      disabled
-      class="w-full py-5 rounded-[24px] font-black text-white text-lg tracking-tight transition-all disabled:opacity-50 disabled:cursor-not-allowed
-             bg-iruka-blue hover:bg-blue-600 shadow-xl shadow-blue-500/20 active:scale-[0.98]"
-    >
-      <span id="uploadBtnText">Tải lên bản Build</span>
-    </button>
   </div>
 </div>
 
 <script>
-  // Script logic goes here - integrating your existing logic with my new selectors
-  interface FileItem {
-    file: File;
-    name: string;
-    path: string;
-    folder: string;
-    type: "file" | "folder";
-    size: number;
-    status: "pending" | "uploading" | "success" | "error";
-    errorMessage?: string;
-  }
+  // Elements
+  const tabs = {
+    zip: document.getElementById("tabZip"),
+    folder: document.getElementById("tabFolder"),
+    file: document.getElementById("tabFile"),
+  };
+  const inputs = {
+    zip: document.getElementById("zipInput"),
+    folder: document.getElementById("folderInput"),
+    file: document.getElementById("fileInput"),
+  };
+  const dropZone = document.getElementById("dropZone");
+  const dropTitle = document.getElementById("dropTitle");
+  const dropHint = document.getElementById("dropHint");
+  const triggerBtn = document.getElementById("triggerInputBtn");
+  const dropIcon = document.getElementById("dropIcon");
 
-  // DOM Elements
-  const fileInput = document.getElementById("fileInput") as HTMLInputElement;
-  const folderInput = document.getElementById(
-    "folderInput"
-  ) as HTMLInputElement;
-  const zipInput = document.getElementById("zipInput") as HTMLInputElement;
-  const selectFilesBtn = document.getElementById(
-    "selectFilesBtn"
-  ) as HTMLButtonElement;
-  const selectFolderBtn = document.getElementById(
-    "selectFolderBtn"
-  ) as HTMLButtonElement;
-  const selectZipBtn = document.getElementById(
-    "selectZipBtn"
-  ) as HTMLButtonElement;
-  const dropZone = document.getElementById("dropZone") as HTMLDivElement;
-  const fileListContainer = document.getElementById(
-    "fileListContainer"
-  ) as HTMLDivElement;
-  const fileList = document.getElementById("fileList") as HTMLDivElement;
-  const fileCountLabel = document.getElementById(
-    "fileCountLabel"
-  ) as HTMLSpanElement;
-  const clearFilesBtn = document.getElementById(
-    "clearFilesBtn"
-  ) as HTMLButtonElement;
-  const manifestEditor = document.getElementById(
-    "manifestEditor"
-  ) as HTMLDivElement;
-  const manifestFields = document.getElementById(
-    "manifestFields"
-  ) as HTMLDivElement;
-  const manifestJsonView = document.getElementById(
-    "manifestJsonView"
-  ) as HTMLDivElement;
-  const manifestJsonText = document.getElementById(
-    "manifestJsonText"
-  ) as HTMLTextAreaElement;
-  const toggleManifestView = document.getElementById(
-    "toggleManifestView"
-  ) as HTMLButtonElement;
-  const uploadBtn = document.getElementById("uploadBtn") as HTMLButtonElement;
-  const uploadBtnText = document.getElementById(
-    "uploadBtnText"
-  ) as HTMLSpanElement;
-  const statusMessage = document.getElementById(
-    "statusMessage"
-  ) as HTMLDivElement;
-  const progressContainer = document.getElementById(
-    "progressContainer"
-  ) as HTMLDivElement;
-  const progressBarFill = document.getElementById(
-    "progressBarFill"
-  ) as HTMLDivElement;
-  const progressPercent = document.getElementById(
-    "progressPercent"
-  ) as HTMLSpanElement;
-  const progressLabel = document.getElementById(
-    "progressLabel"
-  ) as HTMLSpanElement;
-  const progressCircle = document.getElementById("progressCircle") as any;
+  const validationCard = document.getElementById("validationCard");
+  const metaId = document.getElementById("metaId");
+  const metaVersion = document.getElementById("metaVersion");
+  const metaTitle = document.getElementById("metaTitle");
+  const fileNameDisplay = document.getElementById("fileNameDisplay");
+  const resetBtn = document.getElementById("resetBtn");
+  const submitBtn = document.getElementById("submitBtn");
+  const btnSpinner = document.getElementById("btnSpinner");
+
+  const manualEditor = document.getElementById("manualEditor");
+  const toggleEdit = document.getElementById("toggleEdit");
+  const jsonEditor = document.getElementById("jsonEditor");
+  const saveJson = document.getElementById("saveJson");
+
+  const validationErrorBox = document.getElementById("validationErrorBox");
+  const validationErrorMsg = document.getElementById("validationErrorMsg");
 
   // State
-  let fileItems: FileItem[] = [];
-  let manifestData: any = null;
-  let isJsonView = false;
-  let isZipMode = false;
-  let zipFile: File | null = null;
-  let selectedCapabilities: string[] = [];
-  let manifestFromFile = false;
+  let currentMode = "zip"; // zip | folder | file
+  let fileItems = []; // Array of processed files
+  let manifestData = null;
+  let isUploading = false;
 
-  // Capabilities
-  const AVAILABLE_CAPABILITIES = [
-    { id: "score", label: "Tính điểm", icon: "🎯" },
-    { id: "save-progress", label: "Lưu tiến trình", icon: "💾" },
-    { id: "levels", label: "Tư duy Level", icon: "🎮" },
-    { id: "hints", label: "Gợi ý thông minh", icon: "💡" },
-    { id: "audio", label: "Âm thanh", icon: "🔊" },
-    { id: "leaderboard", label: "BXH", icon: "🏆" },
-  ];
-
-  function formatFileSize(bytes: number): string {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  }
-
-  function getFileIcon(fileName: string): string {
-    const ext = fileName.split(".").pop()?.toLowerCase();
-    if (["html", "htm"].includes(ext || "")) return "🌐";
-    if (["js", "mjs", "ts"].includes(ext || "")) return "📜";
-    if (["css", "scss", "less"].includes(ext || "")) return "🎨";
-    if (["zip"].includes(ext || "")) return "📦";
-    return "📄";
-  }
-
-  function getStatusBadge(status: FileItem["status"]): string {
-    switch (status) {
-      case "success":
-        return '<span class="text-[10px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">Đạt</span>';
-      case "error":
-        return '<span class="text-[10px] font-black uppercase text-red-500 bg-red-50 px-2 py-0.5 rounded-lg border border-red-100">Lỗi</span>';
-      default:
-        return '<span class="text-[10px] font-black uppercase text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200">Chờ</span>';
-    }
-  }
-
-  function renderCapabilitiesSelector() {
-    const container = document.getElementById("capabilitiesSelector");
-    if (!container) return;
-    container.innerHTML = AVAILABLE_CAPABILITIES.map((cap) => {
-      const isSelected = selectedCapabilities.includes(cap.id);
-      return `
-        <button type="button" class="capability-tag px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-          isSelected
-            ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
-            : "bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-100"
-        }" data-capability="${cap.id}">
-          <span class="mr-2">${cap.icon}</span>${cap.label}
-        </button>
-      `;
-    }).join("");
-    container.querySelectorAll(".capability-tag").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = (btn as any).dataset.capability;
-        const idx = selectedCapabilities.indexOf(id);
-        if (idx > -1) selectedCapabilities.splice(idx, 1);
-        else selectedCapabilities.push(id);
-        renderCapabilitiesSelector();
-        updateManifestFromFields();
-      });
-    });
-  }
-
-  function updateRequirementsChecklist() {
-    const checks = {
-      "index-html": fileItems.some(
-        (f) => f.name === "index.html" || f.path?.endsWith("/index.html")
-      ),
-      "manifest-json": !!manifestData,
-      "game-id": manifestData?.id?.startsWith("com.iruka."),
-      "file-size": fileItems.reduce((s, i) => s + i.size, 0) < 10 * 1024 * 1024,
-    };
-
-    Object.entries(checks).forEach(([id, passed]) => {
-      const li = document.querySelector(`[data-req="${id}"]`);
-      if (li) {
-        const box = li.querySelector(".check-box");
-        const icon = box?.querySelector("svg");
-        if (passed) {
-          box?.classList.add("bg-white/20", "border-transparent");
-          box?.classList.remove("border-white/30");
-          icon?.classList.remove("hidden");
-        } else {
-          box?.classList.remove("bg-white/20", "border-transparent");
-          box?.classList.add("border-white/30");
-          icon?.classList.add("hidden");
-        }
+  // -- UI Helpers --
+  function setMode(mode) {
+    currentMode = mode;
+    // Update Tabs
+    Object.keys(tabs).forEach((k) => {
+      const btn = tabs[k];
+      if (k === mode) {
+        btn.className =
+          "flex-1 py-4 text-center text-sm font-black text-iruka-blue border-b-2 border-iruka-blue bg-blue-50/50 transition-all flex items-center justify-center gap-2";
+      } else {
+        btn.className =
+          "flex-1 py-4 text-center text-sm font-bold text-slate-500 border-b-2 border-transparent hover:text-slate-700 hover:bg-slate-50 transition-all flex items-center justify-center gap-2";
       }
     });
-  }
 
-  function showStatus(message: string, type: string) {
-    statusMessage.classList.remove("hidden");
-    statusMessage.className = `mx-8 mb-6 p-4 rounded-2xl text-sm font-bold border ${
-      type === "error"
-        ? "bg-red-50 text-red-700 border-red-100"
-        : type === "success"
-          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-          : "bg-blue-50 text-blue-700 border-blue-100"
-    }`;
-    statusMessage.textContent = message;
-  }
-
-  function renderFileList() {
-    if (fileItems.length === 0) {
-      fileListContainer.classList.add("hidden");
-      return;
+    // Update Dropzone Text
+    if (mode === "zip") {
+      dropTitle.textContent = "Kéo thả file ZIP vào đây";
+      dropHint.textContent =
+        "Hệ thống sẽ tự động giải nén và phân tích gói build của bạn";
+      triggerBtn.textContent = "Chọn file ZIP từ máy";
+      dropIcon.innerHTML =
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>';
+    } else if (mode === "folder") {
+      dropTitle.textContent = "Kéo thả Thư mục build vào đây";
+      dropHint.textContent = "Đảm bảo thư mục chứa index.html và manifest.json";
+      triggerBtn.textContent = "Chọn thư mục";
+      dropIcon.innerHTML =
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>';
+    } else {
+      dropTitle.textContent = "Kéo thả các file lẻ vào đây";
+      dropHint.textContent =
+        "Chọn tất cả các file cần thiết (HTML, JS, CSS, Assets)";
+      triggerBtn.textContent = "Chọn file lẻ";
+      dropIcon.innerHTML =
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>';
     }
-    fileListContainer.classList.remove("hidden");
-    fileCountLabel.textContent = isZipMode
-      ? `File ZIP nén: v${manifestData?.version || "?"}`
-      : `${fileItems.length} file đã chọn`;
 
-    fileList.innerHTML = fileItems
-      .map(
-        (item, idx) => `
-      <div class="flex items-center justify-between py-3.5 px-5 rounded-2xl bg-slate-50/50 border border-slate-100 hover:bg-white hover:shadow-md transition-all group">
-        <div class="flex items-center gap-4 min-w-0">
-          <div class="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-lg">${getFileIcon(item.name)}</div>
-          <div class="truncate">
-            <p class="text-sm font-bold text-slate-800 truncate">${item.path || item.name}</p>
-            <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">${formatFileSize(item.size)}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          ${getStatusBadge(item.status)}
-          <button onclick="removeFile(${idx})" class="p-1.5 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-        </div>
-      </div>
-    `
-      )
-      .join("");
+    // Reset state on tab switch
+    resetState();
   }
 
-  window.removeFile = (idx: number) => {
-    fileItems.splice(idx, 1);
-    if (fileItems.length === 0) clearAllFiles();
-    else {
-      renderFileList();
-      validateAndUpdateUI();
+  function resetState() {
+    fileItems = [];
+    manifestData = null;
+    validationCard.classList.add("hidden");
+    dropZone.classList.remove("hidden");
+    submitBtn.disabled = true;
+    inputs.zip.value = "";
+    inputs.folder.value = "";
+    inputs.file.value = "";
+  }
+
+  function setCheckStatus(id, status, text) {
+    // status: pending | success | error
+    const row = document.getElementById(id);
+    const icon = row.querySelector("div");
+    const label = row.querySelector("span");
+
+    if (status === "success") {
+      icon.className =
+        "w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0";
+      icon.innerHTML =
+        '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
+      row.className =
+        "flex items-center gap-3 text-sm font-bold text-slate-800";
+      if (text) label.textContent = text;
+    } else if (status === "error") {
+      icon.className =
+        "w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0";
+      icon.innerHTML =
+        '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>';
+      row.className = "flex items-center gap-3 text-sm font-bold text-red-600";
+      if (text) label.textContent = text;
+    } else {
+      icon.className =
+        "w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0";
+      icon.innerHTML = "";
+      row.className =
+        "flex items-center gap-3 text-sm font-bold text-slate-400";
+    }
+  }
+
+  // -- Interaction Handlers --
+  tabs.zip.onclick = () => setMode("zip");
+  tabs.folder.onclick = () => setMode("folder");
+  tabs.file.onclick = () => setMode("file");
+  triggerBtn.onclick = () => inputs[currentMode].click();
+  resetBtn.onclick = resetState;
+
+  toggleEdit.onclick = () => {
+    manualEditor.classList.toggle("hidden");
+    // Pre-fill
+    if (manifestData && !jsonEditor.value) {
+      jsonEditor.value = JSON.stringify(manifestData, null, 2);
     }
   };
 
-  function clearAllFiles() {
-    fileItems = [];
-    manifestData = null;
-    isZipMode = false;
-    zipFile = null;
-    manifestFromFile = false;
-    selectedCapabilities = [];
-    renderFileList();
-    renderCapabilitiesSelector();
-    manifestEditor.classList.add("hidden");
-    uploadBtn.disabled = true;
-    uploadBtnText.textContent = "Tải lên bản Build";
-    statusMessage.classList.add("hidden");
-    updateRequirementsChecklist();
-  }
-
-  function updateProgressUI(percent: number, label: string) {
-    percent = Math.round(percent);
-    progressPercent.textContent = `${percent}%`;
-    progressLabel.textContent = label;
-    if (progressCircle) {
-      const offset = 364.4 - (364.4 * percent) / 100;
-      progressCircle.style.strokeDashoffset = offset;
+  saveJson.onclick = () => {
+    try {
+      const newData = JSON.parse(jsonEditor.value);
+      manifestData = newData;
+      updateValidationUI();
+      manualEditor.classList.add("hidden");
+    } catch (e) {
+      alert("JSON không hợp lệ");
     }
-  }
+  };
 
-  async function processFiles(files: File[]) {
-    const totalSize = files.reduce((s, f) => s + f.size, 0);
-    if (totalSize > 10 * 1024 * 1024)
-      return showStatus("❌ Tổng dung lượng vượt quá 10MB!", "error");
+  // Drag & Drop
+  dropZone.ondragover = (e) => {
+    e.preventDefault();
+    dropZone.classList.add("border-iruka-blue", "bg-blue-50");
+  };
+  dropZone.ondragleave = (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("border-iruka-blue", "bg-blue-50");
+  };
+  dropZone.ondrop = (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("border-iruka-blue", "bg-blue-50");
+    const files = Array.from(e.dataTransfer.files);
+    handleFiles(files);
+  };
 
-    fileItems = files.map((f) => ({
-      file: f,
-      name: f.name,
-      path: (f as any).webkitRelativePath || f.name,
-      folder: "root",
-      type: "file",
-      size: f.size,
-      status: "pending",
-    }));
+  // File Inputs
+  inputs.zip.onchange = (e) => handleFiles(Array.from(e.target.files));
+  inputs.folder.onchange = (e) => handleFiles(Array.from(e.target.files));
+  inputs.file.onchange = (e) => handleFiles(Array.from(e.target.files));
 
-    renderFileList();
-    await validateAndUpdateUI();
-  }
+  async function handleFiles(files) {
+    if (!files.length) return;
 
-  async function processZipFile(file: File) {
-    if (file.size > 10 * 1024 * 1024)
-      return showStatus("❌ File ZIP vượt quá 10MB!", "error");
-    isZipMode = true;
-    zipFile = file;
-    fileItems = [
-      {
-        file,
-        name: file.name,
-        path: file.name,
-        folder: "root",
-        type: "file",
-        size: file.size,
-        status: "pending",
-      },
-    ];
-    renderFileList();
-    manifestEditor.classList.remove("hidden");
-    updateManifestSourceIndicator();
-    updateManifestFromFields();
-  }
-
-  async function validateAndUpdateUI() {
-    updateRequirementsChecklist();
-    if (fileItems.length === 0) return clearAllFiles();
-
-    // Auto-detect index.html and manifest.json
-    const hasIndex = fileItems.some(
-      (f) => f.name === "index.html" || f.path?.endsWith("/index.html")
-    );
-    const manifestFile = fileItems.find(
-      (f) => f.name === "manifest.json" || f.path?.endsWith("/manifest.json")
-    );
-
-    if (isZipMode) {
-      manifestEditor.classList.remove("hidden");
-      uploadBtn.disabled = !manifestData?.id;
-      return;
-    }
-
-    if (!hasIndex) {
-      showStatus("⚠️ Thiếu file index.html khởi đầu!", "error");
-      uploadBtn.disabled = true;
-      return;
-    }
-
-    manifestEditor.classList.remove("hidden");
-    if (manifestFile && !manifestFromFile) {
-      try {
-        const content = await manifestFile.file.text();
-        manifestData = JSON.parse(content);
-        manifestFromFile = true;
-        populateManifestFields(manifestData);
-        updateManifestSourceIndicator();
-      } catch (e) {
-        showStatus("❌ Lỗi định dạng manifest.json", "error");
+    // Logic switching based on mode
+    if (currentMode === "zip") {
+      if (files.length > 1 || !files[0].name.toLowerCase().endsWith(".zip")) {
+        alert("Vui lòng chỉ chọn 1 file ZIP");
+        return;
       }
-    }
-    updateManifestFromFields();
-  }
-
-  function populateManifestFields(m: any) {
-    (document.getElementById("manifestId") as any).value = m.id || "";
-    (document.getElementById("manifestVersion") as any).value = m.version || "";
-    (document.getElementById("manifestTitle") as any).value = m.title || "";
-    (document.getElementById("manifestRuntime") as any).value =
-      m.runtime || "iframe-html";
-    selectedCapabilities = Array.isArray(m.capabilities) ? m.capabilities : [];
-    renderCapabilitiesSelector();
-  }
-
-  function updateManifestFromFields() {
-    manifestData = {
-      id: (document.getElementById("manifestId") as any).value.trim(),
-      version: (document.getElementById("manifestVersion") as any).value.trim(),
-      title: (document.getElementById("manifestTitle") as any).value.trim(),
-      runtime: (document.getElementById("manifestRuntime") as any).value,
-      capabilities: selectedCapabilities,
-    };
-    manifestJsonText.value = JSON.stringify(manifestData, null, 2);
-    updateRequirementsChecklist();
-
-    if (manifestData.id && manifestData.version) {
-      uploadBtn.disabled = false;
-      uploadBtnText.textContent = `Tải lên ${manifestData.title || manifestData.id} v${manifestData.version}`;
-    }
-  }
-
-  function updateManifestSourceIndicator() {
-    const el = document.getElementById("manifestSource");
-    if (!el) return;
-    if (manifestFromFile) {
-      el.textContent = "✓ Tự động trích xuất từ Build";
-      el.className =
-        "text-[10px] font-black mt-0.5 uppercase tracking-widest text-emerald-500";
+      fileItems = [
+        { file: files[0], path: files[0].name, size: files[0].size },
+      ];
     } else {
-      el.textContent = "✏ Đang chỉnh sửa thủ công";
-      el.className =
-        "text-[10px] font-black mt-0.5 uppercase tracking-widest text-blue-500";
+      // Folder/File logic
+      fileItems = files.map((f) => ({
+        file: f,
+        path: f.webkitRelativePath || f.name,
+        size: f.size,
+      }));
     }
-  }
 
-  // Event Listeners
-  selectFilesBtn.addEventListener("click", () => fileInput.click());
-  selectFolderBtn.addEventListener("click", () => {
-    (folderInput as any).webkitdirectory = true;
-    folderInput.click();
-  });
-  selectZipBtn.addEventListener("click", () => zipInput.click());
-  fileInput.addEventListener("change", (e) =>
-    processFiles(Array.from((e.target as any).files))
-  );
-  folderInput.addEventListener("change", (e) =>
-    processFiles(Array.from((e.target as any).files))
-  );
-  zipInput.addEventListener("change", (e) => {
-    if ((e.target as any).files[0]) processZipFile((e.target as any).files[0]);
-  });
-  clearFilesBtn.addEventListener("click", clearAllFiles);
+    // Show Validation Card
+    dropZone.classList.add("hidden");
+    validationCard.classList.remove("hidden");
 
-  dropZone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropZone.classList.add("bg-blue-50", "border-blue-300");
-  });
-  dropZone.addEventListener("dragleave", (e) => {
-    e.preventDefault();
-    dropZone.classList.remove("bg-blue-50", "border-blue-300");
-  });
-  dropZone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropZone.classList.remove("bg-blue-50", "border-blue-300");
-    const files = Array.from(e.dataTransfer?.files || []);
-    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip"))
-      processZipFile(files[0]);
-    else processFiles(files);
-  });
+    // Build summary info
+    const totalSize = fileItems.reduce((acc, f) => acc + f.size, 0);
+    const sizeMB = (totalSize / (1024 * 1024)).toFixed(1);
+    const mainFile = fileItems[0].path;
+    fileNameDisplay.textContent =
+      currentMode === "zip" ? mainFile : `${fileItems.length} files`;
 
-  toggleManifestView.addEventListener("click", () => {
-    isJsonView = !isJsonView;
-    manifestFields.classList.toggle("hidden", isJsonView);
-    manifestJsonView.classList.toggle("hidden", !isJsonView);
-    toggleManifestView.textContent = isJsonView ? "Chế độ Form" : "Chế độ JSON";
-  });
-
-  ["manifestId", "manifestVersion", "manifestTitle", "manifestRuntime"].forEach(
-    (id) => {
-      document
-        .getElementById(id)
-        ?.addEventListener("input", updateManifestFromFields);
-    }
-  );
-
-  uploadBtn.addEventListener("click", async () => {
-    uploadBtn.disabled = true;
-    progressContainer.classList.remove("hidden");
-    updateProgressUI(10, "Đang khởi tạo...");
-
-    const formData = new FormData();
-    if (isZipMode) {
-      formData.append("zipFile", zipFile!);
-      formData.append("manifest", JSON.stringify(manifestData));
+    // Check Size
+    if (totalSize < 10 * 1024 * 1024) {
+      setCheckStatus(
+        "checkSize",
+        "success",
+        `Dung lượng: ${sizeMB} MB (Hợp lệ)`
+      );
     } else {
-      fileItems.forEach((i) => formData.append("files", i.file));
-      formData.append(
-        "files",
-        new File([JSON.stringify(manifestData)], "manifest.json")
+      setCheckStatus(
+        "checkSize",
+        "error",
+        `Dung lượng: ${sizeMB} MB (Quá lớn > 10MB)`
       );
     }
 
-    try {
-      updateProgressUI(40, "Đang tải dữ liệu...");
-      const res = await fetch(isZipMode ? "/api/upload-zip" : "/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("Lỗi tải lên");
-      updateProgressUI(100, "Hoàn tất!");
-      showStatus("✅ Thành công! Đang chuyển hướng...", "success");
-      setTimeout(() => (window.location.href = "/"), 1500);
-    } catch (e) {
-      showStatus("❌ Lỗi trong quá trình upload", "error");
-      progressContainer.classList.add("hidden");
-      uploadBtn.disabled = false;
-    }
-  });
+    // Check Index & Manifest
+    let hasIndex = false;
+    let manifestFile = null;
 
-  renderCapabilitiesSelector();
+    if (currentMode === "zip") {
+      // Mock check for zip (cannot read inside client-side easily without lib, assume backend will check)
+      // OR: use a small JSZip lib if available. Since we don't have it, we'll implement a "Trust but verify" UI.
+      // For this specific "Internal Tool" request, we simulate detection or assume "Pending Server Check" for ZIP content.
+      // However, to make the UI "Green", let's assume if it is a ZIP, we prompt user to fill manifest if we can't read it.
+      // Actually, let's ask user to confirm manifest if we can't read it.
+      setCheckStatus("checkIndex", "pending", "Sẽ kiểm tra trên server (ZIP)");
+      setCheckStatus(
+        "checkManifest",
+        "pending",
+        "Sẽ kiểm tra trên server (ZIP)"
+      );
+
+      // Allow user to manually input manifest to enable button
+      metaId.textContent = "---";
+      metaVersion.textContent = "---";
+      metaTitle.textContent = "---";
+      manualEditor.classList.remove("hidden"); // Force open editor for ZIP if no reader
+      jsonEditor.value =
+        '{\n  "id": "com.iruka.game-name",\n  "version": "1.0.0",\n  "title": "My Game",\n  "runtime": "iframe-html"\n}';
+    } else {
+      // File/Folder mode: we can resize
+      hasIndex = fileItems.some((f) => f.path.endsWith("index.html"));
+      manifestFile = fileItems.find((f) => f.path.endsWith("manifest.json"));
+
+      if (hasIndex)
+        setCheckStatus("checkIndex", "success", "Tìm thấy index.html");
+      else setCheckStatus("checkIndex", "error", "Thiếu index.html");
+
+      if (manifestFile) {
+        try {
+          const text = await manifestFile.file.text();
+          manifestData = JSON.parse(text);
+          setCheckStatus("checkManifest", "success", "Manifest hợp lệ");
+          updateValidationUI();
+        } catch (e) {
+          setCheckStatus("checkManifest", "error", "Manifest lỗi JSON");
+        }
+      } else {
+        setCheckStatus("checkManifest", "error", "Thiếu manifest.json");
+        manualEditor.classList.remove("hidden"); // Ask to create one
+        jsonEditor.value =
+          '{\n  "id": "com.iruka.game-name",\n  "version": "1.0.0",\n  "title": "My Game",\n  "runtime": "iframe-html"\n}';
+      }
+    }
+  }
+
+  function updateValidationUI() {
+    if (manifestData) {
+      metaId.textContent = manifestData.id || "Missing";
+      metaVersion.textContent = manifestData.version || "Missing";
+      metaTitle.textContent = manifestData.title || "Missing";
+
+      // Validate Data
+      let errors = [];
+      if (!manifestData.id?.startsWith("com.iruka."))
+        errors.push("ID phải bắt đầu bằng com.iruka.");
+      if (!manifestData.version) errors.push("Thiếu version");
+
+      if (errors.length > 0) {
+        validationErrorBox.classList.remove("hidden");
+        validationErrorMsg.textContent = errors.join(", ");
+        submitBtn.disabled = true;
+      } else {
+        validationErrorBox.classList.add("hidden");
+        submitBtn.disabled = false;
+      }
+    }
+  }
+
+  submitBtn.onclick = async () => {
+    if (isUploading) return;
+    isUploading = true;
+
+    // UI Loading
+    const progressOverlay = document.getElementById("progressOverlay");
+    const progCircle = document.getElementById("progCircle");
+    const progText = document.getElementById("progText");
+    const progLabel = document.getElementById("progLabel");
+
+    progressOverlay.classList.remove("hidden");
+
+    const formData = new FormData();
+    // If manual manifest provided, override
+    if (manifestData) {
+      formData.append("manifest", JSON.stringify(manifestData));
+    }
+
+    if (currentMode === "zip") {
+      formData.append("zipFile", fileItems[0].file);
+    } else {
+      fileItems.forEach((f) => formData.append("files", f.file));
+    }
+
+    try {
+      // Simulate Progress
+      let p = 0;
+      const intv = setInterval(() => {
+        p += 5;
+        if (p > 90) clearInterval(intv);
+        const offset = 226 - (226 * p) / 100;
+        progCircle.style.strokeDashoffset = offset;
+        progText.textContent = p + "%";
+        if (p > 50) progLabel.textContent = "Đang xác thực...";
+      }, 100);
+
+      const endpoint =
+        currentMode === "zip" ? "/api/upload-zip" : "/api/upload";
+      const res = await fetch(endpoint, { method: "POST", body: formData });
+
+      clearInterval(intv);
+
+      if (res.ok) {
+        progCircle.style.strokeDashoffset = 0;
+        progText.textContent = "100%";
+        progLabel.textContent = "Thành công!";
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 800);
+      } else {
+        throw new Error("Upload failed");
+      }
+    } catch (e) {
+      alert("Có lỗi xảy ra, vui lòng thử lại");
+      progressOverlay.classList.add("hidden");
+      isUploading = false;
+    }
+  };
 </script>
 
-<style is:inline>
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 5px;
+<style>
+  .animate-fade-in-up {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
-    border-radius: 10px;
-  }
-  .animate-modal {
-    animation: modalIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  @keyframes modalIn {
+  @keyframes fadeInUp {
     from {
       opacity: 0;
-      transform: scale(0.9) translateY(20px);
+      transform: translateY(10px);
     }
     to {
       opacity: 1;
-      transform: scale(1) translateY(0);
+      transform: translateY(0);
     }
   }
 </style>

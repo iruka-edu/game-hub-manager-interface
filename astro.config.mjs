@@ -13,6 +13,8 @@ export default defineConfig({
     imageService: true,
     devImageService: "sharp",
     maxDuration: 30, // Increase timeout for large uploads
+    // Workaround for Windows symlink issues
+    functionPerRoute: false,
   }),
 
   vite: {

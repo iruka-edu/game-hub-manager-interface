@@ -1,0 +1,402 @@
+/* Game Hub Design Tokens */
+/* Based on gamehub_uiux_rules_checklist.md */
+
+:root {
+  /* Typography Tokens (Base 16px) */
+  --gh-text-xs: 0.75rem;    /* 12px - caption, helper, meta phụ */
+  --gh-text-sm: 0.875rem;   /* 14px - table cell, label nhỏ */
+  --gh-text-base: 1rem;     /* 16px - body chuẩn */
+  --gh-text-lg: 1.125rem;   /* 18px - section lead, form title nhỏ */
+  --gh-text-xl: 1.25rem;    /* 20px - heading phụ */
+  --gh-text-2xl: 1.5rem;    /* 24px - heading trang */
+  --gh-text-3xl: 1.875rem;  /* 30px - chỉ dùng cho hero (hạn chế) */
+  
+  /* Line Heights */
+  --gh-leading-xs: 1rem;    /* 16px */
+  --gh-leading-sm: 1.25rem; /* 20px */
+  --gh-leading-base: 1.5rem; /* 24px */
+  --gh-leading-lg: 1.75rem; /* 28px */
+  --gh-leading-xl: 1.75rem; /* 28px */
+  --gh-leading-2xl: 2rem;   /* 32px */
+  --gh-leading-3xl: 2.25rem; /* 36px */
+  
+  /* Font Weights */
+  --gh-font-regular: 400;   /* body */
+  --gh-font-medium: 500;    /* label, chip */
+  --gh-font-semibold: 600;  /* title, button primary */
+  
+  /* Spacing Tokens (Grid 8px) */
+  --gh-space-1: 0.25rem;  /* 4px */
+  --gh-space-2: 0.5rem;   /* 8px */
+  --gh-space-3: 0.75rem;  /* 12px */
+  --gh-space-4: 1rem;     /* 16px */
+  --gh-space-5: 1.25rem;  /* 20px */
+  --gh-space-6: 1.5rem;   /* 24px */
+  --gh-space-8: 2rem;     /* 32px */
+  --gh-space-10: 2.5rem;  /* 40px */
+  --gh-space-12: 3rem;    /* 48px */
+  --gh-space-16: 4rem;    /* 64px */
+  --gh-space-20: 5rem;    /* 80px */
+  
+  /* Radius Tokens */
+  --gh-radius-sm: 0.5rem;  /* 8px - inputs, chips */
+  --gh-radius-md: 0.75rem; /* 12px - cards */
+  --gh-radius-lg: 1rem;    /* 16px - modals/drawers */
+  --gh-radius-xl: 1.5rem;  /* 24px - large cards */
+  
+  /* Shadow Tokens (tiết chế) */
+  --gh-shadow-1: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); /* card nhẹ */
+  --gh-shadow-2: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); /* modal/drawer */
+  --gh-shadow-3: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* large modals */
+  
+  /* Color Tokens (Semantic-first) */
+  
+  /* Neutral */
+  --gh-bg: #F7F8FA;
+  --gh-surface: #FFFFFF;
+  --gh-border: #E6E8EF;
+  --gh-text: #111827;
+  --gh-muted: #6B7280;
+  
+  /* Primary (Brand) */
+  --gh-primary: #4F46E5;        /* Indigo-600 */
+  --gh-primary-50: #EEF2FF;
+  --gh-primary-100: #E0E7FF;
+  --gh-primary-500: #6366F1;
+  --gh-primary-600: #4F46E5;
+  --gh-primary-700: #4338CA;
+  --gh-primary-foreground: #FFFFFF;
+  --gh-primary-soft: #EEF2FF;
+  
+  /* Semantic Colors */
+  
+  /* Success */
+  --gh-success: #059669;        /* Emerald-600 */
+  --gh-success-50: #ECFDF5;
+  --gh-success-100: #D1FAE5;
+  --gh-success-600: #059669;
+  --gh-success-700: #047857;
+  --gh-success-soft: #ECFDF5;
+  
+  /* Warning */
+  --gh-warning: #D97706;        /* Amber-600 */
+  --gh-warning-50: #FFFBEB;
+  --gh-warning-100: #FEF3C7;
+  --gh-warning-600: #D97706;
+  --gh-warning-700: #B45309;
+  --gh-warning-soft: #FFFBEB;
+  
+  /* Error */
+  --gh-error: #DC2626;          /* Red-600 */
+  --gh-error-50: #FEF2F2;
+  --gh-error-100: #FEE2E2;
+  --gh-error-600: #DC2626;
+  --gh-error-700: #B91C1C;
+  --gh-error-soft: #FEF2F2;
+  
+  /* Info */
+  --gh-info: #2563EB;           /* Blue-600 */
+  --gh-info-50: #EFF6FF;
+  --gh-info-100: #DBEAFE;
+  --gh-info-600: #2563EB;
+  --gh-info-700: #1D4ED8;
+  --gh-info-soft: #EFF6FF;
+  
+  /* Status Colors (Game-specific) */
+  --gh-status-draft: #64748B;      /* Slate-500 */
+  --gh-status-draft-bg: #F1F5F9;   /* Slate-100 */
+  
+  --gh-status-uploaded: #2563EB;   /* Blue-600 */
+  --gh-status-uploaded-bg: #DBEAFE; /* Blue-100 */
+  
+  --gh-status-qc-processing: #D97706; /* Amber-600 */
+  --gh-status-qc-processing-bg: #FEF3C7; /* Amber-100 */
+  
+  --gh-status-qc-passed: #7C3AED;  /* Violet-600 */
+  --gh-status-qc-passed-bg: #EDE9FE; /* Violet-100 */
+  
+  --gh-status-qc-failed: #DC2626;  /* Red-600 */
+  --gh-status-qc-failed-bg: #FEE2E2; /* Red-100 */
+  
+  --gh-status-approved: #059669;   /* Emerald-600 */
+  --gh-status-approved-bg: #D1FAE5; /* Emerald-100 */
+  
+  --gh-status-published: #16A34A;  /* Green-600 */
+  --gh-status-published-bg: #DCFCE7; /* Green-100 */
+  
+  --gh-status-archived: #6B7280;   /* Gray-500 */
+  --gh-status-archived-bg: #F3F4F6; /* Gray-100 */
+  
+  /* Z-index Tokens */
+  --gh-z-dropdown: 50;
+  --gh-z-sticky: 40;
+  --gh-z-drawer: 60;
+  --gh-z-modal: 70;
+  --gh-z-toast: 80;
+  
+  /* Component Specific */
+  
+  /* Hit Areas */
+  --gh-hit-area-min: 2.25rem; /* 36px minimum */
+  --gh-hit-area-comfortable: 2.5rem; /* 40px comfortable */
+  --gh-hit-area-large: 3rem; /* 48px large */
+  
+  /* Card Padding */
+  --gh-card-padding-sm: var(--gh-space-4); /* 16px */
+  --gh-card-padding-md: var(--gh-space-6); /* 24px */
+  --gh-card-padding-lg: var(--gh-space-8); /* 32px */
+  
+  /* Section Spacing */
+  --gh-section-gap-sm: var(--gh-space-6); /* 24px */
+  --gh-section-gap-md: var(--gh-space-8); /* 32px */
+  --gh-section-gap-lg: var(--gh-space-12); /* 48px */
+  
+  /* Table Row Heights */
+  --gh-table-row-compact: 2.5rem; /* 40px */
+  --gh-table-row-comfortable: 3rem; /* 48px */
+  --gh-table-row-spacious: 3.5rem; /* 56px */
+}
+
+/* Utility Classes using Design Tokens */
+
+/* Typography */
+.gh-text-xs { font-size: var(--gh-text-xs); line-height: var(--gh-leading-xs); }
+.gh-text-sm { font-size: var(--gh-text-sm); line-height: var(--gh-leading-sm); }
+.gh-text-base { font-size: var(--gh-text-base); line-height: var(--gh-leading-base); }
+.gh-text-lg { font-size: var(--gh-text-lg); line-height: var(--gh-leading-lg); }
+.gh-text-xl { font-size: var(--gh-text-xl); line-height: var(--gh-leading-xl); }
+.gh-text-2xl { font-size: var(--gh-text-2xl); line-height: var(--gh-leading-2xl); }
+.gh-text-3xl { font-size: var(--gh-text-3xl); line-height: var(--gh-leading-3xl); }
+
+/* Font Weights */
+.gh-font-regular { font-weight: var(--gh-font-regular); }
+.gh-font-medium { font-weight: var(--gh-font-medium); }
+.gh-font-semibold { font-weight: var(--gh-font-semibold); }
+
+/* Spacing */
+.gh-space-1 { margin: var(--gh-space-1); }
+.gh-space-2 { margin: var(--gh-space-2); }
+.gh-space-3 { margin: var(--gh-space-3); }
+.gh-space-4 { margin: var(--gh-space-4); }
+.gh-space-6 { margin: var(--gh-space-6); }
+.gh-space-8 { margin: var(--gh-space-8); }
+
+/* Padding */
+.gh-p-4 { padding: var(--gh-space-4); }
+.gh-p-6 { padding: var(--gh-space-6); }
+.gh-p-8 { padding: var(--gh-space-8); }
+
+/* Gaps */
+.gh-gap-2 { gap: var(--gh-space-2); }
+.gh-gap-3 { gap: var(--gh-space-3); }
+.gh-gap-4 { gap: var(--gh-space-4); }
+.gh-gap-6 { gap: var(--gh-space-6); }
+
+/* Hit Areas */
+.gh-hit-area-min { min-height: var(--gh-hit-area-min); min-width: var(--gh-hit-area-min); }
+.gh-hit-area-comfortable { min-height: var(--gh-hit-area-comfortable); min-width: var(--gh-hit-area-comfortable); }
+.gh-hit-area-large { min-height: var(--gh-hit-area-large); min-width: var(--gh-hit-area-large); }
+
+/* Shadows */
+.gh-shadow-1 { box-shadow: var(--gh-shadow-1); }
+.gh-shadow-2 { box-shadow: var(--gh-shadow-2); }
+.gh-shadow-3 { box-shadow: var(--gh-shadow-3); }
+
+/* Radius */
+.gh-radius-sm { border-radius: var(--gh-radius-sm); }
+.gh-radius-md { border-radius: var(--gh-radius-md); }
+.gh-radius-lg { border-radius: var(--gh-radius-lg); }
+.gh-radius-xl { border-radius: var(--gh-radius-xl); }
+
+/* Status Colors */
+.gh-status-draft { 
+  color: var(--gh-status-draft); 
+  background-color: var(--gh-status-draft-bg); 
+}
+
+.gh-status-uploaded { 
+  color: var(--gh-status-uploaded); 
+  background-color: var(--gh-status-uploaded-bg); 
+}
+
+.gh-status-qc-processing { 
+  color: var(--gh-status-qc-processing); 
+  background-color: var(--gh-status-qc-processing-bg); 
+}
+
+.gh-status-qc-passed { 
+  color: var(--gh-status-qc-passed); 
+  background-color: var(--gh-status-qc-passed-bg); 
+}
+
+.gh-status-qc-failed { 
+  color: var(--gh-status-qc-failed); 
+  background-color: var(--gh-status-qc-failed-bg); 
+}
+
+.gh-status-approved { 
+  color: var(--gh-status-approved); 
+  background-color: var(--gh-status-approved-bg); 
+}
+
+.gh-status-published { 
+  color: var(--gh-status-published); 
+  background-color: var(--gh-status-published-bg); 
+}
+
+.gh-status-archived { 
+  color: var(--gh-status-archived); 
+  background-color: var(--gh-status-archived-bg); 
+}
+
+/* Component Classes */
+
+/* Button Base */
+.gh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gh-space-2);
+  padding: var(--gh-space-3) var(--gh-space-4);
+  min-height: var(--gh-hit-area-min);
+  font-size: var(--gh-text-sm);
+  font-weight: var(--gh-font-medium);
+  border-radius: var(--gh-radius-sm);
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.gh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Button Variants */
+.gh-btn-primary {
+  background-color: var(--gh-primary);
+  color: var(--gh-primary-foreground);
+  border-color: var(--gh-primary);
+}
+
+.gh-btn-primary:hover:not(:disabled) {
+  background-color: var(--gh-primary-700);
+  border-color: var(--gh-primary-700);
+}
+
+.gh-btn-secondary {
+  background-color: var(--gh-surface);
+  color: var(--gh-text);
+  border-color: var(--gh-border);
+}
+
+.gh-btn-secondary:hover:not(:disabled) {
+  background-color: var(--gh-bg);
+}
+
+.gh-btn-danger {
+  background-color: var(--gh-error);
+  color: var(--gh-primary-foreground);
+  border-color: var(--gh-error);
+}
+
+.gh-btn-danger:hover:not(:disabled) {
+  background-color: var(--gh-error-700);
+  border-color: var(--gh-error-700);
+}
+
+/* Card */
+.gh-card {
+  background-color: var(--gh-surface);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius-md);
+  box-shadow: var(--gh-shadow-1);
+  padding: var(--gh-card-padding-md);
+}
+
+.gh-card-compact {
+  padding: var(--gh-card-padding-sm);
+}
+
+.gh-card-spacious {
+  padding: var(--gh-card-padding-lg);
+}
+
+/* Form Field */
+.gh-form-field {
+  margin-bottom: var(--gh-space-4);
+}
+
+.gh-form-label {
+  display: block;
+  font-size: var(--gh-text-sm);
+  font-weight: var(--gh-font-medium);
+  color: var(--gh-text);
+  margin-bottom: var(--gh-space-2);
+}
+
+.gh-form-input {
+  width: 100%;
+  padding: var(--gh-space-3);
+  min-height: var(--gh-hit-area-min);
+  font-size: var(--gh-text-sm);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius-sm);
+  background-color: var(--gh-surface);
+  color: var(--gh-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gh-form-input:focus {
+  outline: none;
+  border-color: var(--gh-primary);
+  box-shadow: 0 0 0 3px var(--gh-primary-soft);
+}
+
+.gh-form-input.error {
+  border-color: var(--gh-error);
+}
+
+.gh-form-input.error:focus {
+  box-shadow: 0 0 0 3px var(--gh-error-soft);
+}
+
+/* Table */
+.gh-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gh-table th,
+.gh-table td {
+  padding: var(--gh-space-4) var(--gh-space-6);
+  text-align: left;
+  border-bottom: 1px solid var(--gh-border);
+}
+
+.gh-table th {
+  background-color: var(--gh-bg);
+  font-size: var(--gh-text-sm);
+  font-weight: var(--gh-font-semibold);
+  color: var(--gh-text);
+}
+
+.gh-table tbody tr {
+  min-height: var(--gh-table-row-comfortable);
+}
+
+.gh-table tbody tr:hover {
+  background-color: var(--gh-bg);
+}
+
+/* Status Chip */
+.gh-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--gh-space-1) var(--gh-space-3);
+  font-size: var(--gh-text-sm);
+  font-weight: var(--gh-font-medium);
+  border-radius: var(--gh-radius-sm);
+  border: 1px solid currentColor;
+}

@@ -64,6 +64,10 @@ export interface GameVersion {
   submittedBy: ObjectId; // User._id
   submittedAt?: Date;
 
+  // Code Update Tracking
+  lastCodeUpdateAt?: Date; // Last time code files were updated/replaced
+  lastCodeUpdateBy?: ObjectId; // User who last updated the code
+
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
@@ -357,24 +361,51 @@ export class GameVersionRepository {
 
   /**
    * Patch an existing build (overwrite)
-   * Resets status to draft and clears Self-QA
+   * Logic:
+   * - If version was never published (draft, uploaded, qc_processing, qc_failed, qc_passed, approved): Keep current status
+   * - If version was published: Reset to draft (must re-test from beginning)
+   * Always clears Self-QA checklist and records update timestamp
    */
-  async patchBuild(id: string, buildSize: number): Promise<GameVersion | null> {
+  async patchBuild(
+    id: string, 
+    buildSize: number, 
+    updatedBy: ObjectId
+  ): Promise<GameVersion | null> {
     try {
+      // First, get current version to check status
+      const currentVersion = await this.findById(id);
+      if (!currentVersion) {
+        return null;
+      }
+
+      // Determine new status based on current status
+      let newStatus = currentVersion.status;
+      
+      // If version was published, reset to draft (must re-test)
+      if (currentVersion.status === "published") {
+        newStatus = "draft";
+      }
+      // Otherwise, keep current status (draft, uploaded, qc_processing, qc_failed, qc_passed, approved)
+
+      const now = new Date();
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         {
           $set: {
             buildSize,
-            status: "draft",
+            status: newStatus,
             selfQAChecklist: {
               testedDevices: false,
               testedAudio: false,
               gameplayComplete: false,
               contentVerified: false,
-              note: "Bản build đã được cập nhật (Patch)",
+              note: currentVersion.status === "published" 
+                ? "Bản build đã được cập nhật. Game đã publish nên phải test lại từ đầu."
+                : "Bản build đã được cập nhật (Patch)",
             },
-            updatedAt: new Date(),
+            lastCodeUpdateAt: now,
+            lastCodeUpdateBy: updatedBy,
+            updatedAt: now,
           },
         },
         { returnDocument: "after" }

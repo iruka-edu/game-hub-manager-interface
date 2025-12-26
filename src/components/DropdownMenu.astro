@@ -1,0 +1,181 @@
+---
+interface MenuItem {
+  label: string;
+  href?: string;
+  onClick?: string;
+  icon?: string;
+  variant?: 'default' | 'danger';
+  disabled?: boolean;
+}
+
+interface MenuGroup {
+  title?: string;
+  items: MenuItem[];
+}
+
+interface Props {
+  groups: MenuGroup[];
+  align?: 'left' | 'right';
+  size?: 'sm' | 'md';
+}
+
+const { groups, align = 'right', size = 'md' } = Astro.props;
+
+const buttonSize = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+const menuWidth = size === 'sm' ? 'w-48' : 'w-56';
+---
+
+<div class="relative dropdown-container">
+  <!-- Trigger Button -->
+  <button 
+    class={`dropdown-trigger ${buttonSize} rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center`}
+    type="button"
+    aria-label="More actions"
+    aria-haspopup="true"
+    aria-expanded="false"
+  >
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+    </svg>
+  </button>
+
+  <!-- Dropdown Menu -->
+  <div 
+    class={`dropdown-menu absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-2 ${menuWidth} bg-white rounded-xl shadow-xl border border-slate-200 py-2 invisible opacity-0 transform scale-95 transition-all duration-200 z-50`}
+    role="menu"
+    aria-orientation="vertical"
+  >
+    {groups.map((group, groupIndex) => (
+      <div>
+        {group.title && (
+          <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 mb-1">
+            {group.title}
+          </div>
+        )}
+        
+        {group.items.map((item) => (
+          item.href ? (
+            <a
+              href={item.href}
+              class={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors min-h-[40px] ${
+                item.variant === 'danger' 
+                  ? 'text-red-600 hover:bg-red-50 hover:text-red-700' 
+                  : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+              } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              role="menuitem"
+            >
+              {item.icon && (
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.icon}></path>
+                </svg>
+              )}
+              {item.label}
+            </a>
+          ) : (
+            <button
+              type="button"
+              onclick={item.onClick}
+              class={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors min-h-[40px] ${
+                item.variant === 'danger' 
+                  ? 'text-red-600 hover:bg-red-50 hover:text-red-700' 
+                  : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+              } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              role="menuitem"
+              disabled={item.disabled}
+            >
+              {item.icon && (
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={item.icon}></path>
+                </svg>
+              )}
+              {item.label}
+            </button>
+          )
+        ))}
+        
+        {groupIndex < groups.length - 1 && (
+          <div class="h-px bg-slate-100 my-1"></div>
+        )}
+      </div>
+    ))}
+  </div>
+</div>
+
+<script>
+  // Dropdown functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    const dropdowns = document.querySelectorAll('.dropdown-container');
+    
+    dropdowns.forEach(dropdown => {
+      const trigger = dropdown.querySelector('.dropdown-trigger');
+      const menu = dropdown.querySelector('.dropdown-menu');
+      
+      if (!trigger || !menu) return;
+      
+      // Toggle dropdown
+      trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        
+        // Close other dropdowns
+        dropdowns.forEach(otherDropdown => {
+          if (otherDropdown !== dropdown) {
+            const otherMenu = otherDropdown.querySelector('.dropdown-menu');
+            const otherTrigger = otherDropdown.querySelector('.dropdown-trigger');
+            if (otherMenu && otherTrigger) {
+              otherMenu.classList.add('invisible', 'opacity-0', 'scale-95');
+              otherMenu.classList.remove('visible', 'opacity-100', 'scale-100');
+              otherTrigger.setAttribute('aria-expanded', 'false');
+            }
+          }
+        });
+        
+        // Toggle current dropdown
+        const isOpen = menu.classList.contains('visible');
+        if (isOpen) {
+          menu.classList.add('invisible', 'opacity-0', 'scale-95');
+          menu.classList.remove('visible', 'opacity-100', 'scale-100');
+          trigger.setAttribute('aria-expanded', 'false');
+        } else {
+          menu.classList.remove('invisible', 'opacity-0', 'scale-95');
+          menu.classList.add('visible', 'opacity-100', 'scale-100');
+          trigger.setAttribute('aria-expanded', 'true');
+        }
+      });
+      
+      // Close on menu item click
+      menu.addEventListener('click', function() {
+        menu.classList.add('invisible', 'opacity-0', 'scale-95');
+        menu.classList.remove('visible', 'opacity-100', 'scale-100');
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    });
+    
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function() {
+      dropdowns.forEach(dropdown => {
+        const menu = dropdown.querySelector('.dropdown-menu');
+        const trigger = dropdown.querySelector('.dropdown-trigger');
+        if (menu && trigger) {
+          menu.classList.add('invisible', 'opacity-0', 'scale-95');
+          menu.classList.remove('visible', 'opacity-100', 'scale-100');
+          trigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        dropdowns.forEach(dropdown => {
+          const menu = dropdown.querySelector('.dropdown-menu');
+          const trigger = dropdown.querySelector('.dropdown-trigger');
+          if (menu && trigger) {
+            menu.classList.add('invisible', 'opacity-0', 'scale-95');
+            menu.classList.remove('visible', 'opacity-100', 'scale-100');
+            trigger.setAttribute('aria-expanded', 'false');
+          }
+        });
+      }
+    });
+  });
+</script>

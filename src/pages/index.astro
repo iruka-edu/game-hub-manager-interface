@@ -14,38 +14,35 @@ const user = (await getUserFromRequest(Astro.request)) as User | null;
 // Fetch games from database (public view)
 let games: any[] = [];
 let errorMessage = "";
+let serverError = false;
 
 try {
   const gameRepo = await GameRepository.getInstance();
   const versionRepo = await GameVersionRepository.getInstance();
-  const userRepo = await UserRepository.getInstance(); // Added
+  const userRepo = await UserRepository.getInstance();
 
-  // Get all games and users
   const [allGames, allUsers] = await Promise.all([
-    // Modified
     gameRepo.findAll(),
     userRepo.findAll(),
   ]);
 
-  // Create user map for easy lookup
-  const userMap = new Map(allUsers.map((u) => [u._id.toString(), u])); // Added
+  const userMap = new Map(allUsers.map((u) => [u._id.toString(), u]));
 
   games = await Promise.all(
     allGames.map(async (game) => {
       let latestVersion = null;
       let status = "draft";
+      let activeVer = null;
 
-      // Get latest version
+      // Logic to resolve active version & status
       if (game.latestVersionId) {
         latestVersion = await versionRepo.findById(
           game.latestVersionId.toString()
         );
       } else {
-        // Fallback: find most recent version
         const versions = await versionRepo.findByGameId(game._id.toString());
         if (versions.length > 0) {
           latestVersion = versions[0];
-          // Update game's latestVersionId for future calls
           await gameRepo.updateLatestVersion(
             game._id.toString(),
             latestVersion._id
@@ -55,75 +52,64 @@ try {
 
       if (latestVersion) {
         status = latestVersion.status;
+        activeVer = latestVersion.version;
       }
 
-      // Get owner info
-      const owner = userMap.get(game.ownerId); // Added
+      const owner = userMap.get(game.ownerId);
 
-      // Convert to format compatible with GameCard component
       return {
         id: game.gameId,
         title: game.title || game.gameId,
-        owner: game.ownerId, // Will be resolved in GameCard if needed
-        ownerName: owner?.name || owner?.email.split("@")[0], // Added
-        ownerAvatar: owner?.avatar, // Added
+        owner: game.ownerId,
+        ownerName: owner?.name || owner?.email.split("@")[0],
+        ownerAvatar: owner?.avatar,
         updatedAt:
           latestVersion?.updatedAt?.toISOString() ||
           game.updatedAt.toISOString(),
-        activeVersion: latestVersion?.version || "1.0.0",
+        activeVersion: activeVer || "1.0.0",
         versions: latestVersion
           ? [
               {
-                version: latestVersion.version,
-                uploadedAt: latestVersion.createdAt.toISOString(),
+                version: activeVer,
                 size: latestVersion.buildSize,
               },
             ]
           : [],
-        entryUrl: latestVersion
-          ? `https://storage.googleapis.com/${process.env.GCLOUD_BUCKET_NAME || "iruka-edu-mini-game"}/games/${game.gameId}/${latestVersion.version}/index.html`
-          : "",
         manifest: {
-          title: game.title || game.gameId,
-          runtime: "iframe-html",
+          title: game.title,
+          runtime: "iframe-html", // Placeholder, ideally from DB
           capabilities: game.tags || [],
-          disabled: game.disabled || false,
         },
         capabilities: game.tags || [],
-        // Status for filtering
         status: status,
-        // Additional fields for search/filter
+
+        // Search fields
         gameId: game.gameId,
         tags: game.tags || [],
-        subject: game.subject,
-        grade: game.grade,
-        priority: game.priority,
       };
     })
   );
 } catch (error: any) {
   console.error("Error loading games:", error);
-  errorMessage = error.message || "Không thể tải danh sách game";
+  errorMessage = "Không thể kết nối đến máy chủ cơ sở dữ liệu.";
+  serverError = true;
 }
 
-// Helper to check if user has specific role
+// Permissions
 const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
-const isAdmin = hasRole("admin");
-const isDev = hasRole("dev");
-const canUpload = isDev || isAdmin;
+const canUpload = hasRole("dev") || hasRole("admin");
 
-// Role labels for display
-const roleLabels: Record<string, string> = {
-  dev: "Developer",
-  qc: "QC Tester",
-  cto: "CTO",
-  ceo: "CEO",
-  admin: "Administrator",
-};
-const userRoleDisplay =
-  user?.roles?.map((r) => roleLabels[r] || r).join(", ") || "";
+// Stats calculation
+const totalGames = games.length;
+const totalVersions = games.reduce(
+  (sum, g) => sum + (g.versions?.length || 1),
+  0
+); // Approximation
+const errorCount = games.filter(
+  (g) => g.status === "qc_failed" || g.status === "archived"
+).length;
+const stableSystem = errorCount === 0 && !serverError;
 
-// Format date helper
 function formatDate(date?: Date): string {
   if (!date) return "N/A";
   return new Date(date).toLocaleDateString("vi-VN", {
@@ -136,153 +122,29 @@ function formatDate(date?: Date): string {
 }
 ---
 
-<Layout title="Game Hub Manager - Bảng điều khiển">
-  <!-- Hero Section -->
-  <div class="mb-8">
+<Layout title="Dashboard Quản lý - Iruka Game Hub">
+  <!-- Hero Section & Stats -->
+  <div class="mb-8 animate-fade-in">
     <div
-      class="flex flex-col md:flex-row md:items-center md:justify-between gap-6"
+      class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6"
     >
       <div>
-        <h1 class="text-3xl font-bold text-slate-900 mb-2">Quản lý Game Hub</h1>
-        <p class="text-slate-500">
-          Tải lên, quản lý và triển khai mini-games lên Google Cloud Storage.
+        <h1
+          class="text-2xl font-black text-slate-900 tracking-tight leading-none mb-2"
+        >
+          Tổng quan hệ thống
+        </h1>
+        <p class="text-sm font-bold text-slate-500">
+          Chào mừng trở lại, <span class="text-indigo-600"
+            >{user?.name || "Administrator"}</span
+          >
         </p>
       </div>
-    </div>
-  </div>
-
-  <!-- Stats Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <!-- Total Games -->
-    <div class="card p-6">
-      <div class="flex items-center gap-4">
-        <div
-          class="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center"
-        >
-          <svg
-            class="w-6 h-6 text-indigo-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-            ></path>
-          </svg>
-        </div>
-        <div>
-          <p class="text-2xl font-bold text-slate-900">{games.length}</p>
-          <p class="text-slate-500 text-sm">Tổng số game</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Total Versions -->
-    <div class="card p-6">
-      <div class="flex items-center gap-4">
-        <div
-          class="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center"
-        >
-          <svg
-            class="w-6 h-6 text-emerald-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l2 2 4-4"
-            ></path>
-          </svg>
-        </div>
-        <div>
-          <p class="text-2xl font-bold text-slate-900">
-            {games.reduce((sum, g) => sum + (g.versions?.length || 0), 0)}
-          </p>
-          <p class="text-slate-500 text-sm">Tổng số phiên bản</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- System Status -->
-    <div class="card p-6">
-      <div class="flex items-center gap-4">
-        <div
-          class="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center"
-        >
-          <svg
-            class="w-6 h-6 text-green-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-        </div>
-        <div>
-          <p class="text-2xl font-bold text-green-600">Ổn định</p>
-          <p class="text-slate-500 text-sm">Không có lỗi trong 24h</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Search and Filter -->
-  <div class="card p-6 mb-8">
-    <div class="flex flex-col md:flex-row gap-6">
-      <!-- Search -->
-      <div class="flex-1">
-        <div class="relative">
-          <svg
-            class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Tìm kiếm game theo tên, ID hoặc người phụ trách..."
-            class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm"
-          />
-        </div>
-      </div>
-
-      <!-- Filter and Toggle -->
-      <div class="flex flex-wrap items-center gap-3">
-        <select
-          id="statusFilter"
-          class="px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm bg-white"
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="production">Đang chạy (Production)</option>
-          <option value="draft">Bản nháp / Chưa chạy</option>
-          <option value="error">Có lỗi</option>
-        </select>
-
-        <div class="h-8 w-px bg-slate-200 mx-1"></div>
-
-        <!-- View Toggle -->
-        <div class="flex bg-slate-100 p-1 rounded-xl">
-          <button
-            id="gridViewBtn"
-            class="p-1.5 rounded-lg bg-white shadow-sm text-indigo-600 transition-all"
-            title="Dạng lưới"
+      {
+        canUpload && (
+          <a
+            href="/upload"
+            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/20 active:scale-95 transition-all"
           >
             <svg
               class="w-5 h-5"
@@ -294,211 +156,92 @@ function formatDate(date?: Date): string {
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-              ></path>
-            </svg>
-          </button>
-          <button
-            id="tableViewBtn"
-            class="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 transition-all"
-            title="Dạng bảng"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Error Message -->
-  {
-    errorMessage && (
-      <div class="mb-8 p-4 rounded-lg bg-red-50 text-red-700 border border-red-200">
-        <p class="flex items-center gap-2 text-sm font-medium">
-          <svg
-            class="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          {errorMessage}
-        </p>
-      </div>
-    )
-  }
-
-  <!-- Games Grid -->
-  {
-    games.length > 0 ? (
-      <div id="gridView" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {games.map((game, index) => {
-          // Map version status to filter status
-          let filterStatus = "draft";
-          if (game.status === "published") {
-            filterStatus = "production";
-          } else if (
-            game.status === "qc_failed" ||
-            game.status === "archived"
-          ) {
-            filterStatus = "error";
-          } else {
-            filterStatus = "draft";
-          }
-
-          return (
-            <div
-              class="game-card-wrapper"
-              style={`animation-delay: ${index * 0.1}s`}
-              data-game-name={game.title?.toLowerCase()}
-              data-game-id={game.id.toLowerCase()}
-              data-game-runtime={game.manifest?.runtime || ""}
-              data-game-owner={(game.ownerName || game.owner || 'admin').toLowerCase()}
-              data-game-status={filterStatus}
-              data-updated-at={game.updatedAt}
-            >
-              <GameCard game={game} />
-            </div>
-          );
-        })}
-      </div>
-
-      <!-- Table View -->
-      <div id="tableView" class="hidden card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left">
-            <thead class="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Game</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">ID</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Env</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Version</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Cập nhật</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Owner</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody" class="divide-y divide-slate-100">
-              {games.map((game) => {
-                let filterStatus = 'draft';
-                if (game.status === 'published') filterStatus = 'production';
-                else if (game.status === 'qc_failed' || game.status === 'archived') filterStatus = 'error';
-
-                return (
-                  <tr
-                    class="game-row hover:bg-slate-50 transition-colors group"
-                    data-game-name={game.title?.toLowerCase()}
-                    data-game-id={game.id.toLowerCase()}
-                    data-game-runtime={game.manifest?.runtime || ''}
-                    data-game-owner={(game.ownerName || game.owner || 'admin').toLowerCase()}
-                    data-game-status={filterStatus}
-                    data-updated-at={game.updatedAt}
-                  >
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase">
-                          {game.title?.charAt(0)}
-                        </div>
-                        <span class="font-bold text-slate-900">{game.title}</span>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-400">
-                      {game.id}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span class={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        filterStatus === 'production'
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : filterStatus === 'error'
-                          ? 'bg-red-50 text-red-700'
-                          : 'bg-amber-50 text-amber-700'
-                      }`}>
-                        {filterStatus === 'production' ? 'PROD' : filterStatus === 'error' ? 'ERR' : 'DRAFT'}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                      v{game.activeVersion}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {formatDate(new Date(game.updatedAt))}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="flex items-center gap-2">
-                        {game.ownerAvatar ? (
-                          <img src={game.ownerAvatar} class="w-6 h-6 rounded-full" />
-                        ) : (
-                          <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                            {(game.ownerName || game.owner || 'A').charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span class="text-sm text-slate-600">{game.ownerName || game.owner || 'Admin'}</span>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div class="flex items-center justify-end gap-2">
-                        <a href={`/play/${game.id}`} class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Play">
-                          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        </a>
-                        <a href={`/games/${game.id}`} class="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" title="Details">
-                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ) : (
-      !errorMessage && (
-        <div class="card p-16 text-center">
-          <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-200 flex items-center justify-center">
-            <svg
-              class="w-10 h-10 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.5"
-                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                d="M12 4v16m8-8H4"
               />
             </svg>
-          </div>
-          <h3 class="text-xl font-bold text-slate-900 mb-2">
-            Chưa có game nào
-          </h3>
-          <p class="text-slate-500 mb-6">
-            Tải game đầu tiên của bạn để bắt đầu
+            Tải Game Mới
+          </a>
+        )
+      }
+    </div>
+
+    <!-- 3 KPI Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Card 1 -->
+      <div
+        class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4"
+      >
+        <div
+          class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            ></path></svg
+          >
+        </div>
+        <div>
+          <p class="text-2xl font-black text-slate-900 leading-none">
+            {totalGames}
           </p>
-          {canUpload ? (
-            <a
-              href="/upload"
-              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors text-sm"
-            >
+          <p
+            class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1"
+          >
+            Tổng Game
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div
+        class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4"
+      >
+        <div
+          class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
+            ></path></svg
+          >
+        </div>
+        <div>
+          <p class="text-2xl font-black text-slate-900 leading-none">
+            {totalVersions}
+          </p>
+          <p
+            class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1"
+          >
+            Phiên bản
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div
+        class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4"
+      >
+        <div
+          class={`w-12 h-12 rounded-xl flex items-center justify-center ${stableSystem ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}
+        >
+          {
+            stableSystem ? (
               <svg
-                class="w-5 h-5"
+                class="w-6 h-6"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -507,184 +250,316 @@ function formatDate(date?: Date): string {
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M12 4v16m8-8H4"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Tải Game Đầu Tiên
-            </a>
-          ) : (
-            <a
-              href="/login"
-              class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors text-sm"
-            >
-              Đăng nhập để tải game
-            </a>
-          )}
+            ) : (
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            )
+          }
         </div>
-      )
+        <div>
+          <p
+            class={`text-2xl font-black leading-none ${stableSystem ? "text-emerald-600" : "text-red-600"}`}
+          >
+            {stableSystem ? "100% Ổn định" : "Có cảnh báo"}
+          </p>
+          <p
+            class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1"
+          >
+            {
+              stableSystem
+                ? "Hệ thống vận hành tốt"
+                : `${errorCount} lỗi cần xử lý`
+            }
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Toolbar -->
+  <div class="mb-8 sticky top-4 z-30">
+    <div
+      class="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200 shadow-lg shadow-slate-200/50 p-4"
+    >
+      <div class="flex flex-col md:flex-row gap-4">
+        <!-- Main Search -->
+        <div class="flex-1 relative">
+          <svg
+            class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg
+          >
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Tìm kiếm game, ID hoặc người phụ trách..."
+            class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-medium text-sm text-slate-900 placeholder:text-slate-400"
+          />
+        </div>
+
+        <!-- View Toggle -->
+        <div
+          class="flex bg-slate-100 p-1 rounded-xl shrink-0 self-start md:self-auto"
+        >
+          <button
+            id="gridViewBtn"
+            class="p-2.5 rounded-lg bg-white shadow-sm text-indigo-600 transition-all"
+            ><svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+              ></path></svg
+            ></button
+          >
+          <button
+            id="tableViewBtn"
+            class="p-2.5 rounded-lg text-slate-400 hover:text-slate-600 transition-all"
+            ><svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"></path></svg
+            ></button
+          >
+        </div>
+      </div>
+
+      <!-- Quick Filters Chips (P1) -->
+      <div
+        class="flex items-center gap-2 mt-4 overflow-x-auto pb-1 scrollbar-hide"
+      >
+        <button
+          class="filter-chip active px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition-all whitespace-nowrap"
+          data-filter="">Tất cả</button
+        >
+        <button
+          class="filter-chip px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap"
+          data-filter="production">Production</button
+        >
+        <button
+          class="filter-chip px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-all whitespace-nowrap"
+          data-filter="draft">Draft / Review</button
+        >
+        <button
+          class="filter-chip px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-700 transition-all whitespace-nowrap"
+          data-filter="error">Có lỗi (QC)</button
+        >
+      </div>
+    </div>
+  </div>
+
+  <!-- Error State (P0) -->
+  {
+    errorMessage && (
+      <div class="mb-8 p-6 rounded-2xl bg-red-50 text-red-700 border border-red-100 flex items-center gap-4 animate-fade-in">
+        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-bold text-lg">
+            Hệ thống đang bảo trì hoặc gặp sự cố
+          </h3>
+          <p class="text-sm opacity-80">{errorMessage}</p>
+        </div>
+        <button
+          onclick="window.location.reload()"
+          class="ml-auto px-4 py-2 bg-white rounded-lg text-sm font-bold text-red-600 shadow-sm hover:shadow"
+        >
+          Thử lại
+        </button>
+      </div>
     )
   }
 
-  <!-- No Results Message -->
-  <div id="noResults" class="hidden card p-16 text-center">
+  <!-- Loading State (managed by Client JS or simple initial hidden) -->
+  <div id="loadingState" class="hidden py-20 text-center">
     <div
-      class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-slate-200 flex items-center justify-center"
+      class="inline-block animate-spin w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full mb-4"
     >
-      <svg
-        class="w-10 h-10 text-slate-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.5"
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-      </svg>
     </div>
-    <h3 class="text-xl font-bold text-slate-900 mb-2">Không tìm thấy game</h3>
-    <p class="text-slate-500 mb-6">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc</p>
-    <button
-      id="clearFilters"
-      class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-slate-600 hover:bg-slate-700 text-white font-semibold transition-colors text-sm"
+    <p class="text-slate-400 font-bold text-sm">Đang tải dữ liệu...</p>
+  </div>
+
+  <!-- Content Grid -->
+  <div
+    id="gamesGrid"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 animate-fade-in-up"
+  >
+    {
+      games.map((game, idx) => {
+        let status = "draft";
+        if (game.status === "published") status = "production";
+        else if (game.status === "qc_failed" || game.status === "archived")
+          status = "error";
+
+        return (
+          <div
+            class="game-item transition-all duration-500"
+            style={`animation-delay: ${idx * 0.05}s`}
+            data-game-name={game.title?.toLowerCase()}
+            data-game-id={game.id.toLowerCase()}
+            data-game-owner={(game.ownerName || "admin").toLowerCase()}
+            data-status={status}
+          >
+            <GameCard game={game} />
+          </div>
+        );
+      })
+    }
+  </div>
+
+  <!-- Empty State (No Results) -->
+  <div
+    id="emptyState"
+    class="hidden py-24 text-center rounded-3xl bg-slate-50 border border-dashed border-slate-200"
+  >
+    <div
+      class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 text-slate-300"
     >
-      <svg
-        class="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        ><path
           stroke-linecap="round"
           stroke-linejoin="round"
           stroke-width="2"
-          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-        ></path>
-      </svg>
-      Xóa bộ lọc
-    </button>
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg
+      >
+    </div>
+    <h3 class="text-lg font-bold text-slate-900 mb-1">
+      Không tìm thấy kết quả
+    </h3>
+    <p class="text-slate-500 text-sm mb-6">
+      Thử thay đổi từ khóa hoặc bộ lọc của bạn
+    </p>
+    <button
+      onclick="clearSearch()"
+      class="px-6 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:border-slate-300 shadow-sm"
+      >Xóa bộ lọc</button
+    >
   </div>
 
-  <script>
-    // View Toggling
-  const gridViewBtn = document.getElementById('gridViewBtn');
-  const tableViewBtn = document.getElementById('tableViewBtn');
-  const gridView = document.getElementById('gridView');
-  const tableView = document.getElementById('tableView');
-
-  let currentView = localStorage.getItem('gameViewMode') || 'grid';
-
-  function updateViewMode(mode: string) {
-    currentView = mode;
-    localStorage.setItem('gameViewMode', mode);
-    
-    if (mode === 'grid') {
-      gridViewBtn?.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
-      gridViewBtn?.classList.remove('text-slate-500');
-      tableViewBtn?.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
-      tableViewBtn?.classList.add('text-slate-500');
-    } else {
-      tableViewBtn?.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
-      tableViewBtn?.classList.remove('text-slate-500');
-      gridViewBtn?.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
-      gridViewBtn?.classList.add('text-slate-500');
+  <style>
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
     }
-    filterAndSort(); // Re-apply filters and visibility after view change
-  }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
 
-  gridViewBtn?.addEventListener('click', () => updateViewMode('grid'));
-  tableViewBtn?.addEventListener('click', () => updateViewMode('table'));
-  
-  // Search and Filter functionality - Define elements BEFORE using them
-  const searchInput = document.getElementById('searchInput') as HTMLInputElement;
-  const statusFilter = document.getElementById('statusFilter') as HTMLSelectElement;
-  const noResults = document.getElementById('noResults') as HTMLElement;
-  const clearFilters = document.getElementById('clearFilters') as HTMLButtonElement;
+  <script is:inline>
+    // Client-side Filtering Logic
+    const searchInput = document.getElementById("searchInput");
+    const chips = document.querySelectorAll(".filter-chip");
+    const items = document.querySelectorAll(".game-item");
+    const emptyState = document.getElementById("emptyState");
+    const gridEl = document.getElementById("gamesGrid");
 
-  function filterAndSort() {
-    console.log('filterAndSort called');
-    const searchTerm = searchInput?.value.toLowerCase().trim() || '';
-    const statusValue = statusFilter?.value || '';
-    console.log('Search term:', searchTerm);
-    console.log('Status filter:', statusValue);
+    let currentFilter = "";
 
-    const gridCards = Array.from(document.querySelectorAll('.game-card-wrapper')) as HTMLElement[];
-    const tableRows = Array.from(document.querySelectorAll('.game-row')) as HTMLElement[];
-    console.log('Found grid cards:', gridCards.length);
-    console.log('Found table rows:', tableRows.length);
+    function filterGames() {
+      const term = searchInput.value.toLowerCase();
+      let visibleCount = 0;
 
-    function processItems(items: HTMLElement[]) {
-      // Filter items
-      const filtered = items.filter(item => {
-        const gameName = item.dataset.gameName || '';
-        const gameId = item.dataset.gameId || '';
-        const gameRuntime = item.dataset.gameRuntime || '';
-        const gameOwner = item.dataset.gameOwner || '';
-        const gameStatus = item.dataset.gameStatus || '';
-        
-        const matchesSearch = !searchTerm || 
-          gameName.includes(searchTerm) || 
-          gameId.includes(searchTerm) ||
-          gameRuntime.includes(searchTerm) ||
-          gameOwner.includes(searchTerm);
+      items.forEach((item) => {
+        const name = item.dataset.gameName;
+        const id = item.dataset.gameId;
+        const owner = item.dataset.gameOwner;
+        const status = item.dataset.status;
 
-        const matchesStatus = !statusValue || gameStatus === statusValue;
+        const matchSearch =
+          name.includes(term) || id.includes(term) || owner.includes(term);
+        const matchFilter = currentFilter === "" || status === currentFilter;
 
-        return matchesSearch && matchesStatus;
-      });
-
-      console.log('Filtered items:', filtered.length, 'of', items.length);
-
-      // Hide all items first
-      items.forEach(item => {
-        item.style.display = 'none';
-      });
-
-      // Show filtered items
-      filtered.forEach((item, index) => {
-        item.style.display = '';
-        if (item.classList.contains('game-card-wrapper')) {
-          item.style.animationDelay = `${index * 0.05}s`;
+        if (matchSearch && matchFilter) {
+          item.style.display = "";
+          visibleCount++;
+        } else {
+          item.style.display = "none";
         }
       });
 
-      return filtered.length;
+      if (visibleCount === 0) {
+        emptyState.classList.remove("hidden");
+        gridEl.classList.add("hidden");
+      } else {
+        emptyState.classList.add("hidden");
+        gridEl.classList.remove("hidden");
+      }
     }
 
-    const gridMatches = processItems(gridCards);
-    const tableMatches = processItems(tableRows);
-    
-    // Use the appropriate match count based on current view
-    const hasMatches = currentView === 'grid' ? gridMatches > 0 : tableMatches > 0;
-    console.log('Has matches:', hasMatches, '(view:', currentView, ')');
+    searchInput.addEventListener("input", filterGames);
 
-    // Update visibility of views and no results message
-    if (noResults) {
-      noResults.style.display = hasMatches ? 'none' : 'block';
-    }
-    
-    if (gridView) {
-      gridView.style.display = currentView === 'grid' && hasMatches ? 'grid' : 'none';
-    }
-    
-    if (tableView) {
-      tableView.style.display = currentView === 'table' && hasMatches ? 'block' : 'none';
-    }
-  }
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        // Toggle active class
+        chips.forEach((c) => {
+          c.classList.remove("bg-slate-900", "text-white");
+          c.classList.add("bg-slate-100", "text-slate-500");
+        });
+        chip.classList.remove("bg-slate-100", "text-slate-500");
+        chip.classList.add("bg-slate-900", "text-white");
 
-  function clearAllFilters() {
-    if (searchInput) searchInput.value = '';
-    if (statusFilter) statusFilter.value = '';
-    filterAndSort();
-  }
+        currentFilter = chip.dataset.filter;
+        filterGames();
+      });
+    });
 
-  // Event listeners
-  searchInput?.addEventListener('input', filterAndSort);
-  statusFilter?.addEventListener('change', filterAndSort);
-  clearFilters?.addEventListener('click', clearAllFilters);
-
-  // Initialize view mode and apply initial filters
-  updateViewMode(currentView);
+    window.clearSearch = () => {
+      searchInput.value = "";
+      chips[0].click(); // Reset to 'All'
+    };
   </script>
 </Layout>

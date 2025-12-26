@@ -1,5 +1,9 @@
 ---
 import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
+import Breadcrumb from '../../components/Breadcrumb.astro';
+import DropdownMenu from '../../components/DropdownMenu.astro';
+import ConfirmDialog from '../../components/ConfirmDialog.astro';
+import EmptyState from '../../components/EmptyState.astro';
 import type { User } from '../../models/User';
 import { GameRepository, type Game } from '../../models/Game';
 import { GameVersionRepository, type GameVersion } from '../../models/GameVersion';
@@ -45,10 +49,18 @@ else if (statusFilter === 'archived') filteredGames = gamesWithStatus.filter(g =
 const approvedCount = gamesWithStatus.filter(g => g.versionStatus === 'approved').length;
 const publishedCount = gamesWithStatus.filter(g => g.versionStatus === 'published').length;
 const archivedCount = gamesWithStatus.filter(g => g.versionStatus === 'archived').length;
+
+const breadcrumbItems = [
+  { label: 'Console', href: '/console' },
+  { label: 'Quản lý xuất bản' }
+];
 ---
 
 <ConsoleLayout title="Quản lý xuất bản" user={user} activeMenu="publish">
   <div class="p-8">
+    <!-- Breadcrumb Navigation -->
+    <Breadcrumb items={breadcrumbItems} />
+
     <div class="mb-8">
       <h1 class="text-2xl font-bold text-slate-900">Quản lý xuất bản</h1>
       <p class="text-slate-500 mt-1">Xuất bản game ra ngoài cho học sinh sử dụng</p>
@@ -78,6 +90,236 @@ const archivedCount = gamesWithStatus.filter(g => g.versionStatus === 'archived'
               <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Rollout</th>
               <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Dev</th>
               <th class="text-right px-6 py-4 text-sm font-semibold text-slate-700">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {filteredGames.map(game => {
+              // Create dropdown menu items based on game status
+              const menuGroups = [];
+              
+              // Actions group
+              const actions = [];
+              if (game.versionStatus === 'approved' && !game.disabled) {
+                actions.push({
+                  label: 'Xuất bản',
+                  onClick: `publishGame('${game._id}', '${game.title || game.gameId}', ${game.rolloutPercentage ?? 100})`,
+                  icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0L8 8m4-4v12'
+                });
+              }
+              
+              if (game.versionStatus === 'archived' && !game.disabled) {
+                actions.push({
+                  label: 'Xuất bản lại',
+                  onClick: `republishGame('${game._id}', '${game.liveVersionId?.toString()}')`,
+                  icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                });
+              }
+              
+              // Management group
+              const management = [];
+              management.push({
+                label: 'Xem chi tiết',
+                href: `/console/games/${game._id}`,
+                icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'
+              });
+              
+              // Dangerous group
+              const dangerous = [];
+              if (game.versionStatus === 'published') {
+                dangerous.push({
+                  label: game.disabled ? 'Bật lại' : 'Tắt ngay',
+                  onClick: `toggleGameStatus('${game._id}', '${game.title || game.gameId}', ${game.disabled ? 'false' : 'true'})`,
+                  variant: 'danger' as const,
+                  icon: game.disabled ? 'M13 10V3L4 14h7v7l9-11h-7z' : 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636'
+                });
+                
+                dangerous.push({
+                  label: 'Lưu trữ',
+                  onClick: `archiveGame('${game._id}', '${game.title || game.gameId}')`,
+                  variant: 'danger' as const,
+                  icon: 'M5 8l6 6m0 0l6-6m-6 6v9a2 2 0 01-2 2H7a2 2 0 01-2-2v-9m6 6V4a2 2 0 012-2h4a2 2 0 012 2v4'
+                });
+              }
+              
+              if (actions.length > 0) menuGroups.push({ title: 'Hành động', items: actions });
+              if (management.length > 0) menuGroups.push({ title: 'Quản lý', items: management });
+              if (dangerous.length > 0) menuGroups.push({ title: 'Nguy hiểm', items: dangerous });
+              
+              return (
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4">
+                    <a href={`/console/games/${game._id}`} class="block">
+                      <div class="flex items-center gap-2">
+                        <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+                        {game.disabled && <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">Disabled</span>}
+                      </div>
+                      <p class="text-sm text-slate-500">{game.gameId}</p>
+                    </a>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="text-sm text-slate-600">{game.rolloutPercentage ?? 100}%</span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-slate-600">{game.ownerName}</td>
+                  <td class="px-6 py-4">
+                    <div class="flex items-center justify-end">
+                      <DropdownMenu groups={menuGroups} align="right" size="md" />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <EmptyState 
+        title={statusFilter === 'approved' ? 'Không có game nào chờ xuất bản' : statusFilter === 'published' ? 'Chưa có game nào được xuất bản' : 'Không có game nào đã lưu trữ'}
+        description={statusFilter === 'approved' ? 'Các game cần được duyệt trước khi có thể xuất bản' : 'Khi có game được xuất bản, chúng sẽ hiển thị ở đây'}
+        icon="games"
+        actionText="Xem tất cả game"
+        actionHref="/console/library"
+      />
+    )}
+  </div>
+
+  <!-- Confirmation Dialogs -->
+  <ConfirmDialog 
+    id="publishConfirm"
+    title="Xác nhận xuất bản"
+    message="Bạn có chắc chắn muốn xuất bản game này? Học sinh sẽ có thể thấy và chơi game."
+    confirmText="Xuất bản"
+    variant="warning"
+    showProductionWarning={true}
+  />
+  
+  <ConfirmDialog 
+    id="disableConfirm"
+    title="Xác nhận tắt game"
+    message="Game sẽ bị ẩn khỏi học sinh ngay lập tức. Bạn có thể bật lại sau."
+    confirmText="Tắt ngay"
+    variant="danger"
+    showProductionWarning={true}
+  />
+  
+  <ConfirmDialog 
+    id="archiveConfirm"
+    title="Xác nhận lưu trữ"
+    message="Game sẽ được chuyển vào trạng thái lưu trữ và không thể truy cập được."
+    confirmText="Lưu trữ"
+    variant="danger"
+    showProductionWarning={true}
+  />
+
+  <script>
+    // Game action functions
+    async function publishGame(gameId: string, gameTitle: string, rollout: number) {
+      const confirmed = await (window as any).showPublishConfirm({
+        title: 'Xác nhận xuất bản',
+        message: `Bạn có chắc chắn muốn xuất bản game "${gameTitle}"? Học sinh sẽ có thể thấy và chơi game với rollout ${rollout}%.`
+      });
+      
+      if (confirmed) {
+        try {
+          const response = await fetch('/api/games/publish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gameId, rollout })
+          });
+          
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            alert('Có lỗi xảy ra khi xuất bản game');
+          }
+        } catch (error) {
+          alert('Có lỗi xảy ra khi xuất bản game');
+        }
+      }
+    }
+    
+    async function toggleGameStatus(gameId: string, gameTitle: string, disable: string) {
+      const isDisabling = disable === 'true';
+      const confirmed = await (window as any).showDisableConfirm({
+        title: isDisabling ? 'Xác nhận tắt game' : 'Xác nhận bật game',
+        message: `Bạn có chắc chắn muốn ${isDisabling ? 'tắt' : 'bật'} game "${gameTitle}"?`
+      });
+      
+      if (confirmed) {
+        try {
+          const response = await fetch('/api/games/toggle-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gameId, disabled: isDisabling })
+          });
+          
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            alert('Có lỗi xảy ra khi thay đổi trạng thái game');
+          }
+        } catch (error) {
+          alert('Có lỗi xảy ra khi thay đổi trạng thái game');
+        }
+      }
+    }
+    
+    async function archiveGame(gameId: string, gameTitle: string) {
+      const confirmed = await (window as any).showArchiveConfirm({
+        title: 'Xác nhận lưu trữ',
+        message: `Bạn có chắc chắn muốn lưu trữ game "${gameTitle}"? Game sẽ không thể truy cập được.`
+      });
+      
+      if (confirmed) {
+        try {
+          const response = await fetch('/api/games/archive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gameId })
+          });
+          
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            alert('Có lỗi xảy ra khi lưu trữ game');
+          }
+        } catch (error) {
+          alert('Có lỗi xảy ra khi lưu trữ game');
+        }
+      }
+    }
+    
+    async function republishGame(gameId: string, versionId: string) {
+      const confirmed = await (window as any).showPublishConfirm({
+        title: 'Xác nhận xuất bản lại',
+        message: 'Bạn có chắc chắn muốn xuất bản lại game này?'
+      });
+      
+      if (confirmed) {
+        try {
+          const response = await fetch('/api/games/republish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gameId, versionId })
+          });
+          
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            alert('Có lỗi xảy ra khi xuất bản lại game');
+          }
+        } catch (error) {
+          alert('Có lỗi xảy ra khi xuất bản lại game');
+        }
+      }
+    }
+    
+    // Make functions globally available
+    (window as any).publishGame = publishGame;
+    (window as any).toggleGameStatus = toggleGameStatus;
+    (window as any).archiveGame = archiveGame;
+    (window as any).republishGame = republishGame;
+  </script>
+</ConsoleLayout>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">

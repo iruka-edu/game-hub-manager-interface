@@ -4,315 +4,251 @@ import GameUploadForm from "../components/GameUploadForm.astro";
 import { getUserFromRequest } from "../lib/session";
 import type { User } from "../models/User";
 
-// Check authentication
 const user = (await getUserFromRequest(Astro.request)) as User | null;
 
-// Check if user can upload (only dev and admin)
+// Permission check
 const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
 const canUpload = hasRole("dev") || hasRole("admin");
 
-// Redirect if not authenticated or not authorized
-if (!user) {
-  return Astro.redirect("/login?redirect=/upload");
-}
-
-if (!canUpload) {
-  return Astro.redirect("/dashboard?error=unauthorized");
-}
-
-const isAdmin = hasRole("admin");
+if (!user) return Astro.redirect("/login?redirect=/upload");
+if (!canUpload) return Astro.redirect("/dashboard?error=unauthorized");
 ---
 
-<Layout title="Tải lên bản Build - Game Hub Manager">
-  <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
-    <div class="mb-8 flex items-center justify-between">
+<Layout title="Tải Game Mới - Iruka Console">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Compact Header -->
+    <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-4">
         <a
           href="/"
-          class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-iruka-blue hover:border-blue-200 transition-all shadow-sm group"
-          title="Quay lại"
+          class="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-iruka-blue hover:border-blue-300 transition-all shadow-sm"
+          title="Quay lại Dashboard"
         >
           <svg
-            class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform"
+            class="w-5 h-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-          >
-            <path
+            ><path
               stroke-linecap="round"
               stroke-linejoin="round"
-              stroke-width="2.5"
-              d="M15 19l-7-7 7-7"></path>
-          </svg>
+              stroke-width="2"
+              d="M15 19l-7-7 7-7"></path></svg
+          >
         </a>
         <div>
-          <h1 class="text-2xl font-black text-slate-900 tracking-tight">
-            Tải lên Game
+          <h1
+            class="text-xl font-black text-slate-900 tracking-tight leading-none"
+          >
+            Tải Game Mới
           </h1>
-          <p class="text-slate-500 text-sm font-medium">
-            Bản build game HTML5 cho hệ thống Iruka
+          <p
+            class="text-slate-500 text-xs font-bold mt-1.5 flex items-center gap-2"
+          >
+            Upload build để tạo bản Draft
+            <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+            <span class="text-iruka-blue font-extrabold"
+              >Quy trình: Chọn gói build → Hệ thống kiểm tra → Đăng bản build</span
+            >
           </p>
         </div>
       </div>
 
-      <div class="flex items-center gap-4">
-        <div class="hidden sm:flex flex-col items-end">
-          <p class="text-sm font-bold text-slate-900">
-            {user.name || user.email}
-          </p>
-          <p
-            class="text-[10px] font-black text-iruka-blue bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 uppercase tracking-wider"
-          >
-            {user.roles.join(" • ")}
-          </p>
-        </div>
+      <!-- User Badge (Optional, kept minimal) -->
+      <div
+        class="hidden sm:flex items-center gap-3 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm"
+      >
         <div
-          class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-blue-500/20"
+          class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold"
         >
-          {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+          {user.name?.charAt(0)}
         </div>
+        <span class="text-xs font-bold text-slate-700">{user.email}</span>
       </div>
     </div>
 
-    <div class="flex flex-col lg:flex-row gap-8">
-      <!-- CỘT TRÁI (Main - 70%) -->
-      <div class="flex-1 lg:w-[70%] space-y-6">
+    <!-- 2-Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <!-- Left Column: Action (65%) -->
+      <div class="lg:col-span-8 flex flex-col gap-6">
         <GameUploadForm />
       </div>
 
-      <!-- CỘT PHẢI (Guidance - 30%) -->
-      <div class="lg:w-[350px] space-y-6">
-        <!-- Vertical Stepper -->
-        <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+      <!-- Right Column: Guidance (35%) -->
+      <div class="lg:col-span-4 space-y-5 lg:sticky lg:top-6">
+        <!-- Compact Stepper -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <h3
-            class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6"
+            class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4"
           >
-            Quy trình vận hành
+            Tiến trình xử lý
           </h3>
-
-          <div class="space-y-0 relative">
-            <div class="absolute left-[15px] top-2 bottom-2 w-0.5 bg-slate-100">
+          <div class="space-y-4 relative">
+            <div
+              class="absolute left-3.5 top-2 bottom-2 w-0.5 bg-slate-100 z-0"
+            >
             </div>
 
-            <!-- Step 1 -->
-            <div class="relative flex items-start gap-4 pb-8">
+            <!-- Active Step -->
+            <div class="relative z-10 flex items-center gap-3">
               <div
-                class="relative z-10 w-8 h-8 rounded-full bg-iruka-blue text-white flex items-center justify-center shadow-lg shadow-blue-500/30"
+                class="w-7 h-7 rounded-full bg-iruka-blue text-white flex items-center justify-center shadow-md shadow-blue-500/20 border-2 border-white"
               >
-                <svg
-                  class="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="3"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                  ></path></svg
-                >
+                <span class="text-xs font-bold">1</span>
               </div>
               <div>
-                <p
-                  class="text-sm font-black text-slate-900 uppercase tracking-tight"
-                >
-                  1. Tải lên Build
-                </p>
-                <p class="text-xs text-slate-500 mt-0.5 font-medium">
-                  Bản build & manifest.json
+                <p class="text-xs font-black text-slate-900">Upload Build</p>
+                <p class="text-[10px] text-iruka-blue font-bold">
+                  Đang thực hiện (Dev)
                 </p>
               </div>
             </div>
 
-            <!-- Step 2 -->
-            <div class="relative flex items-start gap-4 pb-8">
+            <!-- Inactive Steps -->
+            <div class="relative z-10 flex items-center gap-3 opacity-50">
               <div
-                class="relative z-10 w-8 h-8 rounded-full bg-white border-2 border-slate-200 text-slate-300 flex items-center justify-center"
+                class="w-7 h-7 rounded-full bg-slate-50 border-2 border-slate-200 text-slate-400 flex items-center justify-center"
               >
-                <svg
-                  class="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="3"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path></svg
-                >
+                <span class="text-xs font-bold">2</span>
               </div>
-              <div>
-                <p class="text-sm font-bold text-slate-400">2. Kiểm tra QC</p>
-                <p class="text-xs text-slate-400 mt-0.5">
-                  Xác nhận chất lượng nội dung
-                </p>
-              </div>
+              <p class="text-xs font-bold text-slate-500">Kiểm tra QC</p>
             </div>
 
-            <!-- Step 3 -->
-            <div class="relative flex items-start gap-4 pb-8">
+            <div class="relative z-10 flex items-center gap-3 opacity-50">
               <div
-                class="relative z-10 w-8 h-8 rounded-full bg-white border-2 border-slate-200 text-slate-300 flex items-center justify-center"
+                class="w-7 h-7 rounded-full bg-slate-50 border-2 border-slate-200 text-slate-400 flex items-center justify-center"
               >
-                <svg
-                  class="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="3"
-                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                  ></path></svg
-                >
+                <span class="text-xs font-bold">3</span>
               </div>
-              <div>
-                <p class="text-sm font-bold text-slate-400">3. Phê duyệt</p>
-                <p class="text-xs text-slate-400 mt-0.5">
-                  Xác nhận bởi CTO hoặc CEO
-                </p>
-              </div>
+              <p class="text-xs font-bold text-slate-500">Phê duyệt (CTO)</p>
             </div>
 
-            <!-- Step 4 -->
-            <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center gap-3 opacity-50">
               <div
-                class="relative z-10 w-8 h-8 rounded-full bg-white border-2 border-slate-200 text-slate-300 flex items-center justify-center"
+                class="w-7 h-7 rounded-full bg-slate-50 border-2 border-slate-200 text-slate-400 flex items-center justify-center"
               >
-                <svg
-                  class="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="3"
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg
-                >
+                <span class="text-xs font-bold">4</span>
               </div>
-              <div>
-                <p class="text-sm font-bold text-slate-400">4. Phát hành</p>
-                <p class="text-xs text-slate-400 mt-0.5">
-                  Publish lên Game Hub
-                </p>
-              </div>
+              <p class="text-xs font-bold text-slate-500">Phát hành</p>
             </div>
           </div>
         </div>
 
-        <!-- Technical Checklist -->
-        <div
-          class="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-blue-600/20"
-        >
+        <!-- Requirements Checklist (Collapsible feels) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <h3
-            class="text-xs font-black text-white/60 uppercase tracking-[0.2em] mb-4"
+            class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3"
           >
-            Danh mục kỹ thuật
+            Yêu cầu bắt buộc
           </h3>
-
-          <ul class="space-y-4" id="tech-checklist">
-            <li class="flex items-start gap-3" data-req="index-html">
-              <div
-                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+          <ul class="space-y-2.5">
+            <li class="flex items-start gap-2 text-xs font-bold text-slate-600">
+              <svg
+                class="w-4 h-4 text-emerald-500 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M5 13l4 4L19 7"></path></svg
               >
-                <svg
-                  class="w-3.5 h-3.5 hidden"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="4"
-                    d="M5 13l4 4L19 7"></path></svg
-                >
-              </div>
-              <div>
-                <p class="text-sm font-bold">index.html tại root</p>
-                <p class="text-[10px] text-white/70">
-                  Điểm truy cập chính của game
-                </p>
-              </div>
+              <span
+                >File <code
+                  class="bg-slate-100 px-1 py-0.5 rounded text-slate-800"
+                  >index.html</code
+                > tại root</span
+              >
             </li>
-            <li class="flex items-start gap-3" data-req="manifest-json">
-              <div
-                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+            <li class="flex items-start gap-2 text-xs font-bold text-slate-600">
+              <svg
+                class="w-4 h-4 text-emerald-500 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M5 13l4 4L19 7"></path></svg
               >
-                <svg
-                  class="w-3.5 h-3.5 hidden"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="4"
-                    d="M5 13l4 4L19 7"></path></svg
-                >
-              </div>
-              <div>
-                <p class="text-sm font-bold">manifest.json</p>
-                <p class="text-[10px] text-white/70">
-                  Khai báo ID, version, title...
-                </p>
-              </div>
+              <span
+                >File <code
+                  class="bg-slate-100 px-1 py-0.5 rounded text-slate-800"
+                  >manifest.json</code
+                > đầy đủ</span
+              >
             </li>
-            <li class="flex items-start gap-3" data-req="game-id">
-              <div
-                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+            <li class="flex items-start gap-2 text-xs font-bold text-slate-600">
+              <svg
+                class="w-4 h-4 text-emerald-500 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M5 13l4 4L19 7"></path></svg
               >
-                <svg
-                  class="w-3.5 h-3.5 hidden"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="4"
-                    d="M5 13l4 4L19 7"></path></svg
-                >
-              </div>
-              <div>
-                <p class="text-sm font-bold">Format: com.iruka.xxx</p>
-                <p class="text-[10px] text-white/70">
-                  Sử dụng kebab-case chuẩn Iruka
-                </p>
-              </div>
+              <span
+                >Game ID: <code
+                  class="bg-slate-100 px-1 py-0.5 rounded text-slate-800"
+                  >com.iruka.[game-name]</code
+                ></span
+              >
             </li>
-            <li class="flex items-start gap-3" data-req="file-size">
-              <div
-                class="check-box mt-0.5 w-5 h-5 rounded-md border-2 border-white/30 flex items-center justify-center shrink-0"
+            <li class="flex items-start gap-2 text-xs font-bold text-slate-600">
+              <svg
+                class="w-4 h-4 text-amber-500 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                ></path></svg
               >
-                <svg
-                  class="w-3.5 h-3.5 hidden"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="4"
-                    d="M5 13l4 4L19 7"></path></svg
-                >
-              </div>
-              <div>
-                <p class="text-sm font-bold">Dung lượng &lt; 10MB</p>
-                <p class="text-[10px] text-white/70">Khuyên dùng &lt; 3MB</p>
-              </div>
+              <span>Size &lt; 10MB (Khuyên dùng &lt; 3MB)</span>
             </li>
           </ul>
+        </div>
 
-          <div class="mt-6 pt-6 border-t border-white/10">
-            <p class="text-xs font-medium text-white/60 leading-relaxed italic">
-              * Hệ thống sẽ tự động phân tích cấu trúc file khi bạn tải lên để
-              hỗ trợ kiểm tra nhanh.
-            </p>
-          </div>
+        <!-- Dev Tips -->
+        <div class="bg-indigo-50/50 rounded-2xl border border-indigo-100 p-5">
+          <h3
+            class="flex items-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg
+            >
+            Mẹo cho Dev
+          </h3>
+          <p class="text-xs font-bold text-slate-600 mb-3">
+            Sử dụng tool để validate trước tại local:
+          </p>
+          <code
+            class="block bg-white border border-indigo-100 rounded-lg p-2.5 text-[10px] font-mono text-indigo-600 break-all select-all"
+          >
+            pnpm iruka-game:validate ./dist
+          </code>
+          <a
+            href="#"
+            class="mt-3 block text-center text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+          >
+            Tải mẫu manifest.json
+          </a>
         </div>
       </div>
     </div>
