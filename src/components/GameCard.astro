@@ -59,15 +59,17 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
 ---
 
 <div
-  class="group relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all duration-300 flex flex-col h-full overflow-hidden cursor-pointer"
+  class="game-card-root group relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all duration-300 flex flex-col h-full overflow-hidden cursor-pointer"
   data-game-id={game.id}
   data-game-title={game.title}
   onclick={`window.openGameDrawer('${game.id}')`}
 >
   <!-- Card Content Padding - Reduced from p-5 to p-4 -->
-  <div class="p-4 flex flex-col h-full">
+  <div class="card-content p-4 flex flex-col h-full transition-all">
     <!-- 1. Header Row - Reduced margin -->
-    <div class="flex items-start justify-between gap-3 mb-2">
+    <div
+      class="card-header flex items-start justify-between gap-3 mb-2 transition-all"
+    >
       <div class="flex items-center gap-3 min-w-0 pointer-events-none">
         <!-- Icon -->
         <div
@@ -115,7 +117,7 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
 
       <!-- Right: More Menu -->
       <div
-        class="flex items-center gap-1 relative"
+        class="flex items-center gap-1 relative ml-auto"
         onclick="event.stopPropagation()"
       >
         <button
@@ -263,9 +265,9 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
 
     <!-- 2. Meta Info Row -->
     <div
-      class="flex items-center gap-x-4 gap-y-2 flex-wrap text-[11px] font-medium text-slate-500 mb-4 bg-slate-50/50 p-2 rounded-lg border border-slate-100/50 pointer-events-none"
+      class="card-meta flex items-center gap-x-4 gap-y-2 flex-wrap text-[11px] font-medium text-slate-500 mb-4 bg-slate-50/50 p-2 rounded-lg border border-slate-100/50 pointer-events-none transition-all"
     >
-      <span class="flex items-center gap-1.5">
+      <span class="flex items-center gap-1.5 min-w-[100px]">
         <svg
           class="w-3.5 h-3.5 text-slate-400"
           fill="none"
@@ -313,7 +315,7 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
     <!-- 3. Tags -->
     {
       displayedCaps.length > 0 && (
-        <div class="flex flex-wrap gap-1.5 mb-4 pointer-events-none">
+        <div class="card-tags flex flex-wrap gap-1.5 mb-4 pointer-events-none transition-all">
           {displayedCaps.map((cap) => (
             <span class="px-2 py-0.5 rounded border border-slate-100 bg-white text-[10px] font-bold text-slate-500 uppercase tracking-tight">
               {cap}
@@ -330,7 +332,7 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
 
     <!-- 4. Action Row -->
     <div
-      class="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2"
+      class="card-actions mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2 transition-all"
       onclick="event.stopPropagation()"
     >
       <!-- Versions -->
@@ -349,27 +351,19 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
             stroke-width="2"
             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg
         >
-        Versions
-      </a>
-
-      <a
-        href={`/games/${game.id}/logs`}
-        class="px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-lg transition-all border border-transparent hover:border-slate-200"
-        title="Xem logs"
-      >
-        Logs
+        Phiên bản
       </a>
 
       <a
         href={`/play/${game.id}`}
         target="_blank"
-        class="px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 rounded-lg transition-all flex items-center gap-1.5 ml-1"
+        class="flex-1 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 border border-indigo-100 rounded-lg transition-all flex items-center justify-center gap-1.5"
         title="Chơi Live (Tab mới)"
       >
         <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"
           ><path d="M8 5v14l11-7z"></path></svg
         >
-        Play
+        Chơi ngay
       </a>
     </div>
   </div>
@@ -479,5 +473,56 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
       transform: translateY(0);
       scale: 1;
     }
+  }
+
+  /* LIST VIEW STYLES */
+  :global(#gamesGrid.list-view) .game-card-root {
+    flex-direction: row;
+    height: auto;
+    min-height: 80px;
+    align-items: center;
+  }
+
+  :global(#gamesGrid.list-view) .card-content {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    gap: 1.5rem;
+  }
+
+  :global(#gamesGrid.list-view) .card-header {
+    margin-bottom: 0;
+    flex: 2;
+    min-width: 0; /* Text truncation fix */
+  }
+
+  :global(#gamesGrid.list-view) .card-meta {
+    margin-bottom: 0;
+    background: none;
+    border: none;
+    padding: 0;
+    flex: 2;
+    display: flex; /* Ensure it's shown */
+  }
+
+  :global(#gamesGrid.list-view) .card-tags {
+    margin-bottom: 0;
+    display: none; /* Hide tags in list view to reduce clutter */
+  }
+
+  :global(#gamesGrid.list-view) .card-actions {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    flex: 2;
+    justify-content: flex-end;
+  }
+
+  /* Adjust Action Buttons for List View */
+  :global(#gamesGrid.list-view) .card-actions a {
+    padding: 0.5rem 0.75rem;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 </style>

@@ -9,23 +9,29 @@ interface Props {
 const { title } = Astro.props;
 
 // Get user for header
-const user = await getUserFromRequest(Astro.request) as User | null;
+let user: any = null;
+try {
+  user = await getUserFromRequest(Astro.request);
+} catch (e) {
+  console.error("Error fetching user in layout:", e);
+}
 
 // Role checks
 const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
-const isAdmin = hasRole('admin');
-const isDev = hasRole('dev');
+const isAdmin = hasRole("admin");
+const isDev = hasRole("dev");
 const canUpload = isDev || isAdmin;
 
 // Role labels
 const roleLabels: Record<string, string> = {
-  dev: 'Developer',
-  qc: 'QC Tester',
-  cto: 'CTO',
-  ceo: 'CEO',
-  admin: 'Administrator'
+  dev: "Developer",
+  qc: "QC Tester",
+  cto: "CTO",
+  ceo: "CEO",
+  admin: "Administrator",
 };
-const userRoleDisplay = user?.roles?.map(r => roleLabels[r] || r).join(', ') || '';
+const userRoleDisplay =
+  user?.roles?.map((r: string) => roleLabels[r] || r).join(", ") || "";
 ---
 
 <!doctype html>
