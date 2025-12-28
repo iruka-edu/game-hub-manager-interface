@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "https://irukaedu.com",
+      "https://game-hub-manager-interface.vercel.app",
+      "http://localhost:4321",
+      "http://localhost:3000"
+    ],
+    "method": ["GET", "PUT", "POST", "HEAD", "DELETE"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
