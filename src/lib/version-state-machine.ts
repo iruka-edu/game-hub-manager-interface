@@ -66,6 +66,11 @@ export const STATE_TRANSITIONS: Record<string, StateTransition> = {
     to: 'qc_failed',
     requiredPermission: 'games:review'
   },
+  reject: {
+    from: ['qc_passed', 'approved'],
+    to: 'qc_failed',
+    requiredPermission: 'games:approve'
+  },
   approve: {
     from: ['qc_passed'],
     to: 'approved',

@@ -11,7 +11,7 @@ import { VersionStateMachine } from '../../../../lib/version-state-machine';
 /**
  * POST /api/games/[id]/reject
  * CTO/Admin rejects a game version and sends it back to dev
- * Changes version status: qc_passed -> qc_failed
+ * Changes version status: qc_passed/approved -> qc_failed
  */
 export const POST: APIRoute = async ({ params, request }) => {
   try {
@@ -96,7 +96,10 @@ export const POST: APIRoute = async ({ params, request }) => {
     // Use state machine for transition
     const stateMachine = await VersionStateMachine.getInstance();
     
-    if (!stateMachine.canTransition(version.status, 'fail')) {
+    // Use 'reject' action for qc_passed/approved, 'fail' for qc_processing
+    const action = ['qc_passed', 'approved'].includes(version.status) ? 'reject' : 'fail';
+    
+    if (!stateMachine.canTransition(version.status, action)) {
       return new Response(JSON.stringify({ 
         error: `Cannot reject version in "${version.status}" status.` 
       }), {
@@ -106,7 +109,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     }
 
     const oldStatus = version.status;
-    const updatedVersion = await stateMachine.transition(targetVersionId, 'fail', user._id.toString());
+    const updatedVersion = await stateMachine.transition(targetVersionId, action, user._id.toString());
 
     // Record history
     await GameHistoryService.recordStatusChange(gameId, user, oldStatus, 'qc_failed', note);

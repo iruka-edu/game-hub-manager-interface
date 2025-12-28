@@ -85,6 +85,7 @@ if (isAdmin || isCTO) {
       :root {
         --color-primary: 79 70 229;
         --sidebar-width: 260px;
+        --sidebar-collapsed-width: 80px;
       }
       
       body {
@@ -92,8 +93,36 @@ if (isAdmin || isCTO) {
         -webkit-font-smoothing: antialiased;
       }
       
-      .sidebar { width: var(--sidebar-width); }
-      .main-content { margin-left: var(--sidebar-width); }
+      .sidebar { 
+        width: var(--sidebar-width);
+        transition: width 0.3s ease;
+      }
+      .sidebar.collapsed { 
+        width: var(--sidebar-collapsed-width);
+      }
+      .main-content { 
+        margin-left: var(--sidebar-width);
+        transition: margin-left 0.3s ease;
+      }
+      .main-content.sidebar-collapsed { 
+        margin-left: var(--sidebar-collapsed-width);
+      }
+      
+      /* Hide text when collapsed */
+      .sidebar.collapsed .sidebar-text {
+        opacity: 0;
+        width: 0;
+        overflow: hidden;
+      }
+      .sidebar-text {
+        opacity: 1;
+        transition: opacity 0.2s ease;
+      }
+      
+      /* Center icons when collapsed */
+      .sidebar.collapsed nav a {
+        justify-content: center;
+      }
       
       /* Button styles */
       .btn-primary {
@@ -137,18 +166,30 @@ if (isAdmin || isCTO) {
   </head>
   <body class="bg-slate-50 text-slate-900 min-h-screen">
     <!-- Sidebar -->
-    <aside class="sidebar fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex flex-col">
-      <!-- Logo -->
-      <div class="p-5 border-b border-slate-700">
-        <a href="/console" class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center">
+    <aside id="sidebar" class="sidebar fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex flex-col">
+      <!-- Logo & Toggle -->
+      <div class="p-5 border-b border-slate-700 flex items-center justify-between">
+        <a href="/console" class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </div>
-          <span class="font-bold text-lg">Game Console</span>
+          <span class="sidebar-text font-bold text-lg whitespace-nowrap">Game Console</span>
         </a>
+        <button 
+          id="sidebar-toggle"
+          class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors flex-shrink-0"
+          title="Thu gọn sidebar"
+        >
+          <svg id="collapse-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+          </svg>
+          <svg id="expand-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+          </svg>
+        </button>
       </div>
       
       <!-- Navigation -->
@@ -165,48 +206,48 @@ if (isAdmin || isCTO) {
                 }`}
               >
                 {item.icon === 'home' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                   </svg>
                 )}
                 {item.icon === 'folder' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
                   </svg>
                 )}
                 {item.icon === 'inbox' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
                   </svg>
                 )}
                 {item.icon === 'check-circle' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 )}
                 {item.icon === 'globe' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
                   </svg>
                 )}
                 {item.icon === 'grid' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
                   </svg>
                 )}
                 {item.icon === 'clipboard-list' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
                   </svg>
                 )}
                 {item.icon === 'users' && (
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                   </svg>
                 )}
-                <span class="font-medium">{item.label}</span>
+                <span class="sidebar-text font-medium whitespace-nowrap">{item.label}</span>
                 {item.badge && item.badge > 0 && (
-                  <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{item.badge}</span>
+                  <span class="sidebar-text ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{item.badge}</span>
                 )}
               </a>
             </li>
