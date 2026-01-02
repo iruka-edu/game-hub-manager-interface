@@ -1,21 +1,21 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import Layout from "../layouts/Layout.astro";
 
 // Check if already logged in
-import { getUserFromRequest } from '../lib/session';
+import { getUserFromRequest } from "../lib/session";
 const user = await getUserFromRequest(Astro.request);
 
 // Get redirect parameter
-const redirectParam = Astro.url.searchParams.get('redirect');
+const redirectParam = Astro.url.searchParams.get("redirect");
 
 // Validate redirect URL (must be internal path)
 function isValidRedirect(url: string | null): boolean {
   if (!url) return false;
   // Must start with / and not be //
-  return url.startsWith('/') && !url.startsWith('//');
+  return url.startsWith("/") && !url.startsWith("//");
 }
 
-const redirectUrl = isValidRedirect(redirectParam) ? redirectParam : '/console';
+const redirectUrl = isValidRedirect(redirectParam) ? redirectParam : "/console";
 
 if (user) {
   return Astro.redirect(redirectUrl);
@@ -27,9 +27,21 @@ if (user) {
     <div class="w-full max-w-md">
       <div class="card p-8">
         <div class="text-center mb-8">
-          <div class="w-16 h-16 rounded-xl bg-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+          <div
+            class="w-16 h-16 rounded-xl bg-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg"
+          >
+            <svg
+              class="w-8 h-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              ></path>
             </svg>
           </div>
           <h1 class="text-2xl font-bold text-slate-900">Đăng nhập</h1>
@@ -38,9 +50,12 @@ if (user) {
 
         <form id="loginForm" class="space-y-6">
           <input type="hidden" id="redirectUrl" value={redirectUrl} />
-          
+
           <div>
-            <label for="email" class="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              for="email"
+              class="block text-sm font-medium text-slate-700 mb-2"
+            >
               Email
             </label>
             <input
@@ -54,7 +69,10 @@ if (user) {
           </div>
 
           <div>
-            <label for="password" class="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              for="password"
+              class="block text-sm font-medium text-slate-700 mb-2"
+            >
               Mật khẩu
             </label>
             <input
@@ -67,7 +85,10 @@ if (user) {
             />
           </div>
 
-          <div id="errorMessage" class="hidden p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+          <div
+            id="errorMessage"
+            class="hidden p-3 rounded-lg bg-red-50 text-red-700 text-sm"
+          >
           </div>
 
           <button
@@ -92,25 +113,28 @@ if (user) {
   </div>
 </Layout>
 
-
 <script>
-  const form = document.getElementById('loginForm') as HTMLFormElement;
-  const emailInput = document.getElementById('email') as HTMLInputElement;
-  const passwordInput = document.getElementById('password') as HTMLInputElement;
-  const errorMessage = document.getElementById('errorMessage') as HTMLDivElement;
-  const quickLoginButtons = document.querySelectorAll('.quick-login');
-  const redirectUrlInput = document.getElementById('redirectUrl') as HTMLInputElement;
+  const form = document.getElementById("loginForm") as HTMLFormElement;
+  const emailInput = document.getElementById("email") as HTMLInputElement;
+  const passwordInput = document.getElementById("password") as HTMLInputElement;
+  const errorMessage = document.getElementById(
+    "errorMessage"
+  ) as HTMLDivElement;
+  const quickLoginButtons = document.querySelectorAll(".quick-login");
+  const redirectUrlInput = document.getElementById(
+    "redirectUrl"
+  ) as HTMLInputElement;
 
   // Get redirect URL from hidden input (set by server)
-  const redirectUrl = redirectUrlInput?.value || '/console';
+  const redirectUrl = redirectUrlInput?.value || "/console";
 
   async function login(email: string, password: string) {
-    errorMessage.classList.add('hidden');
-    
+    errorMessage.classList.add("hidden");
+
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
@@ -120,22 +144,22 @@ if (user) {
         // Redirect to the original destination or default to /console
         window.location.href = redirectUrl;
       } else {
-        errorMessage.textContent = data.error || 'Đăng nhập thất bại';
-        errorMessage.classList.remove('hidden');
+        errorMessage.textContent = data.error || "Đăng nhập thất bại";
+        errorMessage.classList.remove("hidden");
       }
     } catch (error) {
-      errorMessage.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
-      errorMessage.classList.remove('hidden');
+      errorMessage.textContent = "Lỗi kết nối. Vui lòng thử lại.";
+      errorMessage.classList.remove("hidden");
     }
   }
 
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     await login(emailInput.value, passwordInput.value);
   });
 
-  quickLoginButtons.forEach(button => {
-    button.addEventListener('click', async () => {
+  quickLoginButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
       const email = (button as HTMLButtonElement).dataset.email;
       const password = (button as HTMLButtonElement).dataset.password;
       if (email && password) {

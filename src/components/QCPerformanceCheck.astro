@@ -1,0 +1,450 @@
+---
+// QC Performance Check component for the review process
+interface Props {
+  gameId: string;
+}
+
+const { gameId } = Astro.props;
+---
+
+<div class="bg-white rounded-xl border border-slate-200 p-6">
+  <h3 class="font-semibold text-slate-900 mb-4">Performance Check</h3>
+  
+  <div class="space-y-4">
+    <!-- Performance Test Button -->
+    <button 
+      id="run-perf-test"
+      class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+      data-game-id={gameId}
+    >
+      Run Performance Test
+    </button>
+    
+    <!-- Test Results -->
+    <div id="perf-results" class="hidden">
+      <div class="bg-slate-50 rounded-lg p-4">
+        <h4 class="font-medium text-slate-700 mb-3">Test Results</h4>
+        <div id="perf-metrics-display" class="space-y-2 text-sm">
+          <!-- Results will be populated here -->
+        </div>
+      </div>
+      
+      <!-- Performance Score -->
+      <div id="perf-score" class="mt-4">
+        <!-- Score will be populated here -->
+      </div>
+      
+      <!-- Recommendations -->
+      <div id="perf-recommendations" class="mt-4 hidden">
+        <h4 class="font-medium text-slate-700 mb-2">Recommendations</h4>
+        <ul id="perf-rec-list" class="text-sm text-slate-600 space-y-1">
+          <!-- Recommendations will be populated here -->
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Device Info Display -->
+    <div class="border-t border-slate-200 pt-4">
+      <h4 class="font-medium text-slate-700 mb-2">Test Environment</h4>
+      <div id="test-env-info" class="text-sm text-slate-600">
+        <div>Loading device information...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ gameId }}>
+  class QCPerformanceChecker {
+    private gameId: string;
+    private testResults: any = {};
+    
+    constructor(gameId: string) {
+      this.gameId = gameId;
+      this.init();
+    }
+    
+    init() {
+      this.setupEventListeners();
+      this.displayDeviceInfo();
+    }
+    
+    setupEventListeners() {
+      const testButton = document.getElementById('run-perf-test');
+      testButton?.addEventListener('click', () => this.runPerformanceTest());
+    }
+    
+    displayDeviceInfo() {
+      const container = document.getElementById('test-env-info');
+      if (!container) return;
+      
+      // Get device info from global detector if available
+      const deviceInfo = (window as any).deviceInfo;
+      if (deviceInfo) {
+        container.innerHTML = `
+          <div><strong>Device:</strong> ${deviceInfo.deviceType} (${deviceInfo.deviceModel})</div>
+          <div><strong>Browser:</strong> ${deviceInfo.browser} ${deviceInfo.browserVersion}</div>
+          <div><strong>Screen:</strong> ${deviceInfo.screenResolution} (${deviceInfo.breakpointCategory})</div>
+          <div><strong>Network:</strong> ${deviceInfo.networkType}</div>
+        `;
+      } else {
+        // Fallback basic detection
+        const ua = navigator.userAgent;
+        let device = 'Unknown';
+        if (/iPhone|iPad/.test(ua)) device = 'iOS Device';
+        else if (/Android/.test(ua)) device = 'Android Device';
+        else if (/Windows/.test(ua)) device = 'Windows PC';
+        else if (/Mac/.test(ua)) device = 'Mac';
+        
+        container.innerHTML = `
+          <div><strong>Device:</strong> ${device}</div>
+          <div><strong>Screen:</strong> ${window.innerWidth}×${window.innerHeight}</div>
+          <div><strong>User Agent:</strong> ${ua.substring(0, 50)}...</div>
+        `;
+      }
+    }
+    
+    async runPerformanceTest() {
+      const button = document.getElementById('run-perf-test') as HTMLButtonElement;
+      const resultsContainer = document.getElementById('perf-results');
+      
+      if (!button || !resultsContainer) return;
+      
+      // Update button state
+      button.textContent = 'Running Test...';
+      button.disabled = true;
+      
+      try {
+        // Clear previous results
+        this.testResults = {};
+        
+        // Test 1: Game Loading Performance
+        await this.testGameLoading();
+        
+        // Test 2: Resource Analysis
+        await this.analyzeResources();
+        
+        // Test 3: Memory Usage (if available)
+        this.checkMemoryUsage();
+        
+        // Test 4: Network Performance
+        this.analyzeNetworkPerformance();
+        
+        // Display results
+        this.displayResults();
+        
+        // Show results container
+        resultsContainer.classList.remove('hidden');
+        
+      } catch (error) {
+        console.error('Performance test failed:', error);
+        this.displayError('Performance test failed. Please try again.');
+      } finally {
+        button.textContent = 'Run Performance Test';
+        button.disabled = false;
+      }
+    }
+    
+    async testGameLoading(): Promise<void> {
+      return new Promise((resolve) => {
+        const startTime = performance.now();
+        const gameUrl = `/play/${this.gameId}`;
+        
+        // Create a hidden iframe to test loading
+        const testFrame = document.createElement('iframe');
+        testFrame.style.display = 'none';
+        testFrame.src = gameUrl;
+        
+        const timeout = setTimeout(() => {
+          document.body.removeChild(testFrame);
+          this.testResults.gameLoadTimeout = true;
+          this.testResults.gameLoadTime = 'Timeout (>10s)';
+          resolve();
+        }, 10000);
+        
+        testFrame.onload = () => {
+          const loadTime = performance.now() - startTime;
+          this.testResults.gameLoadTime = Math.round(loadTime);
+          this.testResults.gameLoadTimeout = false;
+          
+          clearTimeout(timeout);
+          document.body.removeChild(testFrame);
+          resolve();
+        };
+        
+        testFrame.onerror = () => {
+          this.testResults.gameLoadError = true;
+          this.testResults.gameLoadTime = 'Error';
+          
+          clearTimeout(timeout);
+          document.body.removeChild(testFrame);
+          resolve();
+        };
+        
+        document.body.appendChild(testFrame);
+      });
+    }
+    
+    analyzeResources() {
+      if ('performance' in window && 'getEntriesByType' in performance) {
+        const resources = performance.getEntriesByType('resource');
+        
+        let totalSize = 0;
+        let totalDuration = 0;
+        let slowResources = [];
+        let largeResources = [];
+        
+        resources.forEach((resource: any) => {
+          const size = resource.transferSize || 0;
+          const duration = resource.duration || 0;
+          
+          totalSize += size;
+          totalDuration += duration;
+          
+          // Flag slow resources (>2s)
+          if (duration > 2000) {
+            slowResources.push({
+              name: resource.name.split('/').pop() || 'Unknown',
+              duration: Math.round(duration)
+            });
+          }
+          
+          // Flag large resources (>500KB)
+          if (size > 500 * 1024) {
+            largeResources.push({
+              name: resource.name.split('/').pop() || 'Unknown',
+              size: Math.round(size / 1024)
+            });
+          }
+        });
+        
+        this.testResults.resourceCount = resources.length;
+        this.testResults.totalSize = Math.round(totalSize / 1024); // KB
+        this.testResults.avgResourceTime = Math.round(totalDuration / resources.length);
+        this.testResults.slowResources = slowResources;
+        this.testResults.largeResources = largeResources;
+      }
+    }
+    
+    checkMemoryUsage() {
+      if ('memory' in performance) {
+        const memory = (performance as any).memory;
+        this.testResults.memoryUsage = {
+          used: Math.round(memory.usedJSHeapSize / 1024 / 1024), // MB
+          total: Math.round(memory.totalJSHeapSize / 1024 / 1024), // MB
+          limit: Math.round(memory.jsHeapSizeLimit / 1024 / 1024) // MB
+        };
+      }
+    }
+    
+    analyzeNetworkPerformance() {
+      if ('connection' in navigator) {
+        const connection = (navigator as any).connection;
+        this.testResults.networkInfo = {
+          effectiveType: connection.effectiveType || 'Unknown',
+          downlink: connection.downlink || 'Unknown',
+          rtt: connection.rtt || 'Unknown'
+        };
+      }
+      
+      // Get timing information
+      if ('performance' in window && 'timing' in performance) {
+        const timing = performance.timing;
+        this.testResults.networkTiming = {
+          dns: timing.domainLookupEnd - timing.domainLookupStart,
+          connect: timing.connectEnd - timing.connectStart,
+          ttfb: timing.responseStart - timing.requestStart,
+          download: timing.responseEnd - timing.responseStart
+        };
+      }
+    }
+    
+    displayResults() {
+      const container = document.getElementById('perf-metrics-display');
+      if (!container) return;
+      
+      const results = this.testResults;
+      
+      let html = `
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="font-medium">Game Loading</div>
+            <div class="${this.getLoadTimeClass(results.gameLoadTime)}">${results.gameLoadTime}ms</div>
+          </div>
+          <div>
+            <div class="font-medium">Resources</div>
+            <div>${results.resourceCount || 0} files (${results.totalSize || 0}KB)</div>
+          </div>
+      `;
+      
+      if (results.networkTiming) {
+        html += `
+          <div>
+            <div class="font-medium">TTFB</div>
+            <div class="${this.getTTFBClass(results.networkTiming.ttfb)}">${results.networkTiming.ttfb}ms</div>
+          </div>
+          <div>
+            <div class="font-medium">Network</div>
+            <div>${results.networkInfo?.effectiveType || 'Unknown'}</div>
+          </div>
+        `;
+      }
+      
+      if (results.memoryUsage) {
+        html += `
+          <div>
+            <div class="font-medium">Memory</div>
+            <div>${results.memoryUsage.used}MB / ${results.memoryUsage.total}MB</div>
+          </div>
+        `;
+      }
+      
+      html += '</div>';
+      
+      container.innerHTML = html;
+      
+      // Display performance score
+      this.displayPerformanceScore();
+      
+      // Display recommendations if needed
+      this.displayRecommendations();
+    }
+    
+    displayPerformanceScore() {
+      const container = document.getElementById('perf-score');
+      if (!container) return;
+      
+      const score = this.calculatePerformanceScore();
+      const scoreClass = score >= 80 ? 'text-green-600' : score >= 60 ? 'text-yellow-600' : 'text-red-600';
+      const scoreBg = score >= 80 ? 'bg-green-100' : score >= 60 ? 'bg-yellow-100' : 'bg-red-100';
+      
+      container.innerHTML = `
+        <div class="flex items-center justify-between p-3 rounded-lg ${scoreBg}">
+          <span class="font-medium">Performance Score</span>
+          <span class="text-2xl font-bold ${scoreClass}">${score}/100</span>
+        </div>
+      `;
+    }
+    
+    calculatePerformanceScore(): number {
+      let score = 100;
+      const results = this.testResults;
+      
+      // Deduct points for slow game loading
+      if (results.gameLoadTimeout) {
+        score -= 30;
+      } else if (results.gameLoadTime > 5000) {
+        score -= 20;
+      } else if (results.gameLoadTime > 3000) {
+        score -= 10;
+      }
+      
+      // Deduct points for slow TTFB
+      if (results.networkTiming?.ttfb > 1000) {
+        score -= 15;
+      } else if (results.networkTiming?.ttfb > 500) {
+        score -= 10;
+      }
+      
+      // Deduct points for large total size
+      if (results.totalSize > 5000) { // >5MB
+        score -= 15;
+      } else if (results.totalSize > 2000) { // >2MB
+        score -= 10;
+      }
+      
+      // Deduct points for slow resources
+      if (results.slowResources?.length > 0) {
+        score -= Math.min(results.slowResources.length * 5, 20);
+      }
+      
+      // Deduct points for memory usage
+      if (results.memoryUsage?.used > 100) { // >100MB
+        score -= 10;
+      }
+      
+      return Math.max(0, Math.round(score));
+    }
+    
+    displayRecommendations() {
+      const container = document.getElementById('perf-recommendations');
+      const listContainer = document.getElementById('perf-rec-list');
+      if (!container || !listContainer) return;
+      
+      const recommendations = this.generateRecommendations();
+      
+      if (recommendations.length > 0) {
+        listContainer.innerHTML = recommendations.map(rec => `<li>• ${rec}</li>`).join('');
+        container.classList.remove('hidden');
+      }
+    }
+    
+    generateRecommendations(): string[] {
+      const recommendations = [];
+      const results = this.testResults;
+      
+      if (results.gameLoadTime > 3000) {
+        recommendations.push('Game loading is slow. Consider optimizing game assets and code.');
+      }
+      
+      if (results.networkTiming?.ttfb > 500) {
+        recommendations.push('Server response time is slow. Check backend performance.');
+      }
+      
+      if (results.totalSize > 2000) {
+        recommendations.push('Total page size is large. Consider image optimization and code splitting.');
+      }
+      
+      if (results.slowResources?.length > 0) {
+        recommendations.push(`${results.slowResources.length} resources are loading slowly. Check: ${results.slowResources.map(r => r.name).join(', ')}`);
+      }
+      
+      if (results.largeResources?.length > 0) {
+        recommendations.push(`Large resources detected: ${results.largeResources.map(r => `${r.name} (${r.size}KB)`).join(', ')}`);
+      }
+      
+      if (results.memoryUsage?.used > 100) {
+        recommendations.push('High memory usage detected. Check for memory leaks in game code.');
+      }
+      
+      return recommendations;
+    }
+    
+    getLoadTimeClass(time: any): string {
+      if (typeof time !== 'number') return 'text-red-600';
+      if (time < 2000) return 'text-green-600';
+      if (time < 5000) return 'text-yellow-600';
+      return 'text-red-600';
+    }
+    
+    getTTFBClass(ttfb: number): string {
+      if (ttfb < 200) return 'text-green-600';
+      if (ttfb < 500) return 'text-yellow-600';
+      return 'text-red-600';
+    }
+    
+    displayError(message: string) {
+      const container = document.getElementById('perf-metrics-display');
+      if (container) {
+        container.innerHTML = `<div class="text-red-600">${message}</div>`;
+      }
+    }
+    
+    // Export results for QC report
+    exportResults() {
+      return {
+        timestamp: new Date().toISOString(),
+        gameId: this.gameId,
+        deviceInfo: (window as any).deviceInfo || {},
+        performanceResults: this.testResults,
+        score: this.calculatePerformanceScore(),
+        recommendations: this.generateRecommendations()
+      };
+    }
+  }
+  
+  // Initialize QC Performance Checker
+  const qcPerfChecker = new QCPerformanceChecker(gameId);
+  
+  // Make it globally available for QC reports
+  (window as any).qcPerfChecker = qcPerfChecker;
+</script>

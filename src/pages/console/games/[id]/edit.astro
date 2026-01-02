@@ -2,6 +2,7 @@
 import ConsoleLayout from '../../../../layouts/ConsoleLayout.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
+import { GameVersionRepository } from '../../../../models/GameVersion';
 import { getUserFromRequest } from '../../../../lib/session';
 import { hasPermissionString } from '../../../../auth/auth-rbac';
 
@@ -14,11 +15,17 @@ if (!user) {
 // Get game
 const { id } = Astro.params;
 const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
 const game = await gameRepo.findById(id!);
 
 if (!game) {
   return Astro.redirect('/404');
 }
+
+// Get latest version to check status
+const latestVersion = game.latestVersionId 
+  ? await versionRepo.findById(game.latestVersionId.toString())
+  : null;
 
 // Check ownership
 const isOwner = game.ownerId === user._id.toString();
@@ -27,10 +34,11 @@ if (!isOwner && !isAdmin) {
   return Astro.redirect('/403');
 }
 
-// Check status
-const canEdit = ['draft', 'qc_failed'].includes(game.status);
+// Check status - should check latest version status, not game status
+const latestVersionStatus = latestVersion?.status || 'draft';
+const canEdit = ['draft', 'qc_failed'].includes(latestVersionStatus);
 if (!canEdit) {
-  return Astro.redirect(`/console/games/${id}?error=cannot_edit`);
+  return Astro.redirect(`/console/games/${id}?error=cannot_edit&status=${latestVersionStatus}`);
 }
 ---
 

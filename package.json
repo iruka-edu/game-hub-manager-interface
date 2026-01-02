@@ -9,6 +9,9 @@
     "astro": "astro",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:devices": "node scripts/automated-testing.js",
+    "test:devices:local": "node scripts/automated-testing.js http://localhost:4321",
+    "test:devices:staging": "node scripts/automated-testing.js https://game-hub-manager-interface.vercel.app",
     "validate:manifest": "ajv -s schema/manifest.schema.json -d \"games-dist/games/**/manifest.json\" --spec=draft7 --errors=text",
     "iruka-game:validate": "node scripts/validate-game.js",
     "seed:users": "tsx scripts/seed-users.ts",
@@ -37,6 +40,7 @@
     "ajv-cli": "^5.0.0",
     "ajv-formats": "^3.0.1",
     "fast-check": "^4.4.0",
+    "puppeteer": "^23.0.0",
     "tsx": "^4.21.0",
     "vitest": "^4.0.16"
   }

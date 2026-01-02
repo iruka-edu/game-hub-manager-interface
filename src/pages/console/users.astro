@@ -77,7 +77,7 @@ const brandColor = "#2B9BF6";
     @keyframes modalFadeIn {
       from {
         opacity: 0;
-        transform: scale(0.95) translateY(10px);
+        transform: scale(0.95) translateY(-10px);
       }
       to {
         opacity: 1;
@@ -85,7 +85,13 @@ const brandColor = "#2B9BF6";
       }
     }
     .animate-modal {
-      animation: modalFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation: modalFadeIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    /* Modal Backdrop */
+    .modal-backdrop {
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
   </style>
 
@@ -312,22 +318,17 @@ const brandColor = "#2B9BF6";
   </div>
 
   <!-- Create/Edit User Modal -->
-  <div id="userModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div id="userModal" class="hidden fixed inset-0 z-[9999] overflow-y-auto opacity-0 transition-opacity duration-200">
+    <!-- Backdrop -->
     <div
-      class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
-    >
+      class="fixed inset-0 bg-slate-900/60 modal-backdrop transition-opacity"
+      id="modalBackdrop"
+    ></div>
+    
+    <!-- Modal Container -->
+    <div class="flex items-center justify-center min-h-screen px-4 py-8 relative z-10">
       <div
-        class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-md shadow-2xl"
-        id="modalBackdrop"
-      >
-      </div>
-
-      <span class="hidden sm:inline-block sm:align-middle sm:h-screen"
-        >&#8203;</span
-      >
-
-      <div
-        class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-white/20 animate-modal"
+        class="relative bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all max-w-lg w-full border border-slate-200 animate-modal"
       >
         <!-- Decoration Line -->
         <div class="h-2 bg-iruka-blue w-full"></div>
@@ -777,16 +778,27 @@ const brandColor = "#2B9BF6";
 
     // Modal helpers
     function showModal() {
-      document.getElementById("userModal").classList.remove("hidden");
+      const modal = document.getElementById("userModal");
+      modal.classList.remove("hidden");
       document.body.style.overflow = "hidden";
       modalError.classList.add("hidden");
+      
+      // Trigger animation after a small delay to ensure proper rendering
+      requestAnimationFrame(() => {
+        modal.style.opacity = "1";
+      });
     }
 
     function hideModal() {
-      document.getElementById("userModal").classList.add("hidden");
-      document.body.style.overflow = "";
-      document.getElementById("userForm").reset();
-      setLoading(false);
+      const modal = document.getElementById("userModal");
+      modal.style.opacity = "0";
+      
+      setTimeout(() => {
+        modal.classList.add("hidden");
+        document.body.style.overflow = "";
+        document.getElementById("userForm").reset();
+        setLoading(false);
+      }, 200);
     }
 
     // Event Listeners

@@ -2,6 +2,9 @@
 import ConsoleLayout from '../../../../layouts/ConsoleLayout.astro';
 import StatusChip from '../../../../components/StatusChip.astro';
 import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
+import QCPerformanceCheck from '../../../../components/QCPerformanceCheck.astro';
+import PerformanceMonitor from '../../../../components/PerformanceMonitor.astro';
+import DeviceInfo from '../../../../components/DeviceInfo.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
 import { GameVersionRepository } from '../../../../models/GameVersion';
@@ -227,19 +230,39 @@ const lastReport = previousReports[0];
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div class="p-4 border-b border-slate-200 flex items-center justify-between">
             <h3 class="font-semibold text-slate-900">Preview Game</h3>
-            <div class="flex items-center gap-2">
-              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="mobile">Mobile</button>
-              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-indigo-100 text-indigo-700" data-device="tablet">Tablet</button>
-              <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="desktop">Desktop</button>
+            <div class="flex items-center gap-3">
+              <button 
+                id="load-game-btn" 
+                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+                data-game-url={`/play/${game._id}`}
+              >
+                Tải Game để Test
+              </button>
+              <div class="flex items-center gap-2">
+                <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="mobile">Mobile</button>
+                <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-indigo-100 text-indigo-700" data-device="tablet">Tablet</button>
+                <button class="device-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600" data-device="desktop">Desktop</button>
+              </div>
             </div>
           </div>
           <div class="p-4 bg-slate-100 flex items-center justify-center min-h-[500px]">
             <div id="preview-container" class="bg-white shadow-lg rounded-lg overflow-hidden transition-all" style="width: 768px; height: 500px;">
+              <div id="game-placeholder" class="w-full h-full flex items-center justify-center">
+                <div class="text-center">
+                  <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-200 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                  </div>
+                  <p class="text-slate-500 text-sm">Nhấn "Tải Game để Test" để xem trước game</p>
+                </div>
+              </div>
               <iframe 
                 id="game-iframe"
-                src={`/play/${game._id}`}
-                class="w-full h-full border-0"
+                class="w-full h-full border-0 hidden"
                 title="Game Preview"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
               ></iframe>
             </div>
           </div>
@@ -248,6 +271,9 @@ const lastReport = previousReports[0];
 
       <!-- QC Panel -->
       <div class="space-y-6">
+        <!-- Performance Check -->
+        <QCPerformanceCheck gameId={game._id.toString()} />
+
         <!-- QC Checklist -->
         <div class="bg-white rounded-xl border border-slate-200 p-6">
           <h3 class="font-semibold text-slate-900 mb-4">Checklist kiểm tra</h3>
@@ -334,6 +360,34 @@ const lastReport = previousReports[0];
 </ConsoleLayout>
 
 <script>
+  // Load Game Preview
+  document.getElementById('load-game-btn')?.addEventListener('click', (e) => {
+    const button = e.target as HTMLButtonElement;
+    const gameUrl = button.dataset.gameUrl;
+    const placeholder = document.getElementById('game-placeholder');
+    const iframe = document.getElementById('game-iframe') as HTMLIFrameElement;
+    
+    if (gameUrl && placeholder && iframe) {
+      // Show loading state
+      button.textContent = 'Đang tải...';
+      button.disabled = true;
+      
+      // Set iframe src and show it
+      iframe.src = gameUrl;
+      iframe.onload = () => {
+        placeholder.classList.add('hidden');
+        iframe.classList.remove('hidden');
+        button.textContent = 'Tải lại Game';
+        button.disabled = false;
+      };
+      
+      iframe.onerror = () => {
+        button.textContent = 'Lỗi - Thử lại';
+        button.disabled = false;
+      };
+    }
+  });
+
   const container = document.getElementById('preview-container') as HTMLElement;
   const deviceBtns = document.querySelectorAll('.device-btn');
   
@@ -445,3 +499,9 @@ const lastReport = previousReports[0];
   passBtn?.addEventListener('click', () => submitQCResult('pass'));
   failBtn?.addEventListener('click', () => submitQCResult('fail'));
 </script>
+
+<!-- Performance Monitor (Development only) -->
+<PerformanceMonitor />
+
+<!-- Device Info (Development only) -->
+<DeviceInfo />

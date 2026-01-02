@@ -2,6 +2,8 @@
 import ConsoleLayout from '../../../../layouts/ConsoleLayout.astro';
 import StatusChip from '../../../../components/StatusChip.astro';
 import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
+import PerformanceMonitor from '../../../../components/PerformanceMonitor.astro';
+import DeviceInfo from '../../../../components/DeviceInfo.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
 import { GameVersionRepository } from '../../../../models/GameVersion';
@@ -74,6 +76,22 @@ const needsSelfQaWarning = canSubmitQC && !isSelfQaComplete;
 
 // Tab from URL
 const tab = Astro.url.searchParams.get('tab') || 'info';
+
+// Error handling
+const errorParam = Astro.url.searchParams.get('error');
+const statusParam = Astro.url.searchParams.get('status');
+let errorMessage = '';
+
+if (errorParam === 'cannot_edit') {
+  const statusText = statusParam === 'uploaded' ? 'đang chờ QC' :
+                    statusParam === 'qc_processing' ? 'đang được QC kiểm tra' :
+                    statusParam === 'qc_passed' ? 'đã qua QC' :
+                    statusParam === 'approved' ? 'đã được duyệt' :
+                    statusParam === 'published' ? 'đã xuất bản' :
+                    statusParam === 'archived' ? 'đã lưu trữ' : 'không thể chỉnh sửa';
+  
+  errorMessage = `Không thể chỉnh sửa game khi trạng thái là "${statusText}". Chỉ có thể chỉnh sửa khi game ở trạng thái "nháp" hoặc "QC không đạt".`;
+}
 ---
 
 <ConsoleLayout title={game.title || game.gameId} user={user} activeMenu="library">
@@ -87,6 +105,19 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
         Quay lại Thư viện
       </a>
     </div>
+
+    <!-- Error Message -->
+    {errorMessage && (
+      <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+        <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+          <h4 class="text-sm font-semibold text-red-800">Không thể thực hiện thao tác</h4>
+          <p class="text-sm text-red-700 mt-1">{errorMessage}</p>
+        </div>
+      </div>
+    )}
 
     <!-- Header -->
     <div class="flex items-start justify-between mb-8">
@@ -172,14 +203,33 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
       <div class="lg:col-span-2 space-y-6">
         <!-- Preview -->
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div class="p-4 border-b border-slate-200">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
             <h3 class="font-semibold text-slate-900">Preview Game</h3>
+            <button 
+              id="load-game-btn" 
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+              data-game-url={`/play/${game._id}`}
+            >
+              Tải Game để Test
+            </button>
           </div>
-          <div class="aspect-video bg-slate-100">
+          <div class="aspect-video bg-slate-100 relative">
+            <div id="game-placeholder" class="w-full h-full flex items-center justify-center">
+              <div class="text-center">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-200 flex items-center justify-center">
+                  <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <p class="text-slate-500 text-sm">Nhấn "Tải Game để Test" để xem trước game</p>
+              </div>
+            </div>
             <iframe 
-              src={`/play/${game._id}`}
-              class="w-full h-full border-0"
+              id="game-iframe"
+              class="w-full h-full border-0 hidden"
               title="Game Preview"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
             ></iframe>
           </div>
         </div>
@@ -455,7 +505,53 @@ const tab = Astro.url.searchParams.get('tab') || 'info';
   </div>
 </ConsoleLayout>
 
+<!-- Performance Monitor (Development only) -->
+<PerformanceMonitor />
+
+<!-- Device Info (Development only) -->
+<DeviceInfo />
+
 <script>
+  // Auto-hide error message and clean URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('error')) {
+    // Clean URL after 5 seconds
+    setTimeout(() => {
+      urlParams.delete('error');
+      urlParams.delete('status');
+      const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+      window.history.replaceState({}, '', newUrl);
+    }, 5000);
+  }
+
+  // Load Game Preview
+  document.getElementById('load-game-btn')?.addEventListener('click', (e) => {
+    const button = e.target as HTMLButtonElement;
+    const gameUrl = button.dataset.gameUrl;
+    const placeholder = document.getElementById('game-placeholder');
+    const iframe = document.getElementById('game-iframe') as HTMLIFrameElement;
+    
+    if (gameUrl && placeholder && iframe) {
+      // Show loading state
+      button.textContent = 'Đang tải...';
+      button.disabled = true;
+      
+      // Set iframe src and show it
+      iframe.src = gameUrl;
+      iframe.onload = () => {
+        placeholder.classList.add('hidden');
+        iframe.classList.remove('hidden');
+        button.textContent = 'Tải lại Game';
+        button.disabled = false;
+      };
+      
+      iframe.onerror = () => {
+        button.textContent = 'Lỗi - Thử lại';
+        button.disabled = false;
+      };
+    }
+  });
+
   // Submit QC
   document.getElementById('submit-qc-btn')?.addEventListener('click', async (e) => {
     const gameId = (e.target as HTMLElement).dataset.gameId;

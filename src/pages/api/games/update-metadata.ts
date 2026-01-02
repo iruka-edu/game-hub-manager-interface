@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { GameRepository } from "../../../models/Game";
+import { GameVersionRepository } from "../../../models/GameVersion";
 import { getUserFromRequest } from "../../../lib/session";
 import { hasPermissionString } from "../../../auth/auth-rbac";
 import { AuditLogger } from "../../../lib/audit";
@@ -46,6 +47,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const gameRepo = await GameRepository.getInstance();
+    const versionRepo = await GameVersionRepository.getInstance();
     const game = await gameRepo.findById(gameId);
 
     if (!game) {
@@ -54,6 +56,13 @@ export const POST: APIRoute = async ({ request }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // Get latest version to check status
+    const latestVersion = game.latestVersionId 
+      ? await versionRepo.findById(game.latestVersionId.toString())
+      : null;
+
+    const currentStatus = latestVersion?.status || 'draft';
 
     // Check ownership
     const isOwner = game.ownerId === user._id.toString();
@@ -68,10 +77,12 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // Check status - only allow edit for draft, qc_failed
-    if (!game.status || !["draft", "qc_failed"].includes(game.status)) {
+    // Check status - only allow edit for draft, qc_failed (check latest version status)
+    if (!["draft", "qc_failed"].includes(currentStatus)) {
       return new Response(
-        JSON.stringify({ error: "Không thể sửa game ở trạng thái này" }),
+        JSON.stringify({ 
+          error: `Không thể sửa game khi trạng thái là "${currentStatus}". Chỉ có thể sửa khi ở trạng thái "draft" hoặc "qc_failed".` 
+        }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
