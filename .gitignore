@@ -25,3 +25,9 @@ pnpm-debug.log*
 
 # vercel output
 .vercel/
+.output/
+
+# typescript
+*.tsbuildinfo
+
+.kiro
