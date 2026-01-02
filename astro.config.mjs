@@ -6,15 +6,24 @@ import tailwindcss from "@tailwindcss/vite";
 
 import vercel from "@astrojs/vercel";
 
+// Check if we're in a Windows environment with symlink issues
+const isWindows = process.platform === 'win32';
+const useNodeAdapter = process.env.USE_NODE_ADAPTER === 'true' || (isWindows && process.env.VERCEL !== '1');
+
 // https://astro.build/config
 export default defineConfig({
   output: "server",
-  adapter: vercel({
+  adapter: useNodeAdapter ? node({
+    mode: "standalone"
+  }) : vercel({
     imageService: true,
     devImageService: "sharp",
     maxDuration: 30, // Increase timeout for large uploads
-    // Workaround for Windows symlink issues
-    functionPerRoute: false,
+    // Only keep valid configuration options
+    excludeFiles: ['**/node_modules/**', '**/.git/**'],
+    webAnalytics: {
+      enabled: false
+    }
   }),
 
   vite: {
@@ -23,6 +32,13 @@ export default defineConfig({
       // Increase body size limit for development
       middlewareMode: false,
     },
+    // Windows-specific optimizations
+    optimizeDeps: {
+      exclude: ['vitest']
+    },
+    resolve: {
+      preserveSymlinks: false
+    }
   },
 
   experimental: {

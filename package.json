@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:node": "USE_NODE_ADAPTER=true astro build",
+    "build:vercel": "astro build",
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest run",
