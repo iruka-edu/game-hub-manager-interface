@@ -4,7 +4,7 @@ import StatusChip from '../../components/StatusChip.astro';
 import type { User } from '../../models/User';
 import { GameRepository } from '../../models/Game';
 import { GameVersionRepository } from '../../models/GameVersion';
-import { QcReportRepository } from '../../models/QcReport';
+import { QCReportRepository } from '../../models/QcReport';
 import { UserRepository } from '../../models/User';
 
 // Get user from locals (set by middleware - auth and permission already checked)
@@ -14,7 +14,7 @@ const permissions = Astro.locals.permissions || [];
 // Get versions waiting for QC (status = 'uploaded')
 const gameRepo = await GameRepository.getInstance();
 const versionRepo = await GameVersionRepository.getInstance();
-const qcReportRepo = await QcReportRepository.getInstance();
+const qcReportRepo = await QCReportRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
 
 // Find all versions with 'uploaded' status
@@ -26,7 +26,7 @@ const gamesWithOwner = await Promise.all(uploadedVersions.map(async (version) =>
   if (!game) return null;
   
   const owner = await userRepo.findById(game.ownerId);
-  const qcAttempts = await qcReportRepo.countAttempts(game._id.toString());
+  const qcAttempts = await qcReportRepo.countByGameId(game._id.toString());
   const isRetest = qcAttempts > 0;
   
   return { 

@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { ObjectId } from 'mongodb';
 import { GameRepository } from '../../../models/Game';
 import { GameVersionRepository } from '../../../models/GameVersion';
-import { QcReportRepository, type QcChecklistItem, type Severity } from '../../../models/QcReport';
+import { QCReportRepository, type QcChecklistItem, type Severity } from '../../../models/QcReport';
 import { getUserFromRequest } from '../../../lib/session';
 import { hasPermissionString } from '../../../auth/auth-rbac';
 import { AuditLogger } from '../../../lib/audit';
@@ -79,7 +79,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
-    const qcRepo = await QcReportRepository.getInstance();
+    const qcRepo = await QCReportRepository.getInstance();
 
     let targetVersionId = versionId;
     let game;

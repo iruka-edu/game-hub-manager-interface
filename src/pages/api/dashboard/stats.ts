@@ -1,37 +1,41 @@
 import type { APIRoute } from 'astro';
-import { GameRepository } from '../../../models/Game';
-import { GameVersionRepository } from '../../../models/GameVersion';
+import { MongoClient, ObjectId } from 'mongodb';
 import { getUserFromRequest } from '../../../lib/session';
+
+const MONGODB_URI = import.meta.env.MONGODB_URI || 'mongodb://localhost:27017';
+const DB_NAME = 'game_hub';
 
 export const GET: APIRoute = async ({ request }) => {
   try {
+    // Verify authentication using the existing session helper
     const user = await getUserFromRequest(request);
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      return new Response(JSON.stringify({ error: 'Unauthorized - Please log in' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const gameRepo = await GameRepository.getInstance();
-    const versionRepo = await GameVersionRepository.getInstance();
-    const userId = user._id.toString();
-    const roles = user.roles || [];
+    const client = new MongoClient(MONGODB_URI);
+    await client.connect();
+    const db = client.db(DB_NAME);
 
-    // Role checks
-    const isAdmin = roles.includes('admin');
-    const isDev = roles.includes('dev');
-    const isQC = roles.includes('qc');
-    const isCTO = roles.includes('cto');
-    const isCEO = roles.includes('ceo');
+    const userId = user._id.toString();
+    const userRoles = user.roles || [];
 
     // Get all games and versions
-    const allGames = await gameRepo.findAll();
-    const myGames = allGames.filter(g => g.ownerId === userId);
+    const allGames = await db.collection('games').find({ isDeleted: false }).toArray();
+    const allVersions = await db.collection('game_versions').find({}).toArray();
 
-    // Calculate stats based on game status (from latest version)
-    let stats = {
-      myGames: myGames.length,
+    // Create version lookup
+    const versionLookup = new Map();
+    allVersions.forEach(version => {
+      versionLookup.set(version._id.toString(), version);
+    });
+
+    // Initialize stats
+    const stats = {
+      myGames: 0,
       draftGames: 0,
       qcFailedGames: 0,
       uploadedGames: 0,
@@ -41,20 +45,30 @@ export const GET: APIRoute = async ({ request }) => {
       recentGames: [] as any[]
     };
 
-    // Get version-based stats
+    // Calculate stats
     for (const game of allGames) {
-      if (!game.latestVersionId) continue;
+      const isMyGame = game.ownerId === userId;
       
-      const latestVersion = await versionRepo.findById(game.latestVersionId.toString());
-      if (!latestVersion) continue;
+      if (isMyGame) {
+        stats.myGames++;
+      }
+
+      // Get latest version status
+      let latestVersionStatus = 'draft';
+      if (game.latestVersionId) {
+        const latestVersion = versionLookup.get(game.latestVersionId.toString());
+        if (latestVersion) {
+          latestVersionStatus = latestVersion.status;
+        }
+      }
 
       // Count by status
-      switch (latestVersion.status) {
+      switch (latestVersionStatus) {
         case 'draft':
-          if (game.ownerId === userId) stats.draftGames++;
+          if (isMyGame) stats.draftGames++;
           break;
         case 'qc_failed':
-          if (game.ownerId === userId) stats.qcFailedGames++;
+          if (isMyGame) stats.qcFailedGames++;
           break;
         case 'uploaded':
           stats.uploadedGames++;
@@ -71,29 +85,39 @@ export const GET: APIRoute = async ({ request }) => {
       }
     }
 
-    // Get recent games (last 5, sorted by updatedAt)
-    const recentGames = allGames
+    // Get recent games (last 5)
+    stats.recentGames = allGames
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 5)
-      .map(game => ({
-        _id: game._id.toString(),
-        title: game.title,
-        gameId: game.gameId,
-        status: game.status || 'draft',
-        updatedAt: game.updatedAt.toISOString()
-      }));
+      .map(game => {
+        const latestVersion = game.latestVersionId 
+          ? versionLookup.get(game.latestVersionId.toString())
+          : null;
+        
+        return {
+          _id: game._id.toString(),
+          title: game.title,
+          gameId: game.gameId,
+          status: latestVersion?.status || 'draft',
+          updatedAt: game.updatedAt
+        };
+      });
 
-    stats.recentGames = recentGames;
+    await client.close();
 
     return new Response(JSON.stringify(stats), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     });
+
   } catch (error) {
     console.error('Dashboard stats error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' }
     });
   }
 };

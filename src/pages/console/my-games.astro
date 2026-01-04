@@ -4,6 +4,7 @@ import StatusChip from '../../components/StatusChip.astro';
 import Breadcrumb from '../../components/Breadcrumb.astro';
 import LoadingSkeleton from '../../components/LoadingSkeleton.astro';
 import EmptyState from '../../components/EmptyState.astro';
+import DeleteGameModal from '../../components/DeleteGameModal.astro';
 import type { User } from '../../models/User';
 import { GameRepository, type Game } from '../../models/Game';
 import { GameVersionRepository, type GameVersion, type VersionStatus } from '../../models/GameVersion';
@@ -239,6 +240,16 @@ const breadcrumbItems = [
                             Xem chi tiết
                           </a>
                         )}
+
+                        {/* Delete button - always available for dev's own games */}
+                        <button 
+                          type="button"
+                          onclick={`openDeleteModal('${game._id.toString()}')`}
+                          class="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Xóa game"
+                        >
+                          Xóa
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -375,6 +386,15 @@ const breadcrumbItems = [
       </div>
     </div>
   </div>
+
+  <!-- Delete Game Modals -->
+  {filteredGames.map(({ game }) => (
+    <DeleteGameModal 
+      gameId={game._id.toString()} 
+      gameTitle={game.title || game.gameId} 
+      userRoles={user.roles || []}
+    />
+  ))}
 </ConsoleLayout>
 
 <script>

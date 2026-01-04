@@ -517,4 +517,20 @@ export class GameRepository {
     await this.collection.createIndex({ deletedAt: 1 });
     await this.collection.createIndex({ deleteReason: 1 });
   }
+
+  /**
+   * Get user information by ID (for display purposes)
+   */
+  async getUserById(userId: string): Promise<{ _id: ObjectId; name?: string; email?: string; username?: string } | null> {
+    try {
+      const { db } = await getMongoClient();
+      const usersCollection = db.collection('users');
+      return await usersCollection.findOne(
+        { _id: new ObjectId(userId) },
+        { projection: { _id: 1, name: 1, email: 1, username: 1 } }
+      );
+    } catch {
+      return null;
+    }
+  }
 }

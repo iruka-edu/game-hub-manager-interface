@@ -55,11 +55,9 @@ const { gameId } = Astro.props;
 
 <script define:vars={{ gameId }}>
   class QCPerformanceChecker {
-    private gameId: string;
-    private testResults: any = {};
-    
-    constructor(gameId: string) {
+    constructor(gameId) {
       this.gameId = gameId;
+      this.testResults = {};
       this.init();
     }
     
@@ -78,7 +76,7 @@ const { gameId } = Astro.props;
       if (!container) return;
       
       // Get device info from global detector if available
-      const deviceInfo = (window as any).deviceInfo;
+      const deviceInfo = window.deviceInfo;
       if (deviceInfo) {
         container.innerHTML = `
           <div><strong>Device:</strong> ${deviceInfo.deviceType} (${deviceInfo.deviceModel})</div>
@@ -104,7 +102,7 @@ const { gameId } = Astro.props;
     }
     
     async runPerformanceTest() {
-      const button = document.getElementById('run-perf-test') as HTMLButtonElement;
+      const button = document.getElementById('run-perf-test');
       const resultsContainer = document.getElementById('perf-results');
       
       if (!button || !resultsContainer) return;
@@ -144,7 +142,7 @@ const { gameId } = Astro.props;
       }
     }
     
-    async testGameLoading(): Promise<void> {
+    async testGameLoading() {
       return new Promise((resolve) => {
         const startTime = performance.now();
         const gameUrl = `/play/${this.gameId}`;
@@ -193,7 +191,7 @@ const { gameId } = Astro.props;
         let slowResources = [];
         let largeResources = [];
         
-        resources.forEach((resource: any) => {
+        resources.forEach((resource) => {
           const size = resource.transferSize || 0;
           const duration = resource.duration || 0;
           
@@ -227,7 +225,7 @@ const { gameId } = Astro.props;
     
     checkMemoryUsage() {
       if ('memory' in performance) {
-        const memory = (performance as any).memory;
+        const memory = performance.memory;
         this.testResults.memoryUsage = {
           used: Math.round(memory.usedJSHeapSize / 1024 / 1024), // MB
           total: Math.round(memory.totalJSHeapSize / 1024 / 1024), // MB
@@ -238,7 +236,7 @@ const { gameId } = Astro.props;
     
     analyzeNetworkPerformance() {
       if ('connection' in navigator) {
-        const connection = (navigator as any).connection;
+        const connection = navigator.connection;
         this.testResults.networkInfo = {
           effectiveType: connection.effectiveType || 'Unknown',
           downlink: connection.downlink || 'Unknown',
@@ -325,7 +323,7 @@ const { gameId } = Astro.props;
       `;
     }
     
-    calculatePerformanceScore(): number {
+    calculatePerformanceScore() {
       let score = 100;
       const results = this.testResults;
       
@@ -378,7 +376,7 @@ const { gameId } = Astro.props;
       }
     }
     
-    generateRecommendations(): string[] {
+    generateRecommendations() {
       const recommendations = [];
       const results = this.testResults;
       
@@ -409,20 +407,20 @@ const { gameId } = Astro.props;
       return recommendations;
     }
     
-    getLoadTimeClass(time: any): string {
+    getLoadTimeClass(time) {
       if (typeof time !== 'number') return 'text-red-600';
       if (time < 2000) return 'text-green-600';
       if (time < 5000) return 'text-yellow-600';
       return 'text-red-600';
     }
     
-    getTTFBClass(ttfb: number): string {
+    getTTFBClass(ttfb) {
       if (ttfb < 200) return 'text-green-600';
       if (ttfb < 500) return 'text-yellow-600';
       return 'text-red-600';
     }
     
-    displayError(message: string) {
+    displayError(message) {
       const container = document.getElementById('perf-metrics-display');
       if (container) {
         container.innerHTML = `<div class="text-red-600">${message}</div>`;
@@ -434,7 +432,7 @@ const { gameId } = Astro.props;
       return {
         timestamp: new Date().toISOString(),
         gameId: this.gameId,
-        deviceInfo: (window as any).deviceInfo || {},
+        deviceInfo: window.deviceInfo || {},
         performanceResults: this.testResults,
         score: this.calculatePerformanceScore(),
         recommendations: this.generateRecommendations()
@@ -446,5 +444,5 @@ const { gameId } = Astro.props;
   const qcPerfChecker = new QCPerformanceChecker(gameId);
   
   // Make it globally available for QC reports
-  (window as any).qcPerfChecker = qcPerfChecker;
+  window.qcPerfChecker = qcPerfChecker;
 </script>

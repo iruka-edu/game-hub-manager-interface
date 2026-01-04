@@ -1,16 +1,21 @@
 ---
 import type { GameEntry } from "../lib/registry";
+import DeleteGameModal from './DeleteGameModal.astro';
 
 interface Props {
   game: GameEntry & {
     status?: string;
     ownerName?: string;
     ownerAvatar?: string;
+    uploadedBy?: string;
   };
   compact?: boolean;
+  userRoles?: string[];
+  currentUserId?: string;
+  showDeleteButton?: boolean;
 }
 
-const { game, compact = false } = Astro.props;
+const { game, compact = false, userRoles = [], currentUserId, showDeleteButton = false } = Astro.props;
 
 // --- Helper Functions ---
 function formatDate(dateString: string): string {
@@ -56,6 +61,14 @@ const ownerDisplay = game.ownerName || game.owner || "Admin";
 // Limit capabilities tags
 const displayedCaps = game.capabilities?.slice(0, 3) || [];
 const remainingCaps = (game.capabilities?.length || 0) - 3;
+
+// Check delete permissions
+const isAdmin = userRoles.includes('admin');
+const isCEO = userRoles.includes('ceo');
+const isCTO = userRoles.includes('cto');
+const isDev = userRoles.includes('dev');
+const isOwner = game.uploadedBy === currentUserId;
+const canDelete = showDeleteButton && (isAdmin || isCEO || isCTO || (isDev && isOwner));
 ---
 
 <div
@@ -218,9 +231,31 @@ const remainingCaps = (game.capabilities?.length || 0) - 3;
         >
         Chơi ngay
       </a>
+
+      {canDelete && (
+        <button
+          type="button"
+          onclick={`openDeleteModal('${game.id}')`}
+          class="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 border border-red-100 rounded-lg transition-all flex items-center justify-center gap-1.5"
+          title="Xóa game"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          Xóa
+        </button>
+      )}
     </div>
   </div>
 </div>
+
+{canDelete && (
+  <DeleteGameModal 
+    gameId={game.id} 
+    gameTitle={game.title} 
+    userRoles={userRoles}
+  />
+)}
 
 <script>
   // Game Card Interactive

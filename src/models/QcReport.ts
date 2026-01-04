@@ -1,93 +1,82 @@
 import { ObjectId, type Collection, type Db } from 'mongodb';
 import { getMongoClient } from '../lib/mongodb';
+import type { QA01Result, QA02Result, QA03Result, QA04Result } from './GameVersion';
 
 /**
- * QC result types
+ * Game event types captured during testing
  */
-export type QcResult = 'pass' | 'fail';
+export type GameEventType = 'INIT' | 'READY' | 'RESULT' | 'QUIT' | 'COMPLETE';
 
 /**
- * QC checklist item status
+ * Individual game event in the timeline
  */
-export type QcItemStatus = 'ok' | 'warning' | 'fail';
-
-/**
- * Severity levels for issues
- */
-export type Severity = 'minor' | 'major' | 'critical';
-
-/**
- * QC checklist item
- */
-export interface QcChecklistItem {
-  category: string;
-  status: QcItemStatus;
-  note?: string;
+export interface GameEvent {
+  type: GameEventType;
+  timestamp: Date;
+  data?: any;
 }
 
 /**
- * Default QC checklist categories
+ * QC decision types
  */
-export const QC_CHECKLIST_CATEGORIES = [
-  { id: 'ui_ux', label: 'UI/UX' },
-  { id: 'audio', label: 'Âm thanh' },
-  { id: 'performance', label: 'Hiệu năng' },
-  { id: 'gameplay', label: 'Logic game' },
-  { id: 'content', label: 'Nội dung' },
-];
+export type QCDecision = 'pass' | 'fail';
 
 /**
- * QC Report interface
+ * Comprehensive QC Report interface
  */
-export interface QcReport {
+export interface QCReport {
   _id: ObjectId;
   gameId: ObjectId;          // Reference to Game
   versionId: ObjectId;       // Reference to GameVersion
-  reviewerId: ObjectId;      // Reference to User
-  reviewerEmail: string;
+  qcUserId: ObjectId;        // Reference to QC User
+
+  // Individual QA Test Results
+  qa01: QA01Result;
+  qa02: QA02Result;
+  qa03: QA03Result;
+  qa04: QA04Result;
+
+  // Comprehensive Test Data
+  rawResult: object;         // Raw results from game testing
+  eventsTimeline: GameEvent[]; // Complete event timeline
   
-  // Timing
-  startedAt: Date;
-  finishedAt: Date;
+  // QC Decision
+  decision: QCDecision;
+  note: string;
   
-  // Results
-  result: QcResult;
-  severity?: Severity;       // Required if result is 'fail'
-  checklist: QcChecklistItem[];
-  note?: string;
-  evidenceUrls?: string[];
-  
-  // Context
-  attemptNumber: number;
-  
+  // Metadata
+  testStartedAt: Date;
+  testCompletedAt: Date;
   createdAt: Date;
 }
 
 /**
- * Input for creating a QC report
+ * Input type for creating a new QC Report
  */
-export type CreateQcReportInput = Omit<QcReport, '_id' | 'createdAt'>;
-
+export type CreateQCReportInput = Omit<QCReport, '_id' | 'createdAt'>;
 
 /**
- * QC Report Repository
+ * QC Report Repository for CRUD operations
  */
-export class QcReportRepository {
-  private collection: Collection<QcReport>;
+export class QCReportRepository {
+  private collection: Collection<QCReport>;
 
   constructor(db: Db) {
-    this.collection = db.collection<QcReport>('qc_reports');
+    this.collection = db.collection<QCReport>('qc_reports');
   }
 
-  static async getInstance(): Promise<QcReportRepository> {
+  /**
+   * Get a QCReportRepository instance
+   */
+  static async getInstance(): Promise<QCReportRepository> {
     const { db } = await getMongoClient();
-    return new QcReportRepository(db);
+    return new QCReportRepository(db);
   }
 
   /**
    * Create a new QC report with validation
    */
-  async create(input: CreateQcReportInput): Promise<QcReport> {
+  async create(input: CreateQCReportInput): Promise<QCReport> {
     // Validate required fields
     if (!input.gameId) {
       throw new Error('gameId is required');
@@ -95,32 +84,50 @@ export class QcReportRepository {
     if (!input.versionId) {
       throw new Error('versionId is required');
     }
-    if (!input.reviewerId) {
-      throw new Error('reviewerId is required');
+    if (!input.qcUserId) {
+      throw new Error('qcUserId is required');
     }
-    if (!input.result) {
-      throw new Error('result is required');
-    }
-    
-    // Validate severity required for fail
-    if (input.result === 'fail' && !input.severity) {
-      throw new Error('severity is required when result is "fail"');
+    if (!input.decision) {
+      throw new Error('decision is required');
     }
 
-    const report: Omit<QcReport, '_id'> = {
+    // Validate decision type
+    if (!['pass', 'fail'].includes(input.decision)) {
+      throw new Error('decision must be "pass" or "fail"');
+    }
+
+    // Validate QA results structure
+    if (!input.qa01 || typeof input.qa01.pass !== 'boolean') {
+      throw new Error('qa01 result with pass boolean is required');
+    }
+    if (!input.qa02 || typeof input.qa02.pass !== 'boolean') {
+      throw new Error('qa02 result with pass boolean is required');
+    }
+    if (!input.qa03) {
+      throw new Error('qa03 result is required');
+    }
+    if (!input.qa04 || typeof input.qa04.pass !== 'boolean') {
+      throw new Error('qa04 result with pass boolean is required');
+    }
+
+    const now = new Date();
+    const report: Omit<QCReport, '_id'> = {
       ...input,
-      createdAt: new Date(),
+      createdAt: now,
     };
 
-    const result = await this.collection.insertOne(report as QcReport);
-    return { ...report, _id: result.insertedId } as QcReport;
+    const result = await this.collection.insertOne(report as QCReport);
+    return { ...report, _id: result.insertedId } as QCReport;
   }
 
   /**
    * Find QC reports by game ID
    */
-  async findByGameId(gameId: string): Promise<QcReport[]> {
+  async findByGameId(gameId: string): Promise<QCReport[]> {
     try {
+      if (!ObjectId.isValid(gameId)) {
+        return [];
+      }
       return this.collection
         .find({ gameId: new ObjectId(gameId) })
         .sort({ createdAt: -1 })
@@ -133,8 +140,11 @@ export class QcReportRepository {
   /**
    * Find QC reports by version ID
    */
-  async findByVersionId(versionId: string): Promise<QcReport[]> {
+  async findByVersionId(versionId: string): Promise<QCReport[]> {
     try {
+      if (!ObjectId.isValid(versionId)) {
+        return [];
+      }
       return this.collection
         .find({ versionId: new ObjectId(versionId) })
         .sort({ createdAt: -1 })
@@ -145,24 +155,13 @@ export class QcReportRepository {
   }
 
   /**
-   * Get the latest QC report for a game
-   */
-  async getLatestByGameId(gameId: string): Promise<QcReport | null> {
-    try {
-      return this.collection.findOne(
-        { gameId: new ObjectId(gameId) },
-        { sort: { createdAt: -1 } }
-      );
-    } catch {
-      return null;
-    }
-  }
-
-  /**
    * Get the latest QC report for a version
    */
-  async getLatestByVersionId(versionId: string): Promise<QcReport | null> {
+  async getLatestByVersionId(versionId: string): Promise<QCReport | null> {
     try {
+      if (!ObjectId.isValid(versionId)) {
+        return null;
+      }
       return this.collection.findOne(
         { versionId: new ObjectId(versionId) },
         { sort: { createdAt: -1 } }
@@ -173,23 +172,15 @@ export class QcReportRepository {
   }
 
   /**
-   * Count QC attempts for a game
+   * Find QC reports by QC user
    */
-  async countAttempts(gameId: string): Promise<number> {
+  async findByQCUserId(qcUserId: string): Promise<QCReport[]> {
     try {
-      return this.collection.countDocuments({ gameId: new ObjectId(gameId) });
-    } catch {
-      return 0;
-    }
-  }
-
-  /**
-   * Find QC reports by reviewer
-   */
-  async findByReviewerId(reviewerId: string): Promise<QcReport[]> {
-    try {
+      if (!ObjectId.isValid(qcUserId)) {
+        return [];
+      }
       return this.collection
-        .find({ reviewerId: new ObjectId(reviewerId) })
+        .find({ qcUserId: new ObjectId(qcUserId) })
         .sort({ createdAt: -1 })
         .toArray();
     } catch {
@@ -198,13 +189,41 @@ export class QcReportRepository {
   }
 
   /**
-   * Ensure indexes
+   * Count QC reports for a game (for attempt numbering)
+   */
+  async countByGameId(gameId: string): Promise<number> {
+    try {
+      if (!ObjectId.isValid(gameId)) {
+        return 0;
+      }
+      return this.collection.countDocuments({ gameId: new ObjectId(gameId) });
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Find a QC report by ID
+   */
+  async findById(id: string): Promise<QCReport | null> {
+    try {
+      if (!ObjectId.isValid(id)) {
+        return null;
+      }
+      return this.collection.findOne({ _id: new ObjectId(id) });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Ensure indexes are created for optimal performance
    */
   async ensureIndexes(): Promise<void> {
-    await this.collection.createIndex({ gameId: 1 });
     await this.collection.createIndex({ versionId: 1 });
-    await this.collection.createIndex({ reviewerId: 1 });
+    await this.collection.createIndex({ gameId: 1, createdAt: -1 });
+    await this.collection.createIndex({ qcUserId: 1 });
+    await this.collection.createIndex({ decision: 1 });
     await this.collection.createIndex({ createdAt: -1 });
-    await this.collection.createIndex({ gameId: 1, attemptNumber: 1 });
   }
 }

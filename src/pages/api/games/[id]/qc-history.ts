@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { GameRepository } from '../../../../models/Game';
 import { GameVersionRepository } from '../../../../models/GameVersion';
-import { QcReportRepository } from '../../../../models/QcReport';
+import { QCReportRepository } from '../../../../models/QcReport';
 import { getUserFromRequest } from '../../../../lib/session';
 
 /**
@@ -32,7 +32,7 @@ export const GET: APIRoute = async ({ params, request, url }) => {
 
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
-    const qcRepo = await QcReportRepository.getInstance();
+    const qcRepo = await QCReportRepository.getInstance();
 
     // Find the game
     const game = await gameRepo.findById(gameId);

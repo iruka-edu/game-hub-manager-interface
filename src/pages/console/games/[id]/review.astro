@@ -9,7 +9,7 @@ import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
 import { GameVersionRepository } from '../../../../models/GameVersion';
 import { UserRepository } from '../../../../models/User';
-import { QcReportRepository, QC_CHECKLIST_CATEGORIES } from '../../../../models/QcReport';
+import { QCReportRepository } from '../../../../models/QcReport';
 import { getUserFromRequest } from '../../../../lib/session';
 
 // Auth check
@@ -29,7 +29,7 @@ const { id } = Astro.params;
 const gameRepo = await GameRepository.getInstance();
 const versionRepo = await GameVersionRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
-const qcRepo = await QcReportRepository.getInstance();
+const qcRepo = await QCReportRepository.getInstance();
 const game = await gameRepo.findById(id || '');
 
 if (!game) {
@@ -65,9 +65,18 @@ const owner = await userRepo.findById(game.ownerId);
 const ownerName = owner?.name || owner?.email || 'Unknown';
 
 // Get QC attempt count and previous reports
-const attemptCount = await qcRepo.countAttempts(id || '');
+const attemptCount = await qcRepo.countByGameId(id || '');
 const previousReports = await qcRepo.findByGameId(id || '');
 const lastReport = previousReports[0];
+
+// Simple QC checklist categories for the old review interface
+const QC_CHECKLIST_CATEGORIES = [
+  { id: 'gameplay', label: 'Gameplay' },
+  { id: 'ui', label: 'User Interface' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'performance', label: 'Performance' },
+  { id: 'content', label: 'Content' }
+];
 ---
 
 <ConsoleLayout title={`Review: ${game.title || game.gameId}`} user={user} activeMenu="qc-inbox">

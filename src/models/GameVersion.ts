@@ -40,6 +40,60 @@ export interface SelfQAChecklist {
 }
 
 /**
+ * QA-01 Handshake test results
+ */
+export interface QA01Result {
+  pass: boolean;
+  initToReadyMs?: number;
+  quitToCompleteMs?: number;
+}
+
+/**
+ * QA-02 Converter test results
+ */
+export interface QA02Result {
+  pass: boolean;
+  accuracy?: number;
+  completion?: number;
+  normalizedResult?: object;
+}
+
+/**
+ * QA-03 iOS Pack test results
+ */
+export interface QA03Result {
+  auto: {
+    assetError: boolean;
+    readyMs: number;
+  };
+  manual: {
+    noAutoplay: boolean;
+    noWhiteScreen: boolean;
+    gestureOk: boolean;
+  };
+}
+
+/**
+ * QA-04 Idempotency test results
+ */
+export interface QA04Result {
+  pass: boolean;
+  duplicateAttemptId?: boolean;
+  backendRecordCount?: number;
+}
+
+/**
+ * QA Summary structure for quick overview
+ */
+export interface QASummary {
+  qa01: QA01Result;
+  qa02: QA02Result;
+  qa03: QA03Result;
+  qa04: QA04Result;
+  overall: "pass" | "fail";
+}
+
+/**
  * GameVersion interface representing a specific build version
  */
 export interface GameVersion {
@@ -59,6 +113,9 @@ export interface GameVersion {
   // Self-QA
   selfQAChecklist?: SelfQAChecklist;
   releaseNote?: string; // What changed in this version
+
+  // QC Testing Summary
+  qaSummary?: QASummary;
 
   // Submission
   submittedBy: ObjectId; // User._id
@@ -471,6 +528,25 @@ export class GameVersionRepository {
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: { releaseNote, updatedAt: new Date() } },
+        { returnDocument: "after" }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update QA summary after QC testing
+   */
+  async updateQASummary(
+    id: string,
+    qaSummary: QASummary
+  ): Promise<GameVersion | null> {
+    try {
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { qaSummary, updatedAt: new Date() } },
         { returnDocument: "after" }
       );
       return result;

@@ -1,0 +1,772 @@
+---
+import ConsoleLayout from '../../../layouts/ConsoleLayout.astro';
+import StatusChip from '../../../components/StatusChip.astro';
+import type { User } from '../../../models/User';
+import { GameRepository } from '../../../models/Game';
+import { GameVersionRepository } from '../../../models/GameVersion';
+import { UserRepository } from '../../../models/User';
+import { QCReportRepository } from '../../../models/QCReport';
+import { getUserFromRequest } from '../../../lib/session';
+
+// Auth check
+const user = await getUserFromRequest(Astro.request) as User | null;
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Role check - only QC and admin
+const hasRole = (role: string) => user?.roles?.includes(role as any) ?? false;
+if (!hasRole('qc') && !hasRole('admin')) {
+  return Astro.redirect('/console?error=unauthorized');
+}
+
+// Get version ID from params
+const { versionId } = Astro.params;
+if (!versionId) {
+  return Astro.redirect('/console/qc-inbox?error=missing-version');
+}
+
+// Get repositories
+const gameRepo = await GameRepository.getInstance();
+const versionRepo = await GameVersionRepository.getInstance();
+const userRepo = await UserRepository.getInstance();
+const qcRepo = await QCReportRepository.getInstance();
+
+// Get version
+const version = await versionRepo.findById(versionId);
+if (!version) {
+  return Astro.redirect('/console/qc-inbox?error=version-not-found');
+}
+
+// Get game
+const game = await gameRepo.findById(version.gameId.toString());
+if (!game) {
+  return Astro.redirect('/console/qc-inbox?error=game-not-found');
+}
+
+// Check if version is in correct status for QC
+if (!['uploaded', 'qc_processing'].includes(version.status)) {
+  return Astro.redirect(`/console/games/${game._id}?error=invalid-status`);
+}
+
+// Get owner info
+const owner = await userRepo.findById(game.ownerId);
+const ownerName = owner?.name || owner?.email || 'Unknown';
+
+// Get existing QC reports for this version
+const existingReports = await qcRepo.findByVersionId(versionId);
+const latestReport = existingReports[0]; // Most recent report
+
+// Build entry URL for the game
+const entryUrl = `/play/${game._id}`;
+---
+
+<ConsoleLayout title={`QC Review: ${game.title || game.gameId}`} user={user} activeMenu="qc-inbox">
+  <div class="p-8">
+    <!-- Breadcrumb -->
+    <div class="mb-6">
+      <a href="/console/qc-inbox" class="text-slate-500 hover:text-slate-900 text-sm flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Back to QC Inbox
+      </a>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-8">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <h1 class="text-2xl font-bold text-slate-900">{game.title || game.gameId}</h1>
+          <StatusChip status={version.status} />
+        </div>
+        <p class="text-slate-500">{game.gameId} v{version.version}</p>
+        <p class="text-sm text-slate-400 mt-1">Developer: {ownerName}</p>
+      </div>
+    </div>
+
+    <!-- Three-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <!-- Left Column: Metadata Panel -->
+      <div class="lg:col-span-3 space-y-6">
+        <!-- Game Metadata -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4">Game Information</h3>
+          <div class="space-y-3 text-sm">
+            <div>
+              <span class="text-slate-500">Game ID:</span>
+              <span class="ml-2 font-mono text-slate-700">{game.gameId}</span>
+            </div>
+            <div>
+              <span class="text-slate-500">Version ID:</span>
+              <span class="ml-2 font-mono text-slate-700">{versionId}</span>
+            </div>
+            <div>
+              <span class="text-slate-500">Entry URL:</span>
+              <span class="ml-2 font-mono text-slate-700 break-all">{entryUrl}</span>
+            </div>
+            <div>
+              <span class="text-slate-500">Game Type:</span>
+              <span class="ml-2 font-medium">{game.gameType || '-'}</span>
+            </div>
+            <div>
+              <span class="text-slate-500">Subject:</span>
+              <span class="ml-2 font-medium">{game.subject || '-'}</span>
+            </div>
+            <div>
+              <span class="text-slate-500">Grade:</span>
+              <span class="ml-2 font-medium">{game.grade || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run Auto QA Button -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4">Automated Testing</h3>
+          <button 
+            id="run-auto-qa-btn"
+            class="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            data-version-id={versionId}
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            ▶ Run Auto QA
+          </button>
+          <p class="text-xs text-slate-500 mt-2">This will run all automated QA checks (QA-01 through QA-04)</p>
+        </div>
+
+        <!-- Test Progress -->
+        <div id="test-progress" class="bg-white rounded-xl border border-slate-200 p-6 hidden">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4">Test Progress</h3>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-slate-600">Current Step:</span>
+              <span id="current-step" class="text-sm font-medium text-slate-900">Initializing...</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-2">
+              <div id="progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div id="progress-errors" class="hidden">
+              <p class="text-sm text-red-600 font-medium">Errors:</p>
+              <ul id="error-list" class="text-xs text-red-500 mt-1 space-y-1"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Column: Game Preview -->
+      <div class="lg:col-span-6">
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="font-semibold text-slate-900">Game Preview</h3>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-500">Sandboxed iframe for testing</span>
+            </div>
+          </div>
+          <div class="p-4 bg-slate-100 flex items-center justify-center" style="min-height: 600px;">
+            <div id="preview-container" class="bg-white shadow-lg rounded-lg overflow-hidden" style="width: 100%; height: 600px;">
+              <div id="game-placeholder" class="w-full h-full flex items-center justify-center">
+                <div class="text-center">
+                  <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-200 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                  </div>
+                  <p class="text-slate-500 text-sm">Game will load here when Auto QA starts</p>
+                  <p class="text-slate-400 text-xs mt-1">Entry URL: {entryUrl}</p>
+                </div>
+              </div>
+              <iframe 
+                id="game-iframe"
+                class="w-full h-full border-0 hidden"
+                title="Game Preview for QC Testing"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: QA Results & Decision -->
+      <div class="lg:col-span-3 space-y-6">
+        <!-- QA-01: Handshake Testing -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs flex items-center justify-center font-bold">1</span>
+            QA-01 Handshake (auto)
+          </h3>
+          <div id="qa01-results" class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-500">INIT → READY:</span>
+              <span id="qa01-init-ready" class="font-mono text-slate-400">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">QUIT → COMPLETE:</span>
+              <span id="qa01-quit-complete" class="font-mono text-slate-400">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Status:</span>
+              <span id="qa01-status" class="font-medium text-slate-400">Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- QA-02: Converter Testing -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs flex items-center justify-center font-bold">2</span>
+            QA-02 Converter (auto)
+          </h3>
+          <div id="qa02-results" class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-500">Normalize Result:</span>
+              <span id="qa02-normalize" class="font-medium text-slate-400">Pending</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Accuracy:</span>
+              <span id="qa02-accuracy" class="font-mono text-slate-400">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Completion:</span>
+              <span id="qa02-completion" class="font-mono text-slate-400">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Status:</span>
+              <span id="qa02-status" class="font-medium text-slate-400">Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- QA-03: iOS Pack Testing -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs flex items-center justify-center font-bold">3</span>
+            QA-03 iOS Pack (manual)
+          </h3>
+          <div id="qa03-results" class="space-y-3">
+            <!-- Auto checks -->
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-slate-500">Asset Error:</span>
+                <span id="qa03-asset-error" class="font-medium text-slate-400">Pending</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">Ready Time:</span>
+                <span id="qa03-ready-time" class="font-mono text-slate-400">-</span>
+              </div>
+            </div>
+            
+            <!-- Manual checks -->
+            <div class="pt-3 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-xs text-slate-500">Manual validation required:</p>
+                <div id="qa03-manual-status" class="text-xs font-medium text-slate-400">
+                  <span id="qa03-completion-count">0/3</span> completed
+                </div>
+              </div>
+              <div class="space-y-3">
+                <div class="manual-check-item" data-check="noAutoplay">
+                  <label class="flex items-start gap-3 text-sm cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input type="checkbox" id="qa03-no-autoplay" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-2">
+                    <div class="flex-1">
+                      <span class="font-medium">No autoplay audio</span>
+                      <p class="text-xs text-slate-500 mt-1">Verify that audio does not start automatically when the game loads</p>
+                    </div>
+                  </label>
+                </div>
+                <div class="manual-check-item" data-check="noWhiteScreen">
+                  <label class="flex items-start gap-3 text-sm cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input type="checkbox" id="qa03-no-white-screen" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-2">
+                    <div class="flex-1">
+                      <span class="font-medium">No white screen</span>
+                      <p class="text-xs text-slate-500 mt-1">Confirm that the game loads properly without showing blank white screens</p>
+                    </div>
+                  </label>
+                </div>
+                <div class="manual-check-item" data-check="gestureOk">
+                  <label class="flex items-start gap-3 text-sm cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <input type="checkbox" id="qa03-gesture-ok" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-2">
+                    <div class="flex-1">
+                      <span class="font-medium">Gesture OK</span>
+                      <p class="text-xs text-slate-500 mt-1">Test that touch gestures and interactions work correctly on mobile devices</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              
+              <!-- Manual validation completion indicator -->
+              <div id="qa03-validation-status" class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200 hidden">
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                  <span class="text-sm font-medium text-green-700">All manual validations completed</span>
+                </div>
+              </div>
+              
+              <!-- Incomplete validation warning -->
+              <div id="qa03-incomplete-warning" class="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 hidden">
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"></path>
+                  </svg>
+                  <span class="text-sm font-medium text-amber-700">Please complete all manual validations before making QC decision</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QA-04: Idempotency Testing -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs flex items-center justify-center font-bold">4</span>
+            QA-04 Idempotency (auto)
+          </h3>
+          <div id="qa04-results" class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-500">Duplicate AttemptId:</span>
+              <span id="qa04-duplicate" class="font-medium text-slate-400">Pending</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">BE Records:</span>
+              <span id="qa04-records" class="font-mono text-slate-400">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Status:</span>
+              <span id="qa04-status" class="font-medium text-slate-400">Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- QC Decision -->
+        <div class="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 class="text-sm font-semibold text-slate-700 mb-4">QC Decision</h3>
+          
+          <!-- QC Notes -->
+          <div class="mb-4">
+            <label for="qc-notes" class="block text-sm text-slate-600 mb-2">QC Notes:</label>
+            <textarea 
+              id="qc-notes"
+              rows="3"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+              placeholder="Add notes about the QC decision..."
+            ></textarea>
+          </div>
+
+          <!-- Decision Buttons -->
+          <div class="space-y-3">
+            <button 
+              id="qc-pass-btn"
+              class="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:cursor-not-allowed"
+              data-version-id={versionId}
+              disabled
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              ✅ QC PASS
+            </button>
+            <button 
+              id="qc-fail-btn"
+              class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              data-version-id={versionId}
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+              ❌ QC FAIL
+            </button>
+          </div>
+
+          <div id="decision-rules" class="mt-4 p-3 bg-slate-50 rounded-lg">
+            <p class="text-xs text-slate-600 font-medium mb-2">Decision Rules:</p>
+            <ul class="text-xs text-slate-500 space-y-1">
+              <li>• QA-01 or QA-02 fail → QC PASS disabled</li>
+              <li>• QA-03 manual checks required</li>
+              <li>• QA-04 fail → QC FAIL required</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</ConsoleLayout>
+
+<script>
+  // QC Testing State
+  interface QATestResults {
+    qa01?: {
+      initToReadyMs: number;
+      quitToCompleteMs: number;
+      pass: boolean;
+    };
+    qa02?: {
+      pass: boolean;
+      accuracy: number;
+      completion: number;
+      normalizedResult: any;
+    };
+    qa03?: {
+      auto: {
+        assetError: boolean;
+        readyMs: number;
+      };
+      manual: {
+        noAutoplay: boolean;
+        noWhiteScreen: boolean;
+        gestureOk: boolean;
+      };
+    };
+    qa04?: {
+      pass: boolean;
+      duplicateAttemptId: boolean;
+      backendRecordCount: number;
+    };
+  }
+
+  let testResults: QATestResults = {};
+  let testInProgress = false;
+
+  // DOM Elements
+  const runAutoQABtn = document.getElementById('run-auto-qa-btn') as HTMLButtonElement;
+  const gameIframe = document.getElementById('game-iframe') as HTMLIFrameElement;
+  const gamePlaceholder = document.getElementById('game-placeholder') as HTMLElement;
+  const testProgress = document.getElementById('test-progress') as HTMLElement;
+  const progressBar = document.getElementById('progress-bar') as HTMLElement;
+  const currentStep = document.getElementById('current-step') as HTMLElement;
+  const qcPassBtn = document.getElementById('qc-pass-btn') as HTMLButtonElement;
+  const qcFailBtn = document.getElementById('qc-fail-btn') as HTMLButtonElement;
+  const qcNotes = document.getElementById('qc-notes') as HTMLTextAreaElement;
+
+  // Manual QA-03 checkboxes
+  const qa03NoAutoplay = document.getElementById('qa03-no-autoplay') as HTMLInputElement;
+  const qa03NoWhiteScreen = document.getElementById('qa03-no-white-screen') as HTMLInputElement;
+  const qa03GestureOk = document.getElementById('qa03-gesture-ok') as HTMLInputElement;
+
+  // Update progress
+  function updateProgress(step: string, progress: number) {
+    currentStep.textContent = step;
+    progressBar.style.width = `${progress}%`;
+  }
+
+  // Update QA result displays
+  function updateQAResults(results: QATestResults) {
+    // QA-01 Results
+    if (results.qa01) {
+      document.getElementById('qa01-init-ready')!.textContent = `${results.qa01.initToReadyMs}ms`;
+      document.getElementById('qa01-quit-complete')!.textContent = `${results.qa01.quitToCompleteMs}ms`;
+      const qa01Status = document.getElementById('qa01-status')!;
+      qa01Status.textContent = results.qa01.pass ? 'PASS' : 'FAIL';
+      qa01Status.className = `font-medium ${results.qa01.pass ? 'text-green-600' : 'text-red-600'}`;
+    }
+
+    // QA-02 Results
+    if (results.qa02) {
+      document.getElementById('qa02-normalize')!.textContent = results.qa02.pass ? 'PASS' : 'FAIL';
+      document.getElementById('qa02-accuracy')!.textContent = results.qa02.accuracy.toFixed(2);
+      document.getElementById('qa02-completion')!.textContent = results.qa02.completion.toFixed(2);
+      const qa02Status = document.getElementById('qa02-status')!;
+      qa02Status.textContent = results.qa02.pass ? 'PASS' : 'FAIL';
+      qa02Status.className = `font-medium ${results.qa02.pass ? 'text-green-600' : 'text-red-600'}`;
+    }
+
+    // QA-03 Results (auto part)
+    if (results.qa03) {
+      const qa03AssetError = document.getElementById('qa03-asset-error')!;
+      qa03AssetError.textContent = results.qa03.auto.assetError ? 'YES' : 'NO';
+      qa03AssetError.className = `font-medium ${results.qa03.auto.assetError ? 'text-red-600' : 'text-green-600'}`;
+      document.getElementById('qa03-ready-time')!.textContent = `${results.qa03.auto.readyMs}ms`;
+    }
+
+    // QA-04 Results
+    if (results.qa04) {
+      const qa04Duplicate = document.getElementById('qa04-duplicate')!;
+      qa04Duplicate.textContent = results.qa04.duplicateAttemptId ? 'YES' : 'NO';
+      qa04Duplicate.className = `font-medium ${results.qa04.duplicateAttemptId ? 'text-red-600' : 'text-green-600'}`;
+      document.getElementById('qa04-records')!.textContent = results.qa04.backendRecordCount.toString();
+      const qa04Status = document.getElementById('qa04-status')!;
+      qa04Status.textContent = results.qa04.pass ? 'PASS' : 'FAIL';
+      qa04Status.className = `font-medium ${results.qa04.pass ? 'text-green-600' : 'text-red-600'}`;
+    }
+
+    // Update decision button states
+    updateDecisionButtons();
+  }
+
+  // Manual QA-03 validation state
+  interface ManualValidationState {
+    noAutoplay: boolean;
+    noWhiteScreen: boolean;
+    gestureOk: boolean;
+  }
+
+  let manualValidationState: ManualValidationState = {
+    noAutoplay: false,
+    noWhiteScreen: false,
+    gestureOk: false
+  };
+
+  // Update manual validation UI
+  function updateManualValidationUI() {
+    const completedCount = Object.values(manualValidationState).filter(Boolean).length;
+    const totalCount = Object.keys(manualValidationState).length;
+    
+    // Update completion counter
+    const completionCount = document.getElementById('qa03-completion-count');
+    if (completionCount) {
+      completionCount.textContent = `${completedCount}/${totalCount}`;
+    }
+    
+    // Update status indicator
+    const statusIndicator = document.getElementById('qa03-manual-status');
+    const validationStatus = document.getElementById('qa03-validation-status');
+    const incompleteWarning = document.getElementById('qa03-incomplete-warning');
+    
+    if (completedCount === totalCount) {
+      // All validations complete
+      if (statusIndicator) {
+        statusIndicator.className = 'text-xs font-medium text-green-600';
+      }
+      if (validationStatus) {
+        validationStatus.classList.remove('hidden');
+      }
+      if (incompleteWarning) {
+        incompleteWarning.classList.add('hidden');
+      }
+    } else {
+      // Incomplete validations
+      if (statusIndicator) {
+        statusIndicator.className = 'text-xs font-medium text-slate-400';
+      }
+      if (validationStatus) {
+        validationStatus.classList.add('hidden');
+      }
+      if (incompleteWarning && completedCount > 0) {
+        incompleteWarning.classList.remove('hidden');
+      }
+    }
+    
+    // Update individual check item styling
+    Object.entries(manualValidationState).forEach(([key, checked]) => {
+      const checkItem = document.querySelector(`[data-check="${key}"]`);
+      if (checkItem) {
+        if (checked) {
+          checkItem.classList.add('bg-green-50', 'border-green-200');
+          checkItem.classList.remove('bg-slate-50');
+        } else {
+          checkItem.classList.remove('bg-green-50', 'border-green-200');
+        }
+      }
+    });
+  }
+
+  // Update decision button states based on QA results
+  function updateDecisionButtons() {
+    const qa01Pass = testResults.qa01?.pass ?? false;
+    const qa02Pass = testResults.qa02?.pass ?? false;
+    const qa04Pass = testResults.qa04?.pass ?? false;
+    
+    // Manual QA-03 checks
+    const manualChecksComplete = Object.values(manualValidationState).every(Boolean);
+    
+    // QC PASS button: enabled only if QA-01 and QA-02 pass, and manual checks complete
+    const canPass = qa01Pass && qa02Pass && manualChecksComplete;
+    qcPassBtn.disabled = !canPass;
+    
+    // Update button styling based on state
+    if (canPass) {
+      qcPassBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      qcPassBtn.title = 'All requirements met - QC can pass';
+    } else {
+      qcPassBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      
+      // Provide specific reason why QC PASS is disabled
+      const reasons = [];
+      if (!qa01Pass) reasons.push('QA-01 handshake failed');
+      if (!qa02Pass) reasons.push('QA-02 converter failed');
+      if (!manualChecksComplete) reasons.push('Manual validations incomplete');
+      
+      qcPassBtn.title = `QC PASS disabled: ${reasons.join(', ')}`;
+    }
+    
+    // If QA-04 fails, force QC FAIL
+    if (testResults.qa04 && !qa04Pass) {
+      qcPassBtn.disabled = true;
+      qcPassBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      qcPassBtn.title = 'QA-04 idempotency failed - QC FAIL required';
+    }
+    
+    // Update manual validation UI
+    updateManualValidationUI();
+  }
+
+  // Enhanced manual checkbox change handlers with validation
+  function setupManualValidationHandlers() {
+    const checkboxes = [
+      { element: qa03NoAutoplay, key: 'noAutoplay' as keyof ManualValidationState },
+      { element: qa03NoWhiteScreen, key: 'noWhiteScreen' as keyof ManualValidationState },
+      { element: qa03GestureOk, key: 'gestureOk' as keyof ManualValidationState }
+    ];
+
+    checkboxes.forEach(({ element, key }) => {
+      if (element) {
+        element.addEventListener('change', (e) => {
+          const target = e.target as HTMLInputElement;
+          manualValidationState[key] = target.checked;
+          
+          // Save to localStorage for persistence
+          localStorage.setItem('qc-manual-validation', JSON.stringify(manualValidationState));
+          
+          // Update UI and decision buttons
+          updateDecisionButtons();
+          
+          // Provide immediate feedback
+          if (target.checked) {
+            // Show brief success feedback
+            const checkItem = target.closest('.manual-check-item');
+            if (checkItem) {
+              checkItem.classList.add('bg-green-50', 'border-green-200');
+              setTimeout(() => {
+                checkItem.classList.remove('bg-green-50', 'border-green-200');
+              }, 2000);
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // Load saved manual validation state
+  function loadManualValidationState() {
+    try {
+      const saved = localStorage.getItem('qc-manual-validation');
+      if (saved) {
+        const savedState = JSON.parse(saved);
+        manualValidationState = { ...manualValidationState, ...savedState };
+        
+        // Update checkbox states
+        qa03NoAutoplay.checked = manualValidationState.noAutoplay;
+        qa03NoWhiteScreen.checked = manualValidationState.noWhiteScreen;
+        qa03GestureOk.checked = manualValidationState.gestureOk;
+        
+        // Update UI
+        updateManualValidationUI();
+      }
+    } catch (error) {
+      console.warn('Failed to load manual validation state:', error);
+    }
+  }
+
+  // Run Auto QA
+  runAutoQABtn.addEventListener('click', async () => {
+    if (testInProgress) return;
+    
+    testInProgress = true;
+    runAutoQABtn.disabled = true;
+    runAutoQABtn.textContent = 'Running Tests...';
+    
+    // Show progress panel
+    testProgress.classList.remove('hidden');
+    updateProgress('Initializing test session...', 10);
+    
+    try {
+      const versionId = runAutoQABtn.dataset.versionId;
+      
+      // Load game in iframe
+      updateProgress('Loading game...', 25);
+      gameIframe.src = `/play/${versionId}`;
+      gamePlaceholder.classList.add('hidden');
+      gameIframe.classList.remove('hidden');
+      
+      // Wait for iframe to load
+      await new Promise((resolve, reject) => {
+        gameIframe.onload = resolve;
+        gameIframe.onerror = reject;
+        setTimeout(reject, 10000); // 10 second timeout
+      });
+      
+      updateProgress('Running automated QA tests...', 50);
+      
+      // Call QC API to run tests
+      const response = await fetch('/api/qc/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionId })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`QC API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      testResults = data.results;
+      
+      updateProgress('Processing results...', 90);
+      updateQAResults(testResults);
+      
+      updateProgress('Tests completed', 100);
+      
+    } catch (error) {
+      console.error('QA test failed:', error);
+      updateProgress('Test failed', 0);
+      
+      // Show error
+      const progressErrors = document.getElementById('progress-errors')!;
+      const errorList = document.getElementById('error-list')!;
+      progressErrors.classList.remove('hidden');
+      errorList.innerHTML = `<li>${error instanceof Error ? error.message : 'Unknown error'}</li>`;
+      
+    } finally {
+      testInProgress = false;
+      runAutoQABtn.disabled = false;
+      runAutoQABtn.textContent = '▶ Run Auto QA';
+    }
+  });
+
+  // QC Decision handlers
+  async function submitQCDecision(decision: 'pass' | 'fail') {
+    const versionId = qcPassBtn.dataset.versionId;
+    const notes = qcNotes.value.trim();
+    
+    if (decision === 'fail' && !notes) {
+      alert('Please provide notes when failing QC');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/qc/decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          versionId, 
+          decision, 
+          note: notes,
+          manualChecks: {
+            noAutoplay: qa03NoAutoplay.checked,
+            noWhiteScreen: qa03NoWhiteScreen.checked,
+            gestureOk: qa03GestureOk.checked
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Decision API error: ${response.status}`);
+      }
+      
+      // Redirect back to QC inbox
+      window.location.href = '/console/qc-inbox';
+      
+    } catch (error) {
+      console.error('QC decision failed:', error);
+      alert(`Failed to submit QC decision: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  qcPassBtn.addEventListener('click', () => submitQCDecision('pass'));
+  qcFailBtn.addEventListener('click', () => submitQCDecision('fail'));
+</script>
+</ConsoleLayout>

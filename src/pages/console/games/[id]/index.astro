@@ -8,7 +8,7 @@ import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
 import { GameVersionRepository } from '../../../../models/GameVersion';
 import { UserRepository } from '../../../../models/User';
-import { QcReportRepository } from '../../../../models/QcReport';
+import { QCReportRepository } from '../../../../models/QcReport';
 import { GameHistoryService } from '../../../../lib/game-history';
 import { getUserFromRequest } from '../../../../lib/session';
 import { VersionStateMachine } from '../../../../lib/version-state-machine';
@@ -24,7 +24,7 @@ const { id } = Astro.params;
 const gameRepo = await GameRepository.getInstance();
 const versionRepo = await GameVersionRepository.getInstance();
 const userRepo = await UserRepository.getInstance();
-const qcRepo = await QcReportRepository.getInstance();
+const qcRepo = await QCReportRepository.getInstance();
 const game = await gameRepo.findById(id || '');
 
 if (!game) {

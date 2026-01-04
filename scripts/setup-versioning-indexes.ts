@@ -8,7 +8,7 @@
 
 import { GameRepository } from '../src/models/Game';
 import { GameVersionRepository } from '../src/models/GameVersion';
-import { QcReportRepository } from '../src/models/QcReport';
+import { QCReportRepository } from '../src/models/QCReport';
 import { closeConnection } from '../src/lib/mongodb';
 
 async function main() {
@@ -29,7 +29,7 @@ async function main() {
     console.log('  ✓ game_versions indexes created');
 
     console.log('[Indexes] Setting up indexes for qc_reports collection...');
-    const qcRepo = await QcReportRepository.getInstance();
+    const qcRepo = await QCReportRepository.getInstance();
     await qcRepo.ensureIndexes();
     console.log('  ✓ qc_reports indexes created');
 
@@ -51,11 +51,11 @@ async function main() {
     console.log('  - { submittedAt: -1 }');
     console.log('');
     console.log('qc_reports:');
-    console.log('  - { gameId: 1 }');
     console.log('  - { versionId: 1 }');
-    console.log('  - { reviewerId: 1 }');
+    console.log('  - { gameId: 1, createdAt: -1 }');
+    console.log('  - { qcUserId: 1 }');
+    console.log('  - { decision: 1 }');
     console.log('  - { createdAt: -1 }');
-    console.log('  - { gameId: 1, attemptNumber: 1 }');
     console.log('');
     console.log('✓ All indexes created successfully!');
 
