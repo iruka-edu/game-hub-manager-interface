@@ -1,11 +1,22 @@
-import { ObjectId, type Collection, type Db } from 'mongodb';
-import { getMongoClient } from '../lib/mongodb';
-import type { QA01Result, QA02Result, QA03Result, QA04Result } from './GameVersion';
+import { ObjectId, type Collection, type Db } from "mongodb";
+import { getMongoClient } from "../lib/mongodb";
+import type {
+  QA01Result,
+  QA02Result,
+  QA03Result,
+  QA04Result,
+} from "./GameVersion";
 
 /**
  * Game event types captured during testing
  */
-export type GameEventType = 'INIT' | 'READY' | 'RESULT' | 'QUIT' | 'COMPLETE';
+export type GameEventType =
+  | "INIT"
+  | "READY"
+  | "RESULT"
+  | "QUIT"
+  | "COMPLETE"
+  | "ERROR";
 
 /**
  * Individual game event in the timeline
@@ -19,16 +30,16 @@ export interface GameEvent {
 /**
  * QC decision types
  */
-export type QCDecision = 'pass' | 'fail';
+export type QCDecision = "pass" | "fail";
 
 /**
  * Comprehensive QC Report interface
  */
 export interface QCReport {
   _id: ObjectId;
-  gameId: ObjectId;          // Reference to Game
-  versionId: ObjectId;       // Reference to GameVersion
-  qcUserId: ObjectId;        // Reference to QC User
+  gameId: ObjectId; // Reference to Game
+  versionId: ObjectId; // Reference to GameVersion
+  qcUserId: ObjectId; // Reference to QC User
 
   // Individual QA Test Results
   qa01: QA01Result;
@@ -37,13 +48,13 @@ export interface QCReport {
   qa04: QA04Result;
 
   // Comprehensive Test Data
-  rawResult: object;         // Raw results from game testing
+  rawResult: object; // Raw results from game testing
   eventsTimeline: GameEvent[]; // Complete event timeline
-  
+
   // QC Decision
   decision: QCDecision;
   note: string;
-  
+
   // Metadata
   testStartedAt: Date;
   testCompletedAt: Date;
@@ -53,7 +64,7 @@ export interface QCReport {
 /**
  * Input type for creating a new QC Report
  */
-export type CreateQCReportInput = Omit<QCReport, '_id' | 'createdAt'>;
+export type CreateQCReportInput = Omit<QCReport, "_id" | "createdAt">;
 
 /**
  * QC Report Repository for CRUD operations
@@ -62,7 +73,7 @@ export class QCReportRepository {
   private collection: Collection<QCReport>;
 
   constructor(db: Db) {
-    this.collection = db.collection<QCReport>('qc_reports');
+    this.collection = db.collection<QCReport>("qc_reports");
   }
 
   /**
@@ -79,39 +90,39 @@ export class QCReportRepository {
   async create(input: CreateQCReportInput): Promise<QCReport> {
     // Validate required fields
     if (!input.gameId) {
-      throw new Error('gameId is required');
+      throw new Error("gameId is required");
     }
     if (!input.versionId) {
-      throw new Error('versionId is required');
+      throw new Error("versionId is required");
     }
     if (!input.qcUserId) {
-      throw new Error('qcUserId is required');
+      throw new Error("qcUserId is required");
     }
     if (!input.decision) {
-      throw new Error('decision is required');
+      throw new Error("decision is required");
     }
 
     // Validate decision type
-    if (!['pass', 'fail'].includes(input.decision)) {
+    if (!["pass", "fail"].includes(input.decision)) {
       throw new Error('decision must be "pass" or "fail"');
     }
 
     // Validate QA results structure
-    if (!input.qa01 || typeof input.qa01.pass !== 'boolean') {
-      throw new Error('qa01 result with pass boolean is required');
+    if (!input.qa01 || typeof input.qa01.pass !== "boolean") {
+      throw new Error("qa01 result with pass boolean is required");
     }
-    if (!input.qa02 || typeof input.qa02.pass !== 'boolean') {
-      throw new Error('qa02 result with pass boolean is required');
+    if (!input.qa02 || typeof input.qa02.pass !== "boolean") {
+      throw new Error("qa02 result with pass boolean is required");
     }
     if (!input.qa03) {
-      throw new Error('qa03 result is required');
+      throw new Error("qa03 result is required");
     }
-    if (!input.qa04 || typeof input.qa04.pass !== 'boolean') {
-      throw new Error('qa04 result with pass boolean is required');
+    if (!input.qa04 || typeof input.qa04.pass !== "boolean") {
+      throw new Error("qa04 result with pass boolean is required");
     }
 
     const now = new Date();
-    const report: Omit<QCReport, '_id'> = {
+    const report: Omit<QCReport, "_id"> = {
       ...input,
       createdAt: now,
     };

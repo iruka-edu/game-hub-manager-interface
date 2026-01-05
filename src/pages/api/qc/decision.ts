@@ -2,13 +2,13 @@ import type { APIRoute } from "astro";
 import { ObjectId } from "mongodb";
 import { GameRepository } from "../../../models/Game";
 import { GameVersionRepository } from "../../../models/GameVersion";
-import { QCReportRepository } from "../../../models/QCReport";
+import { QCReportRepository } from "../../../models/QcReport";
 import { getUserFromRequest } from "../../../lib/session";
 import { hasPermissionString } from "../../../auth/auth-rbac";
 import { AuditLogger } from "../../../lib/audit";
 import { NotificationService } from "../../../lib/notification";
 import { GameHistoryService } from "../../../lib/game-history";
-import type { QCDecision } from "../../../models/QCReport";
+import type { QCDecision } from "../../../models/QcReport";
 
 /**
  * POST /api/qc/decision
