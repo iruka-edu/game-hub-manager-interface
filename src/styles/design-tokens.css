@@ -155,6 +155,8 @@
   --gh-table-row-compact: 2.5rem; /* 40px */
   --gh-table-row-comfortable: 3rem; /* 48px */
   --gh-table-row-spacious: 3.5rem; /* 56px */
+
+  --iruka-blue: #00BFFF
 }
 
 /* Utility Classes using Design Tokens */

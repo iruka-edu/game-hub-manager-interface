@@ -62,6 +62,8 @@ export interface Game {
   gameId: string; // e.g., "com.iruka.math" (also used as slug)
   title: string;
   description?: string;
+  thumbnailDesktop?: string; // 308x211
+  thumbnailMobile?: string; // 343x170
   status?: GameStatus; // @deprecated: use version status instead, but keep for RBAC compat
   ownerId: string; // User._id
   teamId?: string;
@@ -118,6 +120,8 @@ export function serializeGame(game: Game): Record<string, unknown> {
     gameId: game.gameId,
     title: game.title,
     description: game.description,
+    thumbnailDesktop: game.thumbnailDesktop,
+    thumbnailMobile: game.thumbnailMobile,
     ownerId: game.ownerId,
     teamId: game.teamId,
     latestVersionId: game.latestVersionId?.toString(),
@@ -146,6 +150,8 @@ export function deserializeGame(data: Record<string, unknown>): Game {
     gameId: data.gameId as string,
     title: data.title as string,
     description: data.description as string | undefined,
+    thumbnailDesktop: data.thumbnailDesktop as string | undefined,
+    thumbnailMobile: data.thumbnailMobile as string | undefined,
     ownerId: data.ownerId as string,
     teamId: data.teamId as string | undefined,
     latestVersionId: data.latestVersionId
@@ -244,6 +250,8 @@ export class GameRepository {
       gameId: input.gameId.trim(),
       title: input.title || "",
       description: input.description,
+      thumbnailDesktop: input.thumbnailDesktop,
+      thumbnailMobile: input.thumbnailMobile,
       ownerId: input.ownerId.trim(),
       teamId: input.teamId,
       latestVersionId: input.latestVersionId,
@@ -291,6 +299,8 @@ export class GameRepository {
         Game,
         | "title"
         | "description"
+        | "thumbnailDesktop"
+        | "thumbnailMobile"
         | "subject"
         | "grade"
         | "unit"
@@ -521,10 +531,15 @@ export class GameRepository {
   /**
    * Get user information by ID (for display purposes)
    */
-  async getUserById(userId: string): Promise<{ _id: ObjectId; name?: string; email?: string; username?: string } | null> {
+  async getUserById(userId: string): Promise<{
+    _id: ObjectId;
+    name?: string;
+    email?: string;
+    username?: string;
+  } | null> {
     try {
       const { db } = await getMongoClient();
-      const usersCollection = db.collection('users');
+      const usersCollection = db.collection("users");
       return await usersCollection.findOne(
         { _id: new ObjectId(userId) },
         { projection: { _id: 1, name: 1, email: 1, username: 1 } }

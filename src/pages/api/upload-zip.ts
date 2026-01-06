@@ -127,6 +127,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const formData = await request.formData();
     const zipFile = formData.get("zipFile") as File;
+    const thumbnailDesktopFile = formData.get("thumbnailDesktop") as File;
+    const thumbnailMobileFile = formData.get("thumbnailMobile") as File;
     const manifestData = formData.get("manifest") as string;
 
     if (!zipFile) {
@@ -286,6 +288,51 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
+    // 5a. Upload Thumbnails if present
+    // const bucketName = process.env.GCLOUD_BUCKET_NAME || "iruka-edu-mini-game"; // Already defined above
+    let thumbnailDesktopUrl: string | undefined;
+    let thumbnailMobileUrl: string | undefined;
+
+    if (thumbnailDesktopFile) {
+      try {
+        const ext =
+          thumbnailDesktopFile.name.split(".").pop()?.toLowerCase() || "png";
+        const thumbPath = `games/${id}/thumbnail_desktop.${ext}`;
+
+        console.log(`[Upload ZIP] Uploading desktop thumbnail to ${thumbPath}`);
+
+        await uploadBuffer(
+          thumbPath,
+          Buffer.from(await thumbnailDesktopFile.arrayBuffer()),
+          getContentType(thumbnailDesktopFile.name)
+        );
+
+        thumbnailDesktopUrl = `https://storage.googleapis.com/${bucketName}/${thumbPath}`;
+      } catch (err) {
+        console.error("[Upload ZIP] Failed to upload desktop thumbnail:", err);
+      }
+    }
+
+    if (thumbnailMobileFile) {
+      try {
+        const ext =
+          thumbnailMobileFile.name.split(".").pop()?.toLowerCase() || "png";
+        const thumbPath = `games/${id}/thumbnail_mobile.${ext}`;
+
+        console.log(`[Upload ZIP] Uploading mobile thumbnail to ${thumbPath}`);
+
+        await uploadBuffer(
+          thumbPath,
+          Buffer.from(await thumbnailMobileFile.arrayBuffer()),
+          getContentType(thumbnailMobileFile.name)
+        );
+
+        thumbnailMobileUrl = `https://storage.googleapis.com/${bucketName}/${thumbPath}`;
+      } catch (err) {
+        console.error("[Upload ZIP] Failed to upload mobile thumbnail:", err);
+      }
+    }
+
     // 6. Upload manifest first
     const manifestBuffer = Buffer.from(enhancedManifestData, "utf-8");
     await uploadBuffer(
@@ -347,6 +394,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         gameId: id,
         title: manifest.title || id,
         description: manifest.description || "",
+        thumbnailDesktop: thumbnailDesktopUrl,
+        thumbnailMobile: thumbnailMobileUrl,
         ownerId: locals.user._id.toString(),
       });
 
@@ -360,6 +409,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
       game.ownerId = locals.user._id.toString();
       console.log(`[Upload ZIP] Updated missing ownerId for game ${id}`);
+    }
+
+    // Update thumbnails if provided
+    if (game && (thumbnailDesktopUrl || thumbnailMobileUrl)) {
+      const updates: any = {};
+      if (thumbnailDesktopUrl) updates.thumbnailDesktop = thumbnailDesktopUrl;
+      if (thumbnailMobileUrl) updates.thumbnailMobile = thumbnailMobileUrl;
+
+      await gameRepo.updateMetadata(game._id.toString(), updates);
+
+      // Update local object
+      if (thumbnailDesktopUrl)
+        (game as any).thumbnailDesktop = thumbnailDesktopUrl;
+      if (thumbnailMobileUrl)
+        (game as any).thumbnailMobile = thumbnailMobileUrl;
+
+      console.log(`[Upload ZIP] Updated thumbnails for game ${id}`);
     }
 
     // 10. Create or Update GameVersion record
@@ -387,9 +453,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         }
 
         // Update existing version (re-upload)
+        const userId = new ObjectId(locals.user._id.toString());
         gameVersion = await versionRepo.patchBuild(
           existingVersion._id.toString(),
-          totalSize
+          totalSize,
+          userId
         );
 
         // Record history

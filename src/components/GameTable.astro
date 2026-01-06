@@ -1,0 +1,48 @@
+---
+import StatusChip from './StatusChip.astro';
+import GameTableRow from './GameTableRow.astro';
+
+interface Props {
+  games: Array<{
+    game: any;
+    latestVersion: any;
+    liveVersion: any;
+  }>;
+  showBulkActions?: boolean;
+}
+
+const { games, showBulkActions = false } = Astro.props;
+---
+
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <table class="w-full">
+    <thead class="bg-slate-50 border-b border-slate-200">
+      <tr>
+        {showBulkActions && (
+          <th class="text-left px-6 py-4 w-12">
+            <input 
+              type="checkbox" 
+              id="selectAll"
+              class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+          </th>
+        )}
+        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Game</th>
+        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Phiên bản</th>
+        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Trạng thái</th>
+        <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Cập nhật</th>
+        <th class="text-right px-6 py-4 text-sm font-semibold text-slate-700">Thao tác</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {games.map(({ game, latestVersion, liveVersion }) => (
+        <GameTableRow 
+          game={game}
+          latestVersion={latestVersion}
+          liveVersion={liveVersion}
+          showCheckbox={showBulkActions}
+        />
+      ))}
+    </tbody>
+  </table>
+</div>

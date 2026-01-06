@@ -1,0 +1,79 @@
+---
+import { canEdit, canSubmitQC, canUpdateCode, canCreateNewVersion } from '../utils/gameStatus';
+
+interface Props {
+  game: any;
+  latestVersion: any;
+  versionStatus: string;
+}
+
+const { game, latestVersion, versionStatus } = Astro.props;
+---
+
+<div class="flex items-center justify-end gap-2">
+  <!-- Edit button -->
+  {canEdit(versionStatus as any) && (
+    <a 
+      href={`/console/games/${game._id}/edit`}
+      class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+    >
+      Sửa
+    </a>
+  )}
+  
+  <!-- Update Code -->
+  {canUpdateCode(versionStatus as any) && latestVersion && (
+    <button 
+      class="update-code-btn px-3 py-1.5 text-sm font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors"
+      data-game-id={game._id.toString()}
+      data-version-id={latestVersion._id.toString()}
+      data-game-title={game.title || game.gameId}
+      data-version={latestVersion.version}
+    >
+      Cập nhật code
+    </button>
+  )}
+  
+  <!-- Submit to QC -->
+  {canSubmitQC(versionStatus as any) && latestVersion && (
+    <button 
+      class="submit-qc-btn px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+      data-game-id={game._id.toString()}
+      data-version-id={latestVersion._id.toString()}
+      data-game-title={game.title || game.gameId}
+      data-version={latestVersion.version}
+    >
+      Gửi QC
+    </button>
+  )}
+  
+  <!-- Upload new version -->
+  {canCreateNewVersion(versionStatus as any) && (
+    <a 
+      href={`/games/${game._id}/new-version`}
+      class="px-3 py-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors"
+    >
+      Bản mới
+    </a>
+  )}
+  
+  <!-- View details for other statuses -->
+  {!canEdit(versionStatus as any) && !canSubmitQC(versionStatus as any) && !canUpdateCode(versionStatus as any) && (
+    <a 
+      href={`/console/games/${game._id}`}
+      class="px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
+    >
+      Xem chi tiết
+    </a>
+  )}
+
+  <!-- Delete button -->
+  <button 
+    type="button"
+    onclick={`openDeleteModal('${game._id.toString()}')`}
+    class="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+    title="Xóa game"
+  >
+    Xóa
+  </button>
+</div>

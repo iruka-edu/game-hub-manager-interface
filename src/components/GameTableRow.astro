@@ -1,0 +1,65 @@
+---
+import StatusChip from './StatusChip.astro';
+import GameActions from './GameActions.astro';
+import VersionToggle from './VersionToggle.astro';
+
+interface Props {
+  game: any;
+  latestVersion: any;
+  liveVersion: any;
+  showCheckbox?: boolean;
+}
+
+const { game, latestVersion, liveVersion, showCheckbox = false } = Astro.props;
+const versionStatus = latestVersion?.status || 'draft';
+---
+
+<>
+  <tr class="hover:bg-slate-50 transition-colors">
+    {showCheckbox && (
+      <td class="px-6 py-4">
+        <input 
+          type="checkbox" 
+          class="game-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          data-game-id={game._id.toString()}
+          data-game-title={game.title || game.gameId}
+        />
+      </td>
+    )}
+    <td class="px-6 py-4">
+      <a href={`/console/games/${game._id}`} class="block">
+        <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
+        <p class="text-sm text-slate-500">{game.gameId}</p>
+      </a>
+    </td>
+    <td class="px-6 py-4">
+      <VersionToggle 
+        game={game}
+        latestVersion={latestVersion}
+        liveVersion={liveVersion}
+      />
+    </td>
+    <td class="px-6 py-4">
+      <StatusChip status={versionStatus} size="sm" />
+    </td>
+    <td class="px-6 py-4 text-sm text-slate-500">
+      {(latestVersion?.updatedAt || game.updatedAt).toLocaleDateString('vi-VN')}
+    </td>
+    <td class="px-6 py-4">
+      <GameActions 
+        game={game}
+        latestVersion={latestVersion}
+        versionStatus={versionStatus}
+      />
+    </td>
+  </tr>
+  
+  <!-- Version History Row (Hidden by default) -->
+  <tr class="version-history-row hidden bg-slate-50" data-game-id={game._id.toString()}>
+    <td colspan={showCheckbox ? "6" : "5"} class="px-6 py-4">
+      <div class="text-sm text-slate-500 text-center py-2">
+        Đang tải lịch sử phiên bản...
+      </div>
+    </td>
+  </tr>
+</>

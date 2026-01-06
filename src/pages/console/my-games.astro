@@ -1,10 +1,13 @@
 ---
 import ConsoleLayout from '../../layouts/ConsoleLayout.astro';
-import StatusChip from '../../components/StatusChip.astro';
 import Breadcrumb from '../../components/Breadcrumb.astro';
-import LoadingSkeleton from '../../components/LoadingSkeleton.astro';
 import EmptyState from '../../components/EmptyState.astro';
 import DeleteGameModal from '../../components/DeleteGameModal.astro';
+import GameTable from '../../components/GameTable.astro';
+import GameFilters from '../../components/GameFilters.astro';
+import BulkActions from '../../components/BulkActions.astro';
+import SubmitQCModal from '../../components/modals/SubmitQCModal.astro';
+import UpdateCodeModal from '../../components/modals/UpdateCodeModal.astro';
 import type { User } from '../../models/User';
 import { GameRepository, type Game } from '../../models/Game';
 import { GameVersionRepository, type GameVersion, type VersionStatus } from '../../models/GameVersion';
@@ -82,6 +85,9 @@ const breadcrumbItems = [
   { label: 'Console', href: '/console' },
   { label: 'Game của tôi' }
 ];
+
+// Check if bulk actions should be enabled (only for dev/admin)
+const enableBulkActions = hasRole('dev') || hasRole('admin');
 ---
 
 <ConsoleLayout title="Game của tôi" user={user} activeMenu="my-games">
@@ -104,170 +110,18 @@ const breadcrumbItems = [
     </div>
 
     <!-- Filter Tabs -->
-    <div class="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-      <a 
-        href="/console/my-games" 
-        class={`px-4 py-3 rounded-lg text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] flex items-center ${
-          !statusFilter ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-        }`}
-      >
-        Tất cả ({filteredGames.length})
-      </a>
-      {Object.entries(groupedGames).map(([status, statusGames]) => (
-        statusGames.length > 0 && (
-          <a 
-            href={`/console/my-games?status=${status}`}
-            class={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              statusFilter === status ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            {statusLabels[status]} ({statusGames.length})
-          </a>
-        )
-      ))}
-    </div>
+    <GameFilters 
+      statusFilter={statusFilter}
+      groupedGames={groupedGames}
+      filteredGames={filteredGames}
+    />
 
     <!-- Games List -->
     {filteredGames.length > 0 ? (
-      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <table class="w-full">
-          <thead class="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Game</th>
-              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Phiên bản</th>
-              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Trạng thái</th>
-              <th class="text-left px-6 py-4 text-sm font-semibold text-slate-700">Cập nhật</th>
-              <th class="text-right px-6 py-4 text-sm font-semibold text-slate-700">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            {filteredGames.map(({ game, latestVersion, liveVersion }) => {
-              const versionStatus = latestVersion?.status || 'draft';
-              return (
-                <>
-                  <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4">
-                      <a href={`/console/games/${game._id}`} class="block">
-                        <p class="font-medium text-slate-900 hover:text-indigo-600">{game.title || game.gameId}</p>
-                        <p class="text-sm text-slate-500">{game.gameId}</p>
-                      </a>
-                    </td>
-                    <td class="px-6 py-4">
-                      <div class="flex items-center gap-2">
-                        <div class="flex flex-col gap-1">
-                          {latestVersion && (
-                            <span class="text-sm font-mono text-slate-700">
-                              v{latestVersion.version}
-                            </span>
-                          )}
-                          {liveVersion && liveVersion._id.toString() !== latestVersion?._id.toString() && (
-                            <span class="text-xs text-green-600">
-                              Live: v{liveVersion.version}
-                            </span>
-                          )}
-                        </div>
-                        <button 
-                          class="toggle-versions-btn text-slate-400 hover:text-slate-600 transition-colors"
-                          data-game-id={game._id.toString()}
-                          title="Xem tất cả phiên bản"
-                        >
-                          <svg class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4">
-                      <StatusChip status={versionStatus} size="sm" />
-                    </td>
-                    <td class="px-6 py-4 text-sm text-slate-500">
-                      {(latestVersion?.updatedAt || game.updatedAt).toLocaleDateString('vi-VN')}
-                    </td>
-                    <td class="px-6 py-4">
-                      <div class="flex items-center justify-end gap-2">
-                        {/* Edit button - only for draft, qc_failed */}
-                        {['draft', 'qc_failed'].includes(versionStatus) && (
-                          <a 
-                            href={`/console/games/${game._id}/edit`}
-                            class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                          >
-                            Sửa
-                          </a>
-                        )}
-                        
-                        {/* Update Code - for draft, qc_failed, uploaded, qc_processing, qc_passed, approved, published */}
-                        {['draft', 'qc_failed', 'uploaded', 'qc_processing', 'qc_passed', 'approved', 'published'].includes(versionStatus) && latestVersion && (
-                          <button 
-                            class="update-code-btn px-3 py-1.5 text-sm font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors"
-                            data-game-id={game._id.toString()}
-                            data-version-id={latestVersion._id.toString()}
-                            data-game-title={game.title || game.gameId}
-                            data-version={latestVersion.version}
-                          >
-                            Cập nhật code
-                          </button>
-                        )}
-                        
-                        {/* Submit to QC - only for draft, qc_failed */}
-                        {['draft', 'qc_failed'].includes(versionStatus) && latestVersion && (
-                          <button 
-                            class="submit-qc-btn px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                            data-game-id={game._id.toString()}
-                            data-version-id={latestVersion._id.toString()}
-                            data-game-title={game.title || game.gameId}
-                            data-version={latestVersion.version}
-                          >
-                            Gửi QC
-                          </button>
-                        )}
-                        
-                        {/* Upload new version - for qc_failed */}
-                        {versionStatus === 'qc_failed' && (
-                          <a 
-                            href={`/games/${game._id}/new-version`}
-                            class="px-3 py-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors"
-                          >
-                            Bản mới
-                          </a>
-                        )}
-                        
-                        {/* View only for other statuses */}
-                        {!['draft', 'qc_failed', 'uploaded', 'qc_processing', 'qc_passed', 'approved', 'published'].includes(versionStatus) && (
-                          <a 
-                            href={`/console/games/${game._id}`}
-                            class="px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
-                          >
-                            Xem chi tiết
-                          </a>
-                        )}
-
-                        {/* Delete button - always available for dev's own games */}
-                        <button 
-                          type="button"
-                          onclick={`openDeleteModal('${game._id.toString()}')`}
-                          class="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Xóa game"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  
-                  {/* Version History Row (Hidden by default) */}
-                  <tr class="version-history-row hidden bg-slate-50" data-game-id={game._id.toString()}>
-                    <td colspan="5" class="px-6 py-4">
-                      <div class="text-sm text-slate-500 text-center py-2">
-                        Đang tải lịch sử phiên bản...
-                      </div>
-                    </td>
-                  </tr>
-                </>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <GameTable 
+        games={filteredGames}
+        showBulkActions={enableBulkActions}
+      />
     ) : (
       <EmptyState 
         title={statusFilter ? `Không có game nào ở trạng thái "${statusLabels[statusFilter]}"` : 'Bạn chưa có game nào'}
@@ -279,113 +133,14 @@ const breadcrumbItems = [
         secondaryActionHref={statusFilter ? "/console/my-games" : undefined}
       />
     )}
+
+    <!-- Bulk Actions -->
+    {enableBulkActions && <BulkActions />}
   </div>
 
-  <!-- Submit QC Modal -->
-  <div id="submitQcModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
-    <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
-      <h3 class="text-lg font-semibold text-slate-900 mb-4">Gửi game để QC kiểm tra</h3>
-      <p class="text-slate-600 mb-4">
-        Bạn đang gửi game "<span id="modalGameTitle" class="font-medium"></span>" 
-        phiên bản <span id="modalVersion" class="font-mono font-medium"></span> để QC kiểm tra.
-      </p>
-      
-      <div class="mb-6">
-        <p class="text-sm font-medium text-slate-700 mb-3">Self-QA Checklist (bắt buộc):</p>
-        <div class="space-y-2">
-          <label class="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" class="qc-checklist rounded border-slate-300" data-field="testedDevices" />
-            Đã test trên các thiết bị (mobile, tablet, desktop)
-          </label>
-          <label class="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" class="qc-checklist rounded border-slate-300" data-field="testedAudio" />
-            Đã test âm thanh hoạt động đúng
-          </label>
-          <label class="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" class="qc-checklist rounded border-slate-300" data-field="gameplayComplete" />
-            Logic game hoạt động hoàn chỉnh
-          </label>
-          <label class="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" class="qc-checklist rounded border-slate-300" data-field="contentVerified" />
-            Nội dung đã được kiểm tra và phù hợp
-          </label>
-        </div>
-        
-        <div class="mt-4">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Ghi chú (tùy chọn):</label>
-          <textarea 
-            id="selfQaNote" 
-            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            rows="2"
-            placeholder="Ghi chú cho QC..."
-          ></textarea>
-        </div>
-      </div>
-      
-      <div class="flex items-center justify-end gap-3">
-        <button id="cancelSubmitQc" class="btn-secondary">Hủy</button>
-        <button id="confirmSubmitQc" class="btn-primary" disabled>Xác nhận gửi QC</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Update Code Modal -->
-  <div id="updateCodeModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
-    <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
-      <h3 class="text-lg font-semibold text-slate-900 mb-4">Cập nhật code game</h3>
-      <p class="text-slate-600 mb-4">
-        Cập nhật code cho game "<span id="updateModalGameTitle" class="font-medium"></span>" 
-        phiên bản <span id="updateModalVersion" class="font-mono font-medium"></span>.
-      </p>
-      
-      <div class="mb-6">
-        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-          <div class="flex gap-3">
-            <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-            <div class="text-sm text-amber-800">
-              <p class="font-medium mb-1">Lưu ý quan trọng:</p>
-              <ul class="list-disc list-inside space-y-1">
-                <li>Code cũ sẽ bị ghi đè hoàn toàn</li>
-                <li>Self-QA checklist sẽ bị xóa</li>
-                <li>Bạn cần test và gửi QC lại</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-          <div class="flex gap-3">
-            <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <div class="text-sm text-blue-800">
-              <p class="font-medium mb-1">Logic trạng thái:</p>
-              <ul class="list-disc list-inside space-y-1">
-                <li><strong>Chưa publish:</strong> Giữ nguyên trạng thái hiện tại</li>
-                <li><strong>Đã publish:</strong> Reset về "Nháp" (phải test lại từ đầu)</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        
-        <label class="block text-sm font-medium text-slate-700 mb-2">Chọn file ZIP mới:</label>
-        <input 
-          type="file" 
-          id="updateCodeFile" 
-          accept=".zip"
-          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        />
-        <p class="text-xs text-slate-500 mt-1">Chỉ chấp nhận file .zip</p>
-      </div>
-      
-      <div class="flex items-center justify-end gap-3">
-        <button id="cancelUpdateCode" class="btn-secondary">Hủy</button>
-        <button id="confirmUpdateCode" class="btn-primary" disabled>Xác nhận cập nhật</button>
-      </div>
-    </div>
-  </div>
+  <!-- Modals -->
+  <SubmitQCModal />
+  <UpdateCodeModal />
 
   <!-- Delete Game Modals -->
   {filteredGames.map(({ game }) => (
@@ -397,294 +152,39 @@ const breadcrumbItems = [
   ))}
 </ConsoleLayout>
 
+<style>
+  /* Custom styles for game table */
+  .game-checkbox:checked {
+    background-color: rgb(79 70 229);
+    border-color: rgb(79 70 229);
+  }
+
+  .version-history-row {
+    transition: all 0.2s ease-in-out;
+  }
+
+  #bulkActions {
+    transition: all 0.2s ease-in-out;
+  }
+
+  /* Mobile responsive improvements */
+  @media (max-width: 768px) {
+    #bulkActions {
+      left: 1rem;
+      right: 1rem;
+      transform: none;
+      translate: 0;
+    }
+  }
+</style>
+
 <script>
-  // ===== Submit QC Modal =====
-  const modal = document.getElementById('submitQcModal');
-  const modalTitle = document.getElementById('modalGameTitle');
-  const modalVersion = document.getElementById('modalVersion');
-  const cancelBtn = document.getElementById('cancelSubmitQc');
-  const confirmBtn = document.getElementById('confirmSubmitQc') as HTMLButtonElement;
-  const checkboxes = document.querySelectorAll('.qc-checklist');
-  const noteInput = document.getElementById('selfQaNote') as HTMLTextAreaElement;
-  let currentVersionId = '';
+  import { GameTableHandlers } from '../../scripts/gameTableHandlers';
+  import { ModalHandlers } from '../../scripts/modalHandlers';
 
-  // Open modal
-  document.querySelectorAll('.submit-qc-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentVersionId = (btn as HTMLElement).dataset.versionId || '';
-      const title = (btn as HTMLElement).dataset.gameTitle || '';
-      const version = (btn as HTMLElement).dataset.version || '';
-      
-      if (modalTitle) modalTitle.textContent = title;
-      if (modalVersion) modalVersion.textContent = `v${version}`;
-      modal?.classList.remove('hidden');
-      modal?.classList.add('flex');
-      
-      // Reset checkboxes and note
-      checkboxes.forEach(cb => (cb as HTMLInputElement).checked = false);
-      if (noteInput) noteInput.value = '';
-      if (confirmBtn) confirmBtn.disabled = true;
-    });
+  // Initialize handlers when DOM is loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    new GameTableHandlers();
+    new ModalHandlers();
   });
-
-  // Close modal
-  cancelBtn?.addEventListener('click', () => {
-    modal?.classList.add('hidden');
-    modal?.classList.remove('flex');
-  });
-
-  // Check all checkboxes
-  checkboxes.forEach(cb => {
-    cb.addEventListener('change', () => {
-      const allChecked = Array.from(checkboxes).every(c => (c as HTMLInputElement).checked);
-      if (confirmBtn) confirmBtn.disabled = !allChecked;
-    });
-  });
-
-  // Submit to QC
-  confirmBtn?.addEventListener('click', async () => {
-    if (!currentVersionId) return;
-    
-    // Build Self-QA checklist
-    const selfQAChecklist: Record<string, boolean | string> = {
-      testedDevices: false,
-      testedAudio: false,
-      gameplayComplete: false,
-      contentVerified: false,
-    };
-    
-    checkboxes.forEach(cb => {
-      const field = (cb as HTMLElement).dataset.field;
-      if (field) {
-        selfQAChecklist[field] = (cb as HTMLInputElement).checked;
-      }
-    });
-    
-    if (noteInput?.value) {
-      selfQAChecklist.note = noteInput.value;
-    }
-    
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Đang gửi...';
-    
-    try {
-      // First, save Self-QA checklist
-      const selfQaResponse = await fetch(`/api/games/self-qa`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ versionId: currentVersionId, checklist: selfQAChecklist })
-      });
-      
-      if (!selfQaResponse.ok) {
-        const data = await selfQaResponse.json();
-        throw new Error(data.error || 'Không thể lưu Self-QA');
-      }
-      
-      // Then submit to QC
-      const response = await fetch(`/api/games/submit-qc`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ versionId: currentVersionId })
-      });
-      
-      if (response.ok) {
-        window.location.reload();
-      } else {
-        const data = await response.json();
-        alert('Lỗi: ' + (data.error || 'Không thể gửi QC'));
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Xác nhận gửi QC';
-      }
-    } catch (error) {
-      alert('Có lỗi xảy ra: ' + (error as Error).message);
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Xác nhận gửi QC';
-    }
-  });
-
-  // ===== Update Code Modal =====
-  const updateModal = document.getElementById('updateCodeModal');
-  const updateModalTitle = document.getElementById('updateModalGameTitle');
-  const updateModalVersion = document.getElementById('updateModalVersion');
-  const cancelUpdateBtn = document.getElementById('cancelUpdateCode');
-  const confirmUpdateBtn = document.getElementById('confirmUpdateCode') as HTMLButtonElement;
-  const fileInput = document.getElementById('updateCodeFile') as HTMLInputElement;
-  let currentUpdateVersionId = '';
-  let currentUpdateGameId = '';
-
-  // Open update code modal
-  document.querySelectorAll('.update-code-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentUpdateVersionId = (btn as HTMLElement).dataset.versionId || '';
-      currentUpdateGameId = (btn as HTMLElement).dataset.gameId || '';
-      const title = (btn as HTMLElement).dataset.gameTitle || '';
-      const version = (btn as HTMLElement).dataset.version || '';
-      
-      if (updateModalTitle) updateModalTitle.textContent = title;
-      if (updateModalVersion) updateModalVersion.textContent = `v${version}`;
-      updateModal?.classList.remove('hidden');
-      updateModal?.classList.add('flex');
-      
-      // Reset file input
-      if (fileInput) fileInput.value = '';
-      if (confirmUpdateBtn) confirmUpdateBtn.disabled = true;
-    });
-  });
-
-  // Close update modal
-  cancelUpdateBtn?.addEventListener('click', () => {
-    updateModal?.classList.add('hidden');
-    updateModal?.classList.remove('flex');
-  });
-
-  // Enable confirm button when file is selected
-  fileInput?.addEventListener('change', () => {
-    if (confirmUpdateBtn) {
-      confirmUpdateBtn.disabled = !fileInput.files || fileInput.files.length === 0;
-    }
-  });
-
-  // Confirm update code
-  confirmUpdateBtn?.addEventListener('click', async () => {
-    if (!currentUpdateVersionId || !fileInput.files || fileInput.files.length === 0) return;
-    
-    const file = fileInput.files[0];
-    
-    // Validate file type
-    if (!file.name.endsWith('.zip')) {
-      alert('Chỉ chấp nhận file .zip');
-      return;
-    }
-    
-    // Validate file size (max 100MB)
-    const maxSize = 100 * 1024 * 1024;
-    if (file.size > maxSize) {
-      alert('File quá lớn. Kích thước tối đa: 100MB');
-      return;
-    }
-    
-    confirmUpdateBtn.disabled = true;
-    confirmUpdateBtn.textContent = 'Đang upload...';
-    
-    try {
-      // Upload file using new endpoint that handles everything
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const uploadResponse = await fetch(`/api/games/versions/${currentUpdateVersionId}/upload-code`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!uploadResponse.ok) {
-        const data = await uploadResponse.json();
-        throw new Error(data.error || 'Upload thất bại');
-      }
-      
-      const result = await uploadResponse.json();
-      
-      // Success - reload page
-      window.location.reload();
-    } catch (error) {
-      alert('Có lỗi xảy ra: ' + (error as Error).message);
-      confirmUpdateBtn.disabled = false;
-      confirmUpdateBtn.textContent = 'Xác nhận cập nhật';
-    }
-  });
-
-  // ===== Version History Toggle =====
-  const versionHistoryCache = new Map<string, any[]>();
-
-  document.querySelectorAll('.toggle-versions-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const gameId = (btn as HTMLElement).dataset.gameId || '';
-      const historyRow = document.querySelector(`.version-history-row[data-game-id="${gameId}"]`);
-      const arrow = btn.querySelector('svg');
-      
-      if (!historyRow) return;
-      
-      // Toggle visibility
-      if (historyRow.classList.contains('hidden')) {
-        // Show version history
-        historyRow.classList.remove('hidden');
-        arrow?.classList.add('rotate-180');
-        
-        // Load versions if not cached
-        if (!versionHistoryCache.has(gameId)) {
-          try {
-            const response = await fetch(`/api/games/${gameId}/versions`);
-            if (response.ok) {
-              const data = await response.json();
-              versionHistoryCache.set(gameId, data.versions || []);
-            }
-          } catch (error) {
-            console.error('Failed to load versions:', error);
-          }
-        }
-        
-        // Render versions
-        const versions = versionHistoryCache.get(gameId) || [];
-        const cell = historyRow.querySelector('td');
-        if (cell) {
-          if (versions.length === 0) {
-            cell.innerHTML = '<div class="text-sm text-slate-500 text-center py-2">Không có phiên bản nào</div>';
-          } else {
-            cell.innerHTML = `
-              <div class="space-y-2">
-                <p class="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">Lịch sử phiên bản</p>
-                ${versions.map((v: any) => `
-                  <div class="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
-                    <div class="flex items-center gap-3">
-                      <span class="font-mono text-sm font-medium text-slate-900">v${v.version}</span>
-                      <span class="px-2 py-0.5 rounded text-xs font-medium ${getStatusBadgeClass(v.status)}">
-                        ${getStatusLabel(v.status)}
-                      </span>
-                      ${v.releaseNote ? `<span class="text-xs text-slate-500">${v.releaseNote}</span>` : ''}
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-500">
-                      <span>${new Date(v.createdAt).toLocaleDateString('vi-VN')}</span>
-                      ${v.buildSize ? `<span>• ${Math.round(v.buildSize / 1024)} KB</span>` : ''}
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            `;
-          }
-        }
-      } else {
-        // Hide version history
-        historyRow.classList.add('hidden');
-        arrow?.classList.remove('rotate-180');
-      }
-    });
-  });
-
-  function getStatusBadgeClass(status: string): string {
-    const classes: Record<string, string> = {
-      draft: 'bg-slate-100 text-slate-700',
-      uploaded: 'bg-blue-100 text-blue-700',
-      qc_processing: 'bg-purple-100 text-purple-700',
-      qc_passed: 'bg-green-100 text-green-700',
-      qc_failed: 'bg-red-100 text-red-700',
-      approved: 'bg-emerald-100 text-emerald-700',
-      published: 'bg-indigo-100 text-indigo-700',
-      archived: 'bg-slate-100 text-slate-500',
-    };
-    return classes[status] || 'bg-slate-100 text-slate-700';
-  }
-
-  function getStatusLabel(status: string): string {
-    const labels: Record<string, string> = {
-      draft: 'Nháp',
-      uploaded: 'Chờ QC',
-      qc_processing: 'Đang QC',
-      qc_passed: 'QC đạt',
-      qc_failed: 'QC cần sửa',
-      approved: 'Đã duyệt',
-      published: 'Đã xuất bản',
-      archived: 'Lưu trữ',
-    };
-    return labels[status] || status;
-  }
 </script>
