@@ -1,0 +1,942 @@
+---
+type Option = { value: string; label: string };
+
+// Tên field SELECT (không gồm github)
+type SelectName =
+  | "lop"
+  | "mon"
+  | "quyenSach"
+  | "lesson"
+  | "game" 
+  | "level"
+  | "skill"
+  | "theme";
+
+// Values: select + github
+type Values = {
+  github?: string;
+} & {
+  [K in SelectName]?: K extends "skill" | "theme" ? string[] : string;
+};
+
+type Field = {
+  name: SelectName;
+  label: string;
+  opts: Option[];
+  span: 6 | 12;
+  disabled?: boolean;
+  hint?: string;
+};
+
+type Props = {
+  action?: string;
+  values?: Values;
+  options: {
+    lops: Option[];
+    mons: Option[];
+    quyensachs: Option[];
+    lessons: Option[];
+    games: Option[];
+    levels: Option[];
+    skills: Option[];
+    themes: Option[];
+  };
+};
+
+const { action = "/upload", values = {} as Values, options } = Astro.props as Props;
+
+const spanClass = (span: 6 | 12) => (span === 6 ? "sm:col-span-6" : "sm:col-span-12");
+
+const has = (k: SelectName) => {
+  const v = values[k];
+  if (Array.isArray(v)) return v.length > 0;
+  return Boolean(v && String(v).trim().length > 0);
+};
+
+const fields: Field[] = [
+  // Row 1
+  { name: "lop", label: "LỚP / ĐỘ TUỔI", opts: options.lops, span: 6 },
+  { name: "mon", label: "MÔN", opts: options.mons, span: 6 },
+
+  // Row 2 (full)
+  {
+    name: "quyenSach",
+    label: "QUYỂN SÁCH / TRACK",
+    opts: options.quyensachs,
+    span: 12,
+    disabled: !has("lop") || !has("mon"),
+    hint: "Chọn Lớp và Môn học trước",
+  },
+
+  // Row 3 (full)
+  {
+    name: "lesson",
+    label: "LESSON",
+    opts: options.lessons,
+    span: 12,
+    disabled: !has("quyenSach"),
+    hint: "Chọn Quyển sách trước",
+  },
+
+  {
+    name: "game",
+    label: "GAME",
+    opts: options.games,
+    span: 12,
+    disabled: !has("lesson"),
+    hint: "Chọn Lesson trước",
+  },
+
+  // Tagging (2 cols)
+  // { name: "game", label: "GAME", opts: options.games, span: 6 },
+  { name: "level", label: "LEVEL", opts: options.levels, span: 6 },
+  { name: "skill", label: "SKILL", opts: options.skills, span: 6 },
+  { name: "theme", label: "THEME", opts: options.themes, span: 6 },
+];
+---
+
+<form
+  id="upload-meta-form"
+  method="get"
+  action={action}
+  class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5"
+>
+  <div class="flex items-start justify-between gap-4 mb-4">
+    <div>
+      <h2 class="text-sm font-black text-slate-900">Chọn thông tin gắn vào Cây kiến thức</h2>
+      <p class="text-xs font-bold text-slate-500 mt-1">
+        Các trường theo tầng sẽ mở dần theo lựa chọn của bạn. Link github là nhập tay.
+      </p>
+    </div>
+  </div>
+
+  <!-- Grid 12 cột để control span -->
+  <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+    {fields.map((f) => {
+      const isMulti = f.name === "skill" || f.name === "theme";
+      const isSearchable =
+        f.name === "quyenSach" || f.name === "lesson" || f.name === "game";
+
+      const sp = Astro.url.searchParams;
+
+      // Multi lấy theo querystring (GET: skill=a&skill=b)
+      const selectedMulti = isMulti ? sp.getAll(String(f.name)) : [];
+
+      // Single lấy từ values
+      const v = values?.[f.name];
+      const selectedSingle = !isMulti && typeof v === "string" ? v : "";
+
+      return (
+        <label class={`block ${spanClass(f.span)}`}>
+          <span class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+            {f.label}
+          </span>
+
+          {/* 1) MULTI: skill/theme */}
+          {isMulti ? (
+            <div
+              class="relative"
+              data-multi-root={String(f.name)}
+              data-placeholder="-- Chọn --"
+            >
+              <button
+                type="button"
+                data-multi-trigger
+                disabled={f.disabled}
+                class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
+                      disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed
+                      flex items-center justify-between gap-2"
+              >
+                <div
+                  class="min-w-0 flex-1 flex items-center gap-1 flex-wrap"
+                  data-multi-chips
+                >
+                  <span class="text-slate-400 font-bold">-- Chọn --</span>
+                </div>
+                <svg
+                  class="w-4 h-4 text-slate-400 shrink-0"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              <div
+                data-multi-panel
+                class="hidden absolute z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+              >
+                <div class="p-2 border-b border-slate-100">
+                  <input
+                    data-multi-search
+                    placeholder="Tìm..."
+                    class="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div class="max-h-64 overflow-auto p-1" data-multi-list></div>
+              </div>
+
+              {/* Hidden select để submit GET */}
+              <select
+                name={String(f.name)}
+                multiple={true}
+                required
+                disabled={f.disabled}
+                class="hidden"
+                data-field={String(f.name)}
+                data-selected-multi={selectedMulti.join(",")}
+              >
+                {f.opts.map((o) => (
+                  <option value={o.value} selected={selectedMulti.includes(o.value)}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+
+              <p class="mt-1 text-[11px] font-bold text-slate-400">
+                Chọn nhiều mục (tick checkbox).
+              </p>
+            </div>
+          ) : isSearchable ? (
+            /* 2) SEARCHABLE: quyenSach/lesson/game */
+            <div
+              class="relative"
+              data-search-root={String(f.name)}
+              data-placeholder="-- Chọn --"
+            >
+              <button
+                type="button"
+                data-search-trigger
+                disabled={f.disabled}
+                class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
+                      disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed
+                      flex items-center justify-between gap-2"
+              >
+                <span class="truncate text-slate-400" data-search-label>
+                  -- Chọn --
+                </span>
+                <svg
+                  class="w-4 h-4 text-slate-400 shrink-0"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              <div
+                data-search-panel
+                class="hidden absolute z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+              >
+                <div class="p-2 border-b border-slate-100">
+                  <input
+                    data-search-input
+                    placeholder="Tìm..."
+                    class="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div class="max-h-64 overflow-auto p-1" data-search-list></div>
+              </div>
+
+              {/* Hidden select để submit + required */}
+              <select
+                name={String(f.name)}
+                required
+                disabled={f.disabled}
+                class="hidden"
+                data-field={String(f.name)}
+                data-selected={selectedSingle}
+              >
+                <option value="" disabled selected={!selectedSingle}>
+                  -- Chọn --
+                </option>
+                {f.opts.map((o) => (
+                  <option value={o.value} selected={selectedSingle === o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            /* 3) NORMAL: lop/mon/level */
+            <select
+              name={String(f.name)}
+              required
+              disabled={f.disabled}
+              data-field={String(f.name)}
+              data-selected={selectedSingle}
+              class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
+                    disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed"
+            >
+              <option value="" disabled selected={!selectedSingle}>
+                -- Chọn --
+              </option>
+              {f.opts.map((o) => (
+                <option value={o.value} selected={selectedSingle === o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {f.disabled && f.hint && (
+            <p class="mt-1 text-[11px] font-bold text-slate-400">{f.hint}</p>
+          )}
+        </label>
+      );
+    })}
+
+    <label class="block sm:col-span-12">
+      <span class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+        Link github
+      </span>
+      <input
+        name="github"
+        required
+        value={values.github ?? ""}
+        placeholder="https://github.com/your-org/your-repo (hoặc link PR/commit)"
+        class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300"
+      />
+      <p class="mt-1 text-[11px] font-bold text-slate-500">
+        Tip: có thể dán link commit/tag để trace build.
+      </p>
+    </label>
+  </div>
+
+  <div class="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+    <button
+      type="button"
+      id="btn_reset_all"
+      class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:border-slate-300"
+    >
+      Reset
+    </button>
+
+    <button
+      type="submit"
+      class="inline-flex h-10 items-center justify-center rounded-xl bg-[#2b9bf6] px-5 text-sm font-black text-white shadow-md hover:bg-[#1a88f4]"
+    >
+      Tiếp tục Upload →
+    </button>
+  </div>
+</form>
+
+<script type="module">
+  // Gọi qua proxy để khỏi CORS + thấy request trong Network
+  const API_BASE = "/api/game-lessons";
+
+  const form = document.querySelector("form");
+  const $sel = (name) => form?.querySelector(`select[name="${name}"]`);
+
+  const sels = {
+    lop: $sel("lop"),
+    mon: $sel("mon"),
+    quyenSach: $sel("quyenSach"),
+    lesson: $sel("lesson"),
+    game: $sel("game"),
+    level: $sel("level"),
+    skill: $sel("skill"),
+    theme: $sel("theme"),
+  };
+
+  // ---- helpers ----
+  const cache = new Map();
+  const aborters = new Map();
+
+  function toLabel(item) {
+    const name = item.name ?? item.title ?? item.label ?? "";
+    const code = item.code ?? "";
+    if (code && name) return `${code} — ${name}`;
+    return name || code || item.id || "(unknown)";
+  }
+
+  function toOptions(items) {
+    return (Array.isArray(items) ? items : []).map((it) => ({
+      value: String(it.id),
+      label: toLabel(it),
+    }));
+  }
+
+  function setOptions(select, options, placeholder) {
+    if (!select) return;
+
+    const isMulti = !!select.multiple;
+    const desiredSingle = select.dataset.selected || "";
+    const desiredMulti = (select.dataset.selectedMulti || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    select.innerHTML = "";
+
+    if (!isMulti) {
+      const opt0 = document.createElement("option");
+      opt0.value = "";
+      opt0.disabled = true;
+      opt0.textContent = placeholder;
+      select.appendChild(opt0);
+    }
+
+    for (const o of options) {
+      const opt = document.createElement("option");
+      opt.value = o.value;
+      opt.textContent = o.label;
+
+      if (isMulti && desiredMulti.includes(o.value)) opt.selected = true;
+      if (!isMulti && desiredSingle === o.value) opt.selected = true;
+
+      select.appendChild(opt);
+    }
+
+    if (!isMulti) {
+      if (!(desiredSingle && options.some((o) => o.value === desiredSingle))) {
+        select.value = "";
+        select.selectedIndex = 0;
+        if (select.options[0]) select.options[0].selected = true;
+      }
+    }
+
+    searchUIs[select.name]?.sync?.();
+  }
+
+  function setLoading(select, text = "Đang tải...") {
+    if (!select) return;
+
+    select.disabled = true;
+    select.dataset.loading = text;
+
+    // SearchSelect (quyenSach/lesson/game): cần sync để label hiện "Đang tải..."
+    if (searchUIs?.[select.name]) {
+      select.innerHTML = `<option value="">${text}</option>`;
+      searchUIs[select.name]?.sync?.();
+      return;
+    }
+
+    // MultiSelect (skill/theme)
+    if (select.multiple) {
+      select.innerHTML = "";
+      if (select.name === "skill") multiUIs.skill?.sync();
+      if (select.name === "theme") multiUIs.theme?.sync();
+      return;
+    }
+
+    // Normal select
+    select.innerHTML = `<option value="">${text}</option>`;
+  }
+
+  function clearSelect(select, placeholder) {
+    if (!select) return;
+    select.dataset.selected = "";
+    select.dataset.selectedMulti = "";
+    select.dataset.loading = "";
+
+    if (select.multiple) {
+      select.disabled = true;
+      select.innerHTML = "";
+      searchUIs[select.name]?.sync?.();
+      if (select.name === "skill") multiUIs.skill?.sync();
+      if (select.name === "theme") multiUIs.theme?.sync();
+      return;
+    }
+
+    select.value = "";
+    select.disabled = true;
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+  }
+
+  async function fetchJson(path) {
+    const url = `${API_BASE}${path}`;
+
+    if (cache.has(url)) return cache.get(url);
+
+    // abort previous same endpoint
+    if (aborters.has(url)) aborters.get(url).abort();
+    const ac = new AbortController();
+    aborters.set(url, ac);
+
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: ac.signal,
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+    const data = await res.json();
+    cache.set(url, data);
+    return data;
+  }
+
+  // ---------- MultiSelect UI (checkbox + chips) ----------
+  function initMultiSelect(name) {
+    const root = form?.querySelector(`[data-multi-root="${name}"]`);
+    if (!root) return null;
+
+    const select = root.querySelector(`select[name="${name}"]`);
+    const trigger = root.querySelector("[data-multi-trigger]");
+    const panel = root.querySelector("[data-multi-panel]");
+    const search = root.querySelector("[data-multi-search]");
+    const list = root.querySelector("[data-multi-list]");
+    const chips = root.querySelector("[data-multi-chips]");
+    const placeholder = root.dataset.placeholder || "-- Chọn --";
+
+    if (!select || !trigger || !panel || !list || !chips) return null;
+
+    function close() {
+      panel.classList.add("hidden");
+    }
+    function open() {
+      if (trigger.disabled) return;
+      panel.classList.remove("hidden");
+      search?.focus();
+    }
+    function toggle() {
+      if (panel.classList.contains("hidden")) open();
+      else close();
+    }
+
+    function renderChips() {
+      const selected = Array.from(select.options).filter((o) => o.selected);
+      chips.innerHTML = "";
+
+      // loading state
+      if (select.disabled && select.dataset.loading) {
+        const span = document.createElement("span");
+        span.className = "text-slate-400 font-bold";
+        span.textContent = select.dataset.loading;
+        chips.appendChild(span);
+        return;
+      }
+
+      if (selected.length === 0) {
+        const span = document.createElement("span");
+        span.className = "text-slate-400 font-bold";
+        span.textContent = placeholder;
+        chips.appendChild(span);
+        return;
+      }
+
+      selected.slice(0, 3).forEach((o) => {
+        const chip = document.createElement("span");
+        chip.className =
+          "inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-black text-slate-700 max-w-full";
+        chip.textContent = o.textContent || o.value;
+        chips.appendChild(chip);
+      });
+
+      if (selected.length > 3) {
+        const more = document.createElement("span");
+        more.className = "text-xs font-black text-slate-500";
+        more.textContent = `+${selected.length - 3}`;
+        chips.appendChild(more);
+      }
+    }
+
+    function renderList() {
+      const q = (search?.value || "").trim().toLowerCase();
+      list.innerHTML = "";
+
+      const opts = Array.from(select.options);
+
+      if (opts.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "px-3 py-2 text-sm font-bold text-slate-400";
+        empty.textContent = "Không có dữ liệu";
+        list.appendChild(empty);
+        return;
+      }
+
+      opts.forEach((opt) => {
+        const text = (opt.textContent || "").toLowerCase();
+        if (q && !text.includes(q)) return;
+
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className =
+          "w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-left";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = opt.selected;
+        cb.className = "w-4 h-4";
+
+        const label = document.createElement("div");
+        label.className = "text-sm font-bold text-slate-700";
+        label.textContent = opt.textContent || opt.value;
+
+        row.appendChild(cb);
+        row.appendChild(label);
+
+        row.addEventListener("click", () => {
+          opt.selected = !opt.selected;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+
+        list.appendChild(row);
+      });
+    }
+
+    function sync() {
+      // sync disabled state
+      trigger.disabled = select.disabled;
+      if (select.disabled) close();
+
+      renderChips();
+      renderList();
+    }
+
+    trigger.addEventListener("click", toggle);
+    search?.addEventListener("input", renderList);
+    select.addEventListener("change", sync);
+
+    // close on outside click
+    document.addEventListener("click", (e) => {
+      if (!root.contains(e.target)) close();
+    });
+    // escape close
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") close();
+    });
+
+    // initial sync
+    sync();
+
+    return { sync, close, open, select };
+  }
+
+  const multiUIs = {
+    skill: initMultiSelect("skill"),
+    theme: initMultiSelect("theme"),
+  };
+
+  // 
+  function initSearchSelect(name) {
+    const root = form?.querySelector(`[data-search-root="${name}"]`);
+    if (!root) return null;
+
+    const select = root.querySelector(`select[name="${name}"]`);
+    const trigger = root.querySelector("[data-search-trigger]");
+    const panel = root.querySelector("[data-search-panel]");
+    const input = root.querySelector("[data-search-input]");
+    const list = root.querySelector("[data-search-list]");
+    const label = root.querySelector("[data-search-label]");
+    const placeholder = root.dataset.placeholder || "-- Chọn --";
+
+    if (!select || !trigger || !panel || !list || !label) return null;
+
+    function close() { panel.classList.add("hidden"); }
+    function open() {
+      if (trigger.disabled) return;
+      panel.classList.remove("hidden");
+      input?.focus();
+    }
+    function toggle() { panel.classList.contains("hidden") ? open() : close(); }
+
+    function renderLabel() {
+      // loading
+      if (select.disabled && select.dataset.loading) {
+        label.textContent = select.dataset.loading;
+        label.className = "truncate text-slate-400";
+        return;
+      }
+
+      const opt = select.options[select.selectedIndex];
+      if (opt && opt.value) {
+        label.textContent = opt.textContent || opt.value;
+        label.className = "truncate text-slate-800";
+      } else {
+        label.textContent = placeholder;
+        label.className = "truncate text-slate-400";
+      }
+    }
+
+    function renderList() {
+      const q = (input?.value || "").trim().toLowerCase();
+      list.innerHTML = "";
+
+      const opts = Array.from(select.options).filter(o => o.value); // bỏ placeholder
+      if (opts.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "px-3 py-2 text-sm font-bold text-slate-400";
+        empty.textContent = "Không có dữ liệu";
+        list.appendChild(empty);
+        return;
+      }
+
+      let shown = 0;
+      for (const opt of opts) {
+        const text = (opt.textContent || "").toLowerCase();
+        if (q && !text.includes(q)) continue;
+
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-left";
+
+        const left = document.createElement("div");
+        left.className = "text-sm font-bold text-slate-700";
+        left.textContent = opt.textContent || opt.value;
+
+        const tick = document.createElement("span");
+        tick.className = "text-xs font-black text-iruka-blue";
+        tick.textContent = opt.selected ? "✓" : "";
+
+        row.appendChild(left);
+        row.appendChild(tick);
+
+        row.addEventListener("click", () => {
+          select.value = opt.value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+          close();
+        });
+
+        list.appendChild(row);
+        shown++;
+      }
+
+      if (shown === 0) {
+        const empty = document.createElement("div");
+        empty.className = "px-3 py-2 text-sm font-bold text-slate-400";
+        empty.textContent = "Không tìm thấy";
+        list.appendChild(empty);
+      }
+    }
+
+    function sync() {
+      trigger.disabled = select.disabled;
+      if (select.disabled) close();
+      renderLabel();
+      renderList();
+    }
+
+    trigger.addEventListener("click", toggle);
+    input?.addEventListener("input", renderList);
+    select.addEventListener("change", sync);
+
+    document.addEventListener("click", (e) => { if (!root.contains(e.target)) close(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+    sync();
+    return { sync, select };
+  }
+
+  const searchUIs = {
+    quyenSach: initSearchSelect("quyenSach"),
+    lesson: initSearchSelect("lesson"),
+    game: initSearchSelect("game"),
+  };
+
+  // ---- loaders ----
+  async function loadSubjects() {
+    setLoading(sels.mon, "Đang tải môn...");
+    const data = await fetchJson("/subjects");
+    const opts = toOptions(data);
+    setOptions(sels.mon, opts, "-- Chọn môn --");
+    sels.mon.disabled = false;
+  }
+
+  async function loadAgeBands() {
+    setLoading(sels.lop, "Đang tải độ tuổi...");
+    const data = await fetchJson("/age-bands");
+    // sort theo min_month nếu có
+    const sorted = Array.isArray(data)
+      ? data.slice().sort((a, b) => (a.min_month ?? 0) - (b.min_month ?? 0))
+      : [];
+    const opts = toOptions(sorted).map((o, i) => {
+      const item = sorted[i];
+      const range =
+        Number.isFinite(item?.min_month) && Number.isFinite(item?.max_month)
+          ? ` (${item.min_month}-${item.max_month} tháng)`
+          : "";
+      return { value: o.value, label: `${item?.name ?? o.label}${range}` };
+    });
+    setOptions(sels.lop, opts, "-- Chọn lớp/độ tuổi --");
+    sels.lop.disabled = false;
+  }
+
+  async function loadTracks() {
+    const subjectId = (sels.mon?.value || "").trim();
+    const ageBandId = (sels.lop?.value || "").trim();
+
+    // reset tầng dưới
+    clearSelect(sels.quyenSach, "-- Chọn quyển sách --");
+    clearSelect(sels.lesson, "-- Chọn lesson --");
+    clearSelect(sels.game, "-- Chọn game --");
+
+    if (!subjectId || !ageBandId) return;
+
+    setLoading(sels.quyenSach, "Đang tải quyển sách...");
+
+    const qs = new URLSearchParams({
+      subject_id: subjectId,
+      age_band_id: ageBandId,
+    });
+
+    const data = await fetchJson(`/tracks?${qs.toString()}`);
+    const opts = toOptions(data);
+
+    // QUAN TRỌNG: bật select trước
+    sels.quyenSach.disabled = false;
+    sels.quyenSach.dataset.loading = "";
+
+    setOptions(sels.quyenSach, opts, "-- Chọn quyển sách --");
+  }
+
+  async function loadLessons() {
+    const trackId = sels.quyenSach?.value || "";
+
+    clearSelect(sels.lesson, "-- Chọn lesson --");
+    clearSelect(sels.game, "-- Chọn game --");
+
+    if (!trackId) return;
+
+    setLoading(sels.lesson, "Đang tải lesson...");
+
+    const qs = new URLSearchParams({
+      track_id: trackId,
+    });
+
+    const data = await fetchJson(`/lessons?${qs.toString()}`);
+    const opts = toOptions(data);
+
+    sels.lesson.disabled = false;
+    sels.lesson.dataset.loading = "";
+
+    setOptions(sels.lesson, opts, "-- Chọn lesson --");
+  }
+
+  async function loadGames() {
+    const lessonId = (sels.lesson?.value || "").trim();
+
+    clearSelect(sels.game, "-- Chọn game --");
+    if (!lessonId) return;
+
+    setLoading(sels.game, "Đang tải game...");
+
+    // CHỈ CẦN ĐỔI CHỖ NÀY nếu API khác shape
+    const qs = new URLSearchParams({ lesson_id: lessonId });
+    const data = await fetchJson(`/games?${qs.toString()}`);
+
+    const opts = toOptions(data);
+    
+    sels.game.disabled = false;
+    sels.game.dataset.loading = "";
+
+    setOptions(sels.game, opts, "-- Chọn game --");
+  }
+
+  async function loadStaticLists() {
+    try {
+      setLoading(sels.skill, "Đang tải skill...");
+      const skills = await fetchJson("/skills");
+      setOptions(sels.skill, toOptions(skills), "-- Chọn skill --");
+      sels.skill.disabled = false;
+      sels.skill.dataset.loading = "";
+      multiUIs.skill?.sync();
+    } catch (e) {
+      console.error("[skills] load failed:", e);
+      // Thoát loading để UI không kẹt
+      if (sels.skill) {
+        sels.skill.disabled = false;
+        sels.skill.dataset.loading = "";
+        multiUIs.skill?.sync();
+      }
+    }
+
+    try {
+      setLoading(sels.level, "Đang tải level...");
+      const levels = await fetchJson("/levels");
+      setOptions(sels.level, toOptions(levels), "-- Chọn level --");
+      sels.level.disabled = false;
+    } catch (e) {
+      console.error("[levels] load failed:", e);
+    }
+
+    try {
+      setLoading(sels.theme, "Đang tải theme...");
+      const themes = await fetchJson("/themes");
+      setOptions(sels.theme, toOptions(themes), "-- Chọn theme --");
+      sels.theme.disabled = false;
+      sels.theme.dataset.loading = "";
+      multiUIs.theme?.sync();
+    } catch (e) {
+      console.error("[themes] load failed:", e);
+      if (sels.theme) {
+        sels.theme.disabled = false;
+        sels.theme.dataset.loading = "";
+        multiUIs.theme?.sync();
+      }
+    }
+  }
+
+  function resetAll() {
+    // (tuỳ chọn) clear cache để gọi API lại thật
+    cache.clear();
+
+    // clear mọi selection
+    Object.values(sels).forEach((s) => {
+      if (!s) return;
+      s.dataset.selected = "";
+      s.dataset.selectedMulti = "";
+      s.dataset.loading = "";
+
+      if (s.multiple) {
+        Array.from(s.options).forEach((o) => (o.selected = false));
+        if (s.name === "skill") multiUIs.skill?.sync();
+        if (s.name === "theme") multiUIs.theme?.sync();
+      } else {
+        s.value = "";
+        s.selectedIndex = 0;
+      }
+    });
+
+    // disable chain phụ thuộc
+    clearSelect(sels.quyenSach, "-- Chọn quyển sách --");
+    clearSelect(sels.lesson, "-- Chọn lesson --");
+
+    // clear github
+    const github = form?.querySelector('input[name="github"]');
+    if (github) github.value = "";
+
+    // xoá query trên URL (không reload)
+    history.replaceState(null, "", location.pathname);
+
+    // load lại list gốc và đảm bảo vẫn đứng ở placeholder
+    Promise.all([loadAgeBands(), loadSubjects(), loadStaticLists()])
+      .then(() => {
+        // ép về placeholder lần nữa cho chắc (tránh browser auto chọn option 1)
+        if (sels.lop) { sels.lop.dataset.selected = ""; sels.lop.value = ""; sels.lop.selectedIndex = 0; }
+        if (sels.mon) { sels.mon.dataset.selected = ""; sels.mon.value = ""; sels.mon.selectedIndex = 0; }
+        if (sels.level) { sels.level.dataset.selected = ""; sels.level.value = ""; sels.level.selectedIndex = 0; }
+        if (sels.skill) { sels.skill.dataset.selected = ""; sels.skill.value = ""; sels.skill.selectedIndex = 0; }
+        if (sels.theme) { sels.theme.dataset.selected = ""; sels.theme.value = ""; sels.theme.selectedIndex = 0; }
+      })
+      .catch(console.error);
+  }
+
+  // ---- events ----
+  sels.lop?.addEventListener("change", loadTracks);
+  sels.mon?.addEventListener("change", loadTracks);
+  sels.quyenSach?.addEventListener("change", loadLessons);
+  sels.lesson?.addEventListener("change", loadGames);
+  document.getElementById("btn_reset_all")?.addEventListener("click", resetAll);
+
+  // ---- boot ----
+  (async () => {
+    // disable dependents ban đầu
+    clearSelect(sels.quyenSach, "-- Chọn quyển sách --");
+    clearSelect(sels.lesson, "-- Chọn lesson --");
+
+    await Promise.all([loadAgeBands(), loadSubjects(), loadStaticLists()]);
+
+    // Nếu có selected từ querystring/SSR, tự chạy chain để fill tiếp
+    // (VD user đã có mon+lop => tự load )
+    await loadTracks();
+    if (sels.quyenSach?.value) await loadLessons();
+    if (sels.lesson?.value) await loadGames();
+  })().catch((e) => console.error(e));
+</script>

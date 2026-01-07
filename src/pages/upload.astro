@@ -6,6 +6,7 @@ import Layout from "../layouts/Layout.astro";
 import GameUploadForm from "../components/upload/GameUploadForm.astro";
 import { getUserFromRequest } from "../lib/session";
 import type { User } from "../models/User";
+import UploadMetaForm from "../components/UploadMetaForm.astro";
 
 // Auth check
 const user = (await getUserFromRequest(Astro.request)) as User | null;
@@ -14,6 +15,41 @@ const canUpload = hasRole("dev") || hasRole("admin");
 
 if (!user) return Astro.redirect("/login?redirect=/upload");
 if (!canUpload) return Astro.redirect("/dashboard?error=unauthorized");
+
+const sp = Astro.url.searchParams;
+
+const meta = {
+  lop: sp.get("lop") ?? "",
+  mon: sp.get("mon") ?? "",
+
+  quyenSach: sp.get("quyenSach") ?? "",
+  lesson: sp.get("lesson") ?? "",
+
+  game: sp.get("game") ?? "",
+  level: sp.get("level") ?? "",
+  skills: sp.getAll("skill").filter(Boolean),
+  themes: sp.getAll("theme").filter(Boolean),
+  github: sp.get("github") ?? "",
+};
+
+// Chỉ các key bạn muốn bắt buộc cho bước upload
+const metaReady = Boolean(meta.lop && meta.mon && meta.quyenSach && meta.lesson && meta.game && meta.level && meta.github)
+  && meta.skills.length > 0
+  && meta.themes.length > 0;
+
+// Đây là phần “tổng hợp data cần thiết” để GameUploadForm dùng build payload
+const gameMeta = {
+  // Những cái API create game cần trực tiếp
+  grade: meta.lop,
+  subject: meta.mon,
+  lesson: meta.lesson ? [meta.lesson] : [],
+  gameType: meta.game,
+  level: meta.level,
+  skills: meta.skills,
+  themes: meta.themes,
+  linkGithub: meta.github,
+};
+
 ---
 
 <Layout title="Tải Game Mới - Iruka Console">
@@ -32,8 +68,40 @@ if (!canUpload) return Astro.redirect("/dashboard?error=unauthorized");
       <h1 class="text-lg font-black text-slate-900">Tải Game Mới</h1>
     </header>
 
-    <!-- Upload Form -->
-    <GameUploadForm />
+    {metaReady ? (
+      <>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="text-xs font-bold text-slate-600">
+              <span class="font-black text-slate-900">Metadata:</span>
+              {" "}
+              {meta.lop} • {meta.mon} • {meta.quyenSach} • {meta.lesson} • {meta.game} • {meta.level} • {meta.skills} • {meta.themes}
+              {" "}
+              • <span class="text-iruka-blue">{meta.github}</span>
+            </div>
+            <a href="/upload" class="text-xs font-black text-slate-600 hover:underline">
+              Sửa
+            </a>
+          </div>
+        </div>
+
+        <GameUploadForm meta={gameMeta} />
+      </>
+    ) : (
+      <UploadMetaForm
+        values={meta}
+        options={{
+          lops: [],
+          mons: [],
+          quyensachs: [],
+          lessons: [],
+          games: [],
+          levels: [],
+          skills: [],
+          themes: [],
+        }}
+      />
+    )}
 
     <!-- Collapsible Help (optional) -->
     <details class="mt-6 group">
