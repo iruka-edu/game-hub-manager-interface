@@ -17,13 +17,15 @@
     "validate:manifest": "ajv -s schema/manifest.schema.json -d \"games-dist/games/**/manifest.json\" --spec=draft7 --errors=text",
     "iruka-game:validate": "node scripts/validate-game.js",
     "seed:users": "tsx scripts/seed-users.ts",
-    "deploy:storage": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-storage.ps1"
+    "deploy:storage": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-storage.ps1",
+    "setup": "pnpm dlx dotenv-cli -- pnpm add @iruka-edu/game-core"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.6",
     "@astrojs/node": "^9.5.1",
     "@astrojs/vercel": "^9.0.2",
     "@google-cloud/storage": "^7.18.0",
+    "@iruka-edu/game-core": "^0.1.1",
     "@tailwindcss/vite": "^4.1.17",
     "@types/bcryptjs": "^3.0.0",
     "astro": "^5.16.5",
