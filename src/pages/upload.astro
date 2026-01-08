@@ -3,7 +3,6 @@
  * Upload Page - Full width horizontal layout
  */
 import Layout from "../layouts/Layout.astro";
-import GameUploadForm from "../components/upload/GameUploadForm.astro";
 import { getUserFromRequest } from "../lib/session";
 import type { User } from "../models/User";
 
@@ -17,43 +16,363 @@ if (!canUpload) return Astro.redirect("/dashboard?error=unauthorized");
 ---
 
 <Layout title="Tải Game Mới - Iruka Console">
-  <div class="w-full px-6 py-6">
-    <!-- Minimal Header -->
-    <header class="flex items-center gap-3 mb-6">
-      <a
-        href="/"
-        class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-iruka-blue hover:border-blue-300 transition-all"
-        title="Quay lại"
+  <div class="w-full px-6 py-4">
+    <!-- Compact Header with Breadcrumb -->
+    <header class="flex items-center gap-2 mb-4">
+      <nav class="text-sm text-slate-500">
+        <a href="/dashboard" class="hover:text-slate-700">Game Hub</a>
+        <span class="mx-2">/</span>
+        <span class="text-slate-900 font-medium">Upload</span>
+      </nav>
+      <button
+        onclick="window.location.href='/dashboard'"
+        class="ml-auto w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+        title="Đóng"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
-      </a>
-      <h1 class="text-lg font-black text-slate-900">Tải Game Mới</h1>
+      </button>
     </header>
 
-    <!-- Upload Form -->
-    <GameUploadForm />
+    <!-- Three Column Layout -->
+    <div class="grid grid-cols-3 gap-6 max-w-7xl">
+      <!-- Column 1: Upload Build -->
+      <div class="space-y-4">
+        <h2 class="text-sm font-semibold text-slate-900 mb-3">Upload Build</h2>
+        
+        <!-- Upload Zone -->
+        <div class="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center hover:border-slate-300 transition-colors" id="uploadZone">
+          <input type="file" accept=".zip" class="hidden" id="gameFile">
+          <label for="gameFile" class="cursor-pointer block">
+            <svg class="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <div class="text-sm text-slate-600">Chọn file ZIP</div>
+            <div class="text-xs text-slate-400 mt-1">Hoặc kéo thả vào đây</div>
+          </label>
+        </div>
 
-    <!-- Collapsible Help (optional) -->
-    <details class="mt-6 group">
-      <summary class="text-xs font-bold text-slate-400 cursor-pointer hover:text-slate-600 flex items-center gap-1">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        Hướng dẫn
-        <svg class="w-3 h-3 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
-      </summary>
-      <div class="mt-3 p-3 bg-slate-50 rounded-lg text-xs text-slate-600 space-y-2">
-        <p>Kiểm tra build trước khi upload:</p>
-        <code class="block bg-slate-800 text-emerald-400 p-2 rounded text-[11px]">pnpm iruka-game:validate ./dist</code>
+        <!-- Upload Progress -->
+        <div class="hidden" id="uploadProgress">
+          <div class="bg-slate-100 rounded-full h-2 mb-2">
+            <div class="bg-blue-500 h-2 rounded-full transition-all duration-300" id="progressBar" style="width: 0%"></div>
+          </div>
+          <div class="text-xs text-slate-600 text-center" id="progressText">Đang tải lên...</div>
+        </div>
+
+        <!-- Status Summary (Compact) -->
+        <div class="bg-slate-50 rounded-lg p-3" id="uploadStatus" style="display: none;">
+          <div class="text-xs font-medium text-slate-700 mb-2">Trạng thái:</div>
+          <div class="flex flex-wrap gap-2 text-xs" id="statusItems">
+            <span class="inline-flex items-center gap-1 text-green-600">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+              </svg>
+              Build hợp lệ
+            </span>
+            <span class="text-slate-400">·</span>
+            <span class="inline-flex items-center gap-1 text-green-600">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+              </svg>
+              Manifest
+            </span>
+            <span class="text-slate-400">·</span>
+            <span class="inline-flex items-center gap-1 text-green-600">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+              </svg>
+              Thumbnail
+            </span>
+            <span class="text-slate-400">·</span>
+            <span class="text-slate-600" id="fileSize">0 KB</span>
+          </div>
+          
+          <!-- File Info -->
+          <div class="mt-2 pt-2 border-t border-slate-200">
+            <div class="text-xs text-slate-600" id="fileName">Chưa có file</div>
+          </div>
+        </div>
       </div>
-    </details>
+
+      <!-- Column 2: Manifest (Progressive) -->
+      <div class="space-y-4" id="manifestSection" style="display: none;">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-slate-900">Manifest</h2>
+          <button class="text-xs text-slate-500 hover:text-slate-700" id="editManifestBtn">
+            Chỉnh sửa
+          </button>
+        </div>
+
+        <!-- Compact Form Fields -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Game ID</label>
+            <input type="text" id="gameIdInput" class="w-full h-9 px-3 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500" value="my-awesome-game">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Version</label>
+            <input type="text" id="versionInput" class="w-full h-9 px-3 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500" value="1.0.0">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Runtime</label>
+            <select id="runtimeSelect" class="w-full h-9 px-3 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <option value="HTML5">HTML5</option>
+              <option value="Unity WebGL">Unity WebGL</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Entry Point</label>
+            <input type="text" id="entryInput" class="w-full h-9 px-3 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500" value="index.html">
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 3: Preview & Publish -->
+      <div class="space-y-4" id="previewSection" style="display: none;">
+        <h2 class="text-sm font-semibold text-slate-900">Sẵn sàng đăng bản build</h2>
+        
+        <!-- Preview Summary -->
+        <div class="bg-white border border-slate-200 rounded-lg p-4">
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-600">Game ID:</span>
+              <span class="font-medium" id="previewGameId">my-awesome-game</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Version:</span>
+              <span class="font-medium" id="previewVersion">1.0.0</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Runtime:</span>
+              <span class="font-medium" id="previewRuntime">HTML5</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Entry:</span>
+              <span class="font-medium" id="previewEntry">index.html</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Size:</span>
+              <span class="font-medium" id="previewSize">0 KB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Publish Button -->
+        <button 
+          class="w-full h-10 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+          id="publishBtn"
+          disabled
+        >
+          Đăng bản Build
+        </button>
+
+        <!-- Quick Validation -->
+        <details class="group">
+          <summary class="text-xs text-slate-500 cursor-pointer hover:text-slate-700 flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Kiểm tra build
+            <svg class="w-3 h-3 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="mt-2 p-2 bg-slate-50 rounded text-xs text-slate-600">
+            <code class="block bg-slate-800 text-emerald-400 p-2 rounded">pnpm iruka-game:validate ./dist</code>
+          </div>
+        </details>
+      </div>
+    </div>
   </div>
 </Layout>
 
-<style is:inline>
-  :root { --iruka-blue: #2b9bf6; }
+<script>
+  // Game upload state
+  let uploadedFile = null;
+  let manifestData = {
+    gameId: 'my-awesome-game',
+    version: '1.0.0',
+    runtime: 'HTML5',
+    entryPoint: 'index.html'
+  };
+
+  // Utility functions
+  function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function updateFileInfo(file) {
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const previewSize = document.getElementById('previewSize');
+    
+    if (fileName) fileName.textContent = file.name;
+    if (fileSize) fileSize.textContent = formatFileSize(file.size);
+    if (previewSize) previewSize.textContent = formatFileSize(file.size);
+  }
+
+  function updatePreview() {
+    const previewGameId = document.getElementById('previewGameId');
+    const previewVersion = document.getElementById('previewVersion');
+    const previewRuntime = document.getElementById('previewRuntime');
+    const previewEntry = document.getElementById('previewEntry');
+
+    if (previewGameId) previewGameId.textContent = manifestData.gameId;
+    if (previewVersion) previewVersion.textContent = manifestData.version;
+    if (previewRuntime) previewRuntime.textContent = manifestData.runtime;
+    if (previewEntry) previewEntry.textContent = manifestData.entryPoint;
+  }
+
+  function showUploadStatus() {
+    const uploadStatus = document.getElementById('uploadStatus');
+    const manifestSection = document.getElementById('manifestSection');
+    const previewSection = document.getElementById('previewSection');
+    const publishBtn = document.getElementById('publishBtn');
+    
+    if (uploadStatus) uploadStatus.style.display = 'block';
+    if (manifestSection) manifestSection.style.display = 'block';
+    if (previewSection) previewSection.style.display = 'block';
+    if (publishBtn) publishBtn.disabled = false;
+  }
+
+  function simulateUpload(file) {
+    const progressDiv = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const uploadZone = document.getElementById('uploadZone');
+    
+    if (progressDiv) progressDiv.classList.remove('hidden');
+    if (uploadZone) uploadZone.style.display = 'none';
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 15;
+      if (progress > 100) progress = 100;
+      
+      if (progressBar) progressBar.style.width = progress + '%';
+      if (progressText) progressText.textContent = `Đang tải lên... ${Math.round(progress)}%`;
+      
+      if (progress >= 100) {
+        clearInterval(interval);
+        if (progressText) progressText.textContent = 'Hoàn thành!';
+        
+        setTimeout(() => {
+          updateFileInfo(file);
+          showUploadStatus();
+          updatePreview();
+          if (progressDiv) progressDiv.classList.add('hidden');
+          if (uploadZone) uploadZone.style.display = 'block';
+        }, 500);
+      }
+    }, 100);
+  }
+
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    // File upload handler
+    const gameFileInput = document.getElementById('gameFile');
+    if (gameFileInput) {
+      gameFileInput.addEventListener('change', function(e) {
+        if (e.target && e.target.files && e.target.files.length > 0) {
+          uploadedFile = e.target.files[0];
+          simulateUpload(uploadedFile);
+        }
+      });
+    }
+
+    // Drag and drop functionality
+    const uploadZone = document.getElementById('uploadZone');
+    if (uploadZone) {
+      uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('border-blue-500', 'bg-blue-50');
+      });
+
+      uploadZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('border-blue-500', 'bg-blue-50');
+      });
+
+      uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('border-blue-500', 'bg-blue-50');
+        
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+          const file = files[0];
+          if (file.name.endsWith('.zip')) {
+            uploadedFile = file;
+            simulateUpload(file);
+          } else {
+            alert('Vui lòng chọn file ZIP');
+          }
+        }
+      });
+    }
+
+    // Form input handlers
+    const gameIdInput = document.getElementById('gameIdInput');
+    const versionInput = document.getElementById('versionInput');
+    const runtimeSelect = document.getElementById('runtimeSelect');
+    const entryInput = document.getElementById('entryInput');
+
+    if (gameIdInput) {
+      gameIdInput.addEventListener('input', (e) => {
+        manifestData.gameId = e.target.value;
+        updatePreview();
+      });
+    }
+
+    if (versionInput) {
+      versionInput.addEventListener('input', (e) => {
+        manifestData.version = e.target.value;
+        updatePreview();
+      });
+    }
+
+    if (runtimeSelect) {
+      runtimeSelect.addEventListener('change', (e) => {
+        manifestData.runtime = e.target.value;
+        updatePreview();
+      });
+    }
+
+    if (entryInput) {
+      entryInput.addEventListener('input', (e) => {
+        manifestData.entryPoint = e.target.value;
+        updatePreview();
+      });
+    }
+
+    // Publish button handler
+    const publishBtn = document.getElementById('publishBtn');
+    if (publishBtn) {
+      publishBtn.addEventListener('click', () => {
+        if (uploadedFile && manifestData.gameId) {
+          console.log('Publishing game:', manifestData);
+          alert('Game đã được đăng thành công!');
+        }
+      });
+    }
+
+    // Edit manifest button
+    const editManifestBtn = document.getElementById('editManifestBtn');
+    if (editManifestBtn) {
+      editManifestBtn.addEventListener('click', () => {
+        console.log('Toggle manifest edit mode');
+      });
+    }
+  });
+</script>
+
+<style>
+  :root {
+    --iruka-blue: #2b9bf6;
+  }
 </style>

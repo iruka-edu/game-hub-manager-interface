@@ -4,6 +4,7 @@ import StatusChip from '../../../../components/StatusChip.astro';
 import WorkflowTimeline from '../../../../components/WorkflowTimeline.astro';
 import PerformanceMonitor from '../../../../components/PerformanceMonitor.astro';
 import DeviceInfo from '../../../../components/DeviceInfo.astro';
+import GameThumbnail from '../../../../components/GameThumbnail.astro';
 import type { User } from '../../../../models/User';
 import { GameRepository } from '../../../../models/Game';
 import { GameVersionRepository } from '../../../../models/GameVersion';
@@ -214,16 +215,14 @@ if (errorParam === 'cannot_edit') {
             </button>
           </div>
           <div class="aspect-video bg-slate-100 relative">
-            <div id="game-placeholder" class="w-full h-full flex items-center justify-center">
-              <div class="text-center">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-200 flex items-center justify-center">
-                  <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-                <p class="text-slate-500 text-sm">Nhấn "Tải Game để Test" để xem trước game</p>
-              </div>
+            <!-- Thumbnail Display -->
+            <div id="game-thumbnail" class="w-full h-full relative">
+              <GameThumbnail 
+                game={game} 
+                size="lg" 
+                showPlayButton={true}
+                onClick="document.getElementById('load-game-btn').click()"
+              />
             </div>
             <iframe 
               id="game-iframe"
@@ -236,49 +235,259 @@ if (errorParam === 'cannot_edit') {
 
         <!-- Details -->
         <div class="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 class="font-semibold text-slate-900 mb-4">Thông tin chi tiết</h3>
-          <dl class="grid grid-cols-2 gap-4">
-            <div>
-              <dt class="text-sm text-slate-500">Game ID</dt>
-              <dd class="font-medium text-slate-900">{game.gameId}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Tiêu đề</dt>
-              <dd class="font-medium text-slate-900">{game.title || '-'}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Trạng thái</dt>
-              <dd><StatusChip status={currentStatus} size="sm" /></dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Team</dt>
-              <dd class="font-medium text-slate-900">{game.teamId || '-'}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Môn học</dt>
-              <dd class="font-medium text-slate-900">{game.subject || '-'}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Lớp</dt>
-              <dd class="font-medium text-slate-900">{game.grade || '-'}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Unit</dt>
-              <dd class="font-medium text-slate-900">{game.unit || '-'}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Loại game</dt>
-              <dd class="font-medium text-slate-900">{game.gameType || '-'}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Ngày tạo</dt>
-              <dd class="font-medium text-slate-900">{game.createdAt.toLocaleDateString('vi-VN')}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-slate-500">Cập nhật lần cuối</dt>
-              <dd class="font-medium text-slate-900">{game.updatedAt.toLocaleDateString('vi-VN')}</dd>
-            </div>
-          </dl>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-900">Thông tin chi tiết</h3>
+            {canEdit && (
+              <button id="edit-info-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                Chỉnh sửa
+              </button>
+            )}
+          </div>
+          
+          <!-- View Mode -->
+          <div id="info-view-mode">
+            <dl class="grid grid-cols-2 gap-4">
+              <div>
+                <dt class="text-sm text-slate-500">Game ID</dt>
+                <dd class="font-medium text-slate-900">{game.gameId}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Tiêu đề</dt>
+                <dd class="font-medium text-slate-900">{game.title || '-'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Trạng thái</dt>
+                <dd><StatusChip status={currentStatus} size="sm" /></dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Team</dt>
+                <dd class="font-medium text-slate-900">{game.teamId || '-'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Môn học</dt>
+                <dd class="font-medium text-slate-900">{game.subject || '-'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Lớp</dt>
+                <dd class="font-medium text-slate-900">{game.grade || '-'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Unit</dt>
+                <dd class="font-medium text-slate-900">{game.unit || '-'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Loại game</dt>
+                <dd class="font-medium text-slate-900">{game.gameType || '-'}</dd>
+              </div>
+              <div class="col-span-2">
+                <dt class="text-sm text-slate-500">Mô tả</dt>
+                <dd class="font-medium text-slate-900">{game.description || '-'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Ngày tạo</dt>
+                <dd class="font-medium text-slate-900">{game.createdAt.toLocaleDateString('vi-VN')}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Cập nhật lần cuối</dt>
+                <dd class="font-medium text-slate-900">{game.updatedAt.toLocaleDateString('vi-VN')}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <!-- Edit Mode -->
+          <div id="info-edit-mode" class="hidden">
+            <form id="update-info-form" class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Tiêu đề</label>
+                  <input 
+                    type="text" 
+                    name="title" 
+                    value={game.title || ''}
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Team ID</label>
+                  <input 
+                    type="text" 
+                    name="teamId" 
+                    value={game.teamId || ''}
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Môn học</label>
+                  <select 
+                    name="subject"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Chọn môn học</option>
+                    <option value="math" selected={game.subject === 'math'}>Toán</option>
+                    <option value="vietnamese" selected={game.subject === 'vietnamese'}>Tiếng Việt</option>
+                    <option value="english" selected={game.subject === 'english'}>Tiếng Anh</option>
+                    <option value="science" selected={game.subject === 'science'}>Khoa học</option>
+                    <option value="history" selected={game.subject === 'history'}>Lịch sử</option>
+                    <option value="geography" selected={game.subject === 'geography'}>Địa lý</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Lớp</label>
+                  <select 
+                    name="grade"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Chọn lớp</option>
+                    {Array.from({length: 12}, (_, i) => i + 1).map(grade => (
+                      <option value={grade.toString()} selected={game.grade === grade.toString()}>
+                        Lớp {grade}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
+                  <input 
+                    type="text" 
+                    name="unit" 
+                    value={game.unit || ''}
+                    placeholder="Ví dụ: Unit 1, Chương 2..."
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Loại game</label>
+                  <select 
+                    name="gameType"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Chọn loại game</option>
+                    <option value="quiz" selected={game.gameType === 'quiz'}>Quiz</option>
+                    <option value="puzzle" selected={game.gameType === 'puzzle'}>Puzzle</option>
+                    <option value="simulation" selected={game.gameType === 'simulation'}>Simulation</option>
+                    <option value="adventure" selected={game.gameType === 'adventure'}>Adventure</option>
+                    <option value="educational" selected={game.gameType === 'educational'}>Educational</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Mô tả</label>
+                <textarea 
+                  name="description" 
+                  rows="3"
+                  placeholder="Mô tả ngắn về game..."
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >{game.description || ''}</textarea>
+              </div>
+
+              <!-- Thumbnail Upload -->
+              <div class="space-y-4">
+                <h4 class="text-sm font-medium text-slate-700">Thumbnail</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- Desktop Thumbnail -->
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">
+                      Desktop Thumbnail (308x211px)
+                    </label>
+                    <div class="border-2 border-dashed border-slate-300 rounded-lg p-4">
+                      {game.thumbnailDesktop ? (
+                        <div class="relative">
+                          <img 
+                            id="desktop-thumbnail-preview"
+                            src={game.thumbnailDesktop} 
+                            alt="Desktop thumbnail"
+                            class="w-full h-32 object-cover rounded-lg mb-2"
+                          />
+                          <button 
+                            type="button"
+                            onclick="document.getElementById('desktop-thumbnail-input').click()"
+                            class="w-full px-3 py-2 text-sm text-slate-600 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50"
+                          >
+                            Thay đổi
+                          </button>
+                        </div>
+                      ) : (
+                        <div class="text-center">
+                          <svg class="w-12 h-12 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                          </svg>
+                          <button 
+                            type="button"
+                            onclick="document.getElementById('desktop-thumbnail-input').click()"
+                            class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            Tải lên thumbnail desktop
+                          </button>
+                          <p class="text-xs text-slate-500 mt-1">PNG, JPG tối đa 2MB</p>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        id="desktop-thumbnail-input"
+                        name="thumbnailDesktop"
+                        accept="image/*"
+                        class="hidden"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Mobile Thumbnail -->
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">
+                      Mobile Thumbnail (343x170px)
+                    </label>
+                    <div class="border-2 border-dashed border-slate-300 rounded-lg p-4">
+                      {game.thumbnailMobile ? (
+                        <div class="relative">
+                          <img 
+                            id="mobile-thumbnail-preview"
+                            src={game.thumbnailMobile} 
+                            alt="Mobile thumbnail"
+                            class="w-full h-32 object-cover rounded-lg mb-2"
+                          />
+                          <button 
+                            type="button"
+                            onclick="document.getElementById('mobile-thumbnail-input').click()"
+                            class="w-full px-3 py-2 text-sm text-slate-600 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50"
+                          >
+                            Thay đổi
+                          </button>
+                        </div>
+                      ) : (
+                        <div class="text-center">
+                          <svg class="w-12 h-12 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                          </svg>
+                          <button 
+                            type="button"
+                            onclick="document.getElementById('mobile-thumbnail-input').click()"
+                            class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            Tải lên thumbnail mobile
+                          </button>
+                          <p class="text-xs text-slate-500 mt-1">PNG, JPG tối đa 2MB</p>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        id="mobile-thumbnail-input"
+                        name="thumbnailMobile"
+                        accept="image/*"
+                        class="hidden"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 pt-4 border-t border-slate-200">
+                <button type="submit" class="btn-primary">Lưu thay đổi</button>
+                <button type="button" id="cancel-edit-btn" class="btn-secondary">Hủy</button>
+              </div>
+            </form>
+          </div>
         </div>
 
         <!-- Self-QA Checklist -->
@@ -455,41 +664,40 @@ if (errorParam === 'cannot_edit') {
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center gap-3">
                 <span class={`px-3 py-1 rounded-full text-sm font-medium ${
-                  report.result === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  report.decision === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                 }`}>
-                  {report.result === 'pass' ? 'Đạt' : 'Không đạt'}
+                  {report.decision === 'pass' ? 'Đạt' : 'Không đạt'}
                 </span>
-                <span class="text-sm text-slate-500">Lần #{report.attemptNumber}</span>
-                {report.severity && (
-                  <span class={`text-xs px-2 py-0.5 rounded ${
-                    report.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                    report.severity === 'major' ? 'bg-orange-100 text-orange-700' :
-                    'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {report.severity === 'critical' ? 'Nghiêm trọng' : report.severity === 'major' ? 'Lớn' : 'Nhỏ'}
-                  </span>
-                )}
+                <span class="text-sm text-slate-500">QC Report #{idx + 1}</span>
               </div>
               <span class="text-sm text-slate-500">{report.createdAt.toLocaleString('vi-VN')}</span>
             </div>
-            <p class="text-sm text-slate-600 mb-4">QC: {report.reviewerEmail}</p>
+            <p class="text-sm text-slate-600 mb-4">QC ID: {report.qcUserId.toString()}</p>
             
-            {report.checklist && report.checklist.length > 0 && (
-              <div class="mb-4">
-                <h4 class="text-sm font-medium text-slate-700 mb-2">Checklist</h4>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {report.checklist.map(item => (
-                    <div class={`text-xs px-2 py-1 rounded ${
-                      item.status === 'ok' ? 'bg-green-50 text-green-700' :
-                      item.status === 'warning' ? 'bg-yellow-50 text-yellow-700' :
-                      'bg-red-50 text-red-700'
-                    }`}>
-                      {item.category}: {item.status === 'ok' ? 'OK' : item.status === 'warning' ? 'Cảnh báo' : 'Lỗi'}
-                    </div>
-                  ))}
+            {/* QA Test Results Summary */}
+            <div class="mb-4">
+              <h4 class="text-sm font-medium text-slate-700 mb-2">QA Test Results</h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div class={`text-xs px-2 py-1 rounded ${
+                  report.qa01.pass ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                }`}>
+                  QA-01: {report.qa01.pass ? 'PASS' : 'FAIL'}
+                </div>
+                <div class={`text-xs px-2 py-1 rounded ${
+                  report.qa02.pass ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                }`}>
+                  QA-02: {report.qa02.pass ? 'PASS' : 'FAIL'}
+                </div>
+                <div class="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700">
+                  QA-03: Manual
+                </div>
+                <div class={`text-xs px-2 py-1 rounded ${
+                  report.qa04.pass ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                }`}>
+                  QA-04: {report.qa04.pass ? 'PASS' : 'FAIL'}
                 </div>
               </div>
-            )}
+            </div>
             
             {report.note && (
               <div class="bg-slate-50 rounded-lg p-3">
@@ -528,10 +736,10 @@ if (errorParam === 'cannot_edit') {
   document.getElementById('load-game-btn')?.addEventListener('click', (e) => {
     const button = e.target as HTMLButtonElement;
     const gameUrl = button.dataset.gameUrl;
-    const placeholder = document.getElementById('game-placeholder');
+    const thumbnail = document.getElementById('game-thumbnail');
     const iframe = document.getElementById('game-iframe') as HTMLIFrameElement;
     
-    if (gameUrl && placeholder && iframe) {
+    if (gameUrl && thumbnail && iframe) {
       // Show loading state
       button.textContent = 'Đang tải...';
       button.disabled = true;
@@ -539,7 +747,7 @@ if (errorParam === 'cannot_edit') {
       // Set iframe src and show it
       iframe.src = gameUrl;
       iframe.onload = () => {
-        placeholder.classList.add('hidden');
+        thumbnail.classList.add('hidden');
         iframe.classList.remove('hidden');
         button.textContent = 'Tải lại Game';
         button.disabled = false;
@@ -549,6 +757,134 @@ if (errorParam === 'cannot_edit') {
         button.textContent = 'Lỗi - Thử lại';
         button.disabled = false;
       };
+    }
+  });
+
+  // Edit Info Toggle
+  const editInfoBtn = document.getElementById('edit-info-btn');
+  const cancelEditBtn = document.getElementById('cancel-edit-btn');
+  const viewMode = document.getElementById('info-view-mode');
+  const editMode = document.getElementById('info-edit-mode');
+
+  editInfoBtn?.addEventListener('click', () => {
+    viewMode?.classList.add('hidden');
+    editMode?.classList.remove('hidden');
+  });
+
+  cancelEditBtn?.addEventListener('click', () => {
+    editMode?.classList.add('hidden');
+    viewMode?.classList.remove('hidden');
+  });
+
+  // Thumbnail Upload Handlers
+  const desktopInput = document.getElementById('desktop-thumbnail-input') as HTMLInputElement;
+  const mobileInput = document.getElementById('mobile-thumbnail-input') as HTMLInputElement;
+
+  desktopInput?.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      // Validate file size (2MB limit)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Kích thước file phải nhỏ hơn 2MB');
+        desktopInput.value = '';
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Chỉ chấp nhận file hình ảnh (PNG, JPG, GIF)');
+        desktopInput.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const preview = document.getElementById('desktop-thumbnail-preview') as HTMLImageElement;
+        if (preview) {
+          preview.src = e.target?.result as string;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  mobileInput?.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      // Validate file size (2MB limit)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Kích thước file phải nhỏ hơn 2MB');
+        mobileInput.value = '';
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Chỉ chấp nhận file hình ảnh (PNG, JPG, GIF)');
+        mobileInput.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const preview = document.getElementById('mobile-thumbnail-preview') as HTMLImageElement;
+        if (preview) {
+          preview.src = e.target?.result as string;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Update Info Form
+  document.getElementById('update-info-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const gameId = window.location.pathname.split('/').pop();
+
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Đang lưu...';
+    submitBtn.disabled = true;
+
+    try {
+      const response = await fetch(`/api/games/${gameId}/update-info`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update main thumbnail display if new thumbnails were uploaded
+        if (data.game.thumbnailDesktop || data.game.thumbnailMobile) {
+          const mainThumbnail = document.querySelector('#game-thumbnail img') as HTMLImageElement;
+          if (mainThumbnail) {
+            const newThumbnail = data.game.thumbnailDesktop || data.game.thumbnailMobile;
+            mainThumbnail.src = newThumbnail;
+            mainThumbnail.style.display = 'block';
+            // Hide the fallback placeholder
+            const placeholder = mainThumbnail.nextElementSibling as HTMLElement;
+            if (placeholder) {
+              placeholder.style.display = 'none';
+            }
+          }
+        }
+
+        alert('Đã cập nhật thông tin game thành công!');
+        window.location.reload();
+      } else {
+        alert(data.error || 'Có lỗi xảy ra khi cập nhật thông tin');
+      }
+    } catch (error) {
+      console.error('Update failed:', error);
+      alert('Có lỗi mạng hoặc lỗi server xảy ra');
+    } finally {
+      // Reset button state
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
     }
   });
 
