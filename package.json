@@ -17,8 +17,9 @@
     "validate:manifest": "ajv -s schema/manifest.schema.json -d \"games-dist/games/**/manifest.json\" --spec=draft7 --errors=text",
     "iruka-game:validate": "node scripts/validate-game.js",
     "seed:users": "tsx scripts/seed-users.ts",
+    "hard-delete-games": "tsx scripts/hard-delete-all-games.ts",
     "deploy:storage": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-storage.ps1",
-    "setup": "pnpm dlx dotenv-cli -- pnpm add @iruka-edu/game-core"
+    "setup": "pnpm dlx dotenv-cli -- pnpm add @iruka-edu/game-core@latest"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.6",

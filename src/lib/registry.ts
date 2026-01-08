@@ -1,16 +1,7 @@
 import { getFileContent, saveFileContent, CDN_BASE } from './gcs';
+import type { GameManifest } from '@iruka-edu/game-core';
 
 const REGISTRY_PATH = 'registry/index.json';
-
-export interface GameManifest {
-  id: string;
-  version: string;
-  title?: string;
-  runtime?: string;
-  capabilities?: string[];
-  minHubVersion?: string;
-  [key: string]: unknown;
-}
 
 // Thông tin chi tiết của mỗi version
 export interface VersionInfo {
@@ -218,5 +209,16 @@ export const RegistryManager = {
     registry.generatedAt = new Date().toISOString();
     await saveFileContent(REGISTRY_PATH, registry);
     return true;
+  },
+
+  /**
+   * Clear the entire registry (delete all games)
+   */
+  async clearRegistry(): Promise<void> {
+    const emptyRegistry: Registry = {
+      games: [],
+      generatedAt: new Date().toISOString()
+    };
+    await saveFileContent(REGISTRY_PATH, emptyRegistry);
   },
 };
