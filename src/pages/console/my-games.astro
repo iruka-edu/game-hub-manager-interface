@@ -6,6 +6,7 @@ import DeleteGameModal from '../../components/DeleteGameModal.astro';
 import GameTable from '../../components/GameTable.astro';
 import GameFilters from '../../components/GameFilters.astro';
 import BulkActions from '../../components/BulkActions.astro';
+import GCSManagement from '../../components/GCSManagement.astro';
 import SubmitQCModal from '../../components/modals/SubmitQCModal.astro';
 import UpdateCodeModal from '../../components/modals/UpdateCodeModal.astro';
 import type { User } from '../../models/User';
@@ -88,6 +89,9 @@ const breadcrumbItems = [
 
 // Check if bulk actions should be enabled (only for dev/admin)
 const enableBulkActions = hasRole('dev') || hasRole('admin');
+
+// Get current tab from URL
+const currentTab = url.searchParams.get('tab') || 'games';
 ---
 
 <ConsoleLayout title="Game của tôi" user={user} activeMenu="my-games">
@@ -109,33 +113,75 @@ const enableBulkActions = hasRole('dev') || hasRole('admin');
       </a>
     </div>
 
-    <!-- Filter Tabs -->
-    <GameFilters 
-      statusFilter={statusFilter}
-      groupedGames={groupedGames}
-      filteredGames={filteredGames}
-    />
+    <!-- Tab Navigation -->
+    <div class="flex items-center gap-1 mb-6 border-b border-slate-200">
+      <a 
+        href="/console/my-games?tab=games" 
+        class={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+          currentTab === 'games' 
+            ? 'border-indigo-600 text-indigo-600' 
+            : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+        }`}
+      >
+        <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+        </svg>
+        Danh sách game
+      </a>
+      {hasRole('admin') && (
+        <a 
+          href="/console/my-games?tab=gcs" 
+          class={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            currentTab === 'gcs' 
+              ? 'border-indigo-600 text-indigo-600' 
+              : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+          }`}
+        >
+          <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+          </svg>
+          Quản lý GCS
+        </a>
+      )}
+    </div>
 
-    <!-- Games List -->
-    {filteredGames.length > 0 ? (
-      <GameTable 
-        games={filteredGames}
-        showBulkActions={enableBulkActions}
-      />
-    ) : (
-      <EmptyState 
-        title={statusFilter ? `Không có game nào ở trạng thái "${statusLabels[statusFilter]}"` : 'Bạn chưa có game nào'}
-        description={statusFilter ? 'Thử chọn bộ lọc khác hoặc tạo game mới' : 'Bắt đầu bằng cách tạo game đầu tiên của bạn'}
-        icon="games"
-        actionText={statusFilter ? undefined : "Tạo game đầu tiên"}
-        actionHref={statusFilter ? undefined : "/upload"}
-        secondaryActionText={statusFilter ? "Xóa bộ lọc" : undefined}
-        secondaryActionHref={statusFilter ? "/console/my-games" : undefined}
-      />
+    <!-- Games Tab Content -->
+    {currentTab === 'games' && (
+      <>
+        <!-- Filter Tabs -->
+        <GameFilters 
+          statusFilter={statusFilter}
+          groupedGames={groupedGames}
+          filteredGames={filteredGames}
+        />
+
+        <!-- Games List -->
+        {filteredGames.length > 0 ? (
+          <GameTable 
+            games={filteredGames}
+            showBulkActions={enableBulkActions}
+          />
+        ) : (
+          <EmptyState 
+            title={statusFilter ? `Không có game nào ở trạng thái "${statusLabels[statusFilter]}"` : 'Bạn chưa có game nào'}
+            description={statusFilter ? 'Thử chọn bộ lọc khác hoặc tạo game mới' : 'Bắt đầu bằng cách tạo game đầu tiên của bạn'}
+            icon="games"
+            actionText={statusFilter ? undefined : "Tạo game đầu tiên"}
+            actionHref={statusFilter ? undefined : "/upload"}
+            secondaryActionText={statusFilter ? "Xóa bộ lọc" : undefined}
+            secondaryActionHref={statusFilter ? "/console/my-games" : undefined}
+          />
+        )}
+
+        <!-- Bulk Actions -->
+        {enableBulkActions && <BulkActions />}
+      </>
     )}
 
-    <!-- Bulk Actions -->
-    {enableBulkActions && <BulkActions />}
+    <!-- GCS Management Tab Content -->
+    {currentTab === 'gcs' && (
+      <GCSManagement userRoles={user.roles || []} />
+    )}
   </div>
 
   <!-- Modals -->
@@ -181,10 +227,19 @@ const enableBulkActions = hasRole('dev') || hasRole('admin');
 <script>
   import { GameTableHandlers } from '../../scripts/gameTableHandlers';
   import { ModalHandlers } from '../../scripts/modalHandlers';
+  import { GCSManagement } from '../../scripts/gcsManagement';
 
   // Initialize handlers when DOM is loaded
   document.addEventListener('DOMContentLoaded', () => {
     new GameTableHandlers();
     new ModalHandlers();
+    
+    // Initialize GCS management if on GCS tab
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab') || 'games';
+    
+    if (currentTab === 'gcs') {
+      new GCSManagement();
+    }
   });
 </script>

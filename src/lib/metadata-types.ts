@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import type { GameType, Subject, Grade, DifficultyLevel } from '@iruka-edu/game-core';
 
 /**
  * Extensible Game Metadata Interface
@@ -10,13 +11,13 @@ import { ObjectId } from "mongodb";
 export interface GameMetadata {
   // === Classification Fields ===
   /** Type of game mechanics (quiz, puzzle, simulation, arcade, etc.) */
-  gameType?: 'quiz' | 'puzzle' | 'simulation' | 'arcade' | string;
+  gameType?: GameType | string;
   
   /** Academic subject area (Math, English, Science, etc.) */
-  subject?: string;
+  subject?: Subject | string;
   
   /** Grade level (Grade 1, Grade 2, etc.) */
-  grade?: string;
+  grade?: Grade | string;
   
   /** Textbook or curriculum reference (Canh Dieu, Ket Noi Tri Thuc, etc.) */
   textbook?: string;
@@ -39,7 +40,7 @@ export interface GameMetadata {
 
   // === Configuration Fields ===
   /** Available difficulty levels (e.g., ["easy", "medium", "hard"]) */
-  difficulty_levels?: string[];
+  difficulty_levels?: DifficultyLevel[] | string[];
   
   /** URL or path to game thumbnail image */
   thumbnailUrl?: string;
@@ -357,7 +358,7 @@ export const DEFAULT_METADATA_CONFIG: MetadataFieldConfig[] = [
     label: 'Game Type',
     type: 'select',
     required: true,
-    options: ['quiz', 'puzzle', 'simulation', 'arcade'],
+    options: ['quiz', 'drag_drop', 'trace', 'classify', 'memory', 'custom'],
     helpText: 'Select the primary game mechanics type',
     status: 'active'
   },
@@ -366,7 +367,7 @@ export const DEFAULT_METADATA_CONFIG: MetadataFieldConfig[] = [
     label: 'Subject',
     type: 'select',
     required: true,
-    options: ['Math', 'English', 'Science', 'History', 'Geography', 'Literature'],
+    options: ['math', 'vietnamese', 'english', 'logic', 'science', 'art', 'music', 'pe'],
     helpText: 'Academic subject area',
     status: 'active'
   },
@@ -375,7 +376,7 @@ export const DEFAULT_METADATA_CONFIG: MetadataFieldConfig[] = [
     label: 'Grade Level',
     type: 'select',
     required: true,
-    options: ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'],
+    options: ['pre-k', 'k', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
     helpText: 'Target grade level for this game',
     status: 'active'
   },

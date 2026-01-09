@@ -1,4 +1,5 @@
-import type { GameManifest } from './registry';
+import type { GameManifest } from '@iruka-edu/game-core';
+import { validateManifest as validateManifestCore } from '@iruka-edu/game-core';
 import { enhancedValidator } from './enhanced-validator';
 
 export interface ValidationResult {
@@ -52,6 +53,28 @@ export const validateManifest = (content: string): ValidationResult => {
     suggestions: result.suggestions,
     manifest: result.manifest as GameManifest,
   };
+};
+
+/**
+ * Core manifest validation using @iruka-edu/game-core library
+ */
+export const validateManifestWithCore = (content: string): ValidationResult => {
+  try {
+    const manifest = JSON.parse(content) as GameManifest;
+    const coreResult = validateManifestCore(manifest);
+    
+    return {
+      valid: coreResult.issues.length === 0,
+      errors: coreResult.issues.filter(issue => issue.severity === 'error').map(issue => issue.message),
+      warnings: coreResult.issues.filter(issue => issue.severity === 'warning').map(issue => issue.message),
+      manifest: coreResult.issues.length === 0 ? manifest : undefined,
+    };
+  } catch (e) {
+    return {
+      valid: false,
+      errors: ['JSON không hợp lệ trong manifest.json'],
+    };
+  }
 };
 
 /**
