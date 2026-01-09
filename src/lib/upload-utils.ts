@@ -1,226 +1,233 @@
 /**
- * Upload Utility Functions
- * Focused on live validation and clear feedback
+ * Upload utilities for game file processing
  */
 
-import type { FileItem, ManifestData, LiveCheckItem, ValidationMessage } from '../types/upload-types';
-import { UPLOAD_CONFIG } from '../types/upload-types';
+import JSZip from 'jszip';
+
+export interface GameFileValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  files: string[];
+  hasIndex: boolean;
+  hasManifest: boolean;
+  manifestData?: any;
+}
+
+export interface UploadProgress {
+  stage: 'validating' | 'extracting' | 'uploading' | 'updating' | 'complete';
+  progress: number;
+  message: string;
+  error?: string;
+}
 
 /**
- * Format file size to human readable
+ * Validate game ZIP file structure
+ */
+export async function validateGameZip(file: File): Promise<GameFileValidation> {
+  const result: GameFileValidation = {
+    valid: false,
+    errors: [],
+    warnings: [],
+    files: [],
+    hasIndex: false,
+    hasManifest: false,
+  };
+
+  try {
+    const zip = new JSZip();
+    const zipContent = await zip.loadAsync(file);
+    
+    // Get all files in the ZIP
+    const files = Object.keys(zipContent.files);
+    result.files = files;
+
+    // Check for required files
+    const hasIndex = files.some(f => 
+      f.toLowerCase() === 'index.html' || 
+      f.toLowerCase().endsWith('/index.html')
+    );
+    
+    const manifestFile = files.find(f => 
+      f.toLowerCase() === 'manifest.json' || 
+      f.toLowerCase().endsWith('/manifest.json')
+    );
+
+    result.hasIndex = hasIndex;
+    result.hasManifest = !!manifestFile;
+
+    // Validate required files
+    if (!hasIndex) {
+      result.errors.push('Thiếu file index.html - đây là điểm vào bắt buộc của game');
+    }
+
+    if (!manifestFile) {
+      result.errors.push('Thiếu file manifest.json - file này chứa thông tin metadata của game');
+    }
+
+    // Validate manifest if exists
+    if (manifestFile) {
+      try {
+        const manifestContent = await zipContent.files[manifestFile].async('string');
+        const manifest = JSON.parse(manifestContent);
+        result.manifestData = manifest;
+
+        // Basic manifest validation
+        if (!manifest.id) {
+          result.errors.push('Manifest thiếu trường bắt buộc: id');
+        }
+        if (!manifest.version) {
+          result.errors.push('Manifest thiếu trường bắt buộc: version');
+        }
+        if (!manifest.title) {
+          result.warnings.push('Manifest nên có trường title');
+        }
+      } catch (error) {
+        result.errors.push('Manifest.json không hợp lệ: ' + error.message);
+      }
+    }
+
+    // Check file size limits
+    const maxFileSize = 10 * 1024 * 1024; // 10MB per file
+    for (const fileName of files) {
+      const fileObj = zipContent.files[fileName];
+      if (!fileObj.dir && fileObj._data && fileObj._data.uncompressedSize > maxFileSize) {
+        result.warnings.push(`File ${fileName} lớn hơn 10MB`);
+      }
+    }
+
+    // Check for common issues
+    const hasNodeModules = files.some(f => f.includes('node_modules/'));
+    if (hasNodeModules) {
+      result.warnings.push('ZIP chứa thư mục node_modules - nên loại bỏ để giảm kích thước');
+    }
+
+    const hasGitFolder = files.some(f => f.includes('.git/'));
+    if (hasGitFolder) {
+      result.warnings.push('ZIP chứa thư mục .git - nên loại bỏ để giảm kích thước');
+    }
+
+    result.valid = result.errors.length === 0;
+    return result;
+
+  } catch (error) {
+    result.errors.push('Không thể đọc file ZIP: ' + error.message);
+    return result;
+  }
+}
+
+/**
+ * Extract specific files from ZIP
+ */
+export async function extractFilesFromZip(
+  file: File, 
+  filePaths: string[]
+): Promise<Record<string, string>> {
+  const zip = new JSZip();
+  const zipContent = await zip.loadAsync(file);
+  
+  const extracted: Record<string, string> = {};
+  
+  for (const filePath of filePaths) {
+    const fileObj = zipContent.files[filePath];
+    if (fileObj && !fileObj.dir) {
+      extracted[filePath] = await fileObj.async('string');
+    }
+  }
+  
+  return extracted;
+}
+
+/**
+ * Generate upload progress updates
+ */
+export function createProgressTracker(
+  onProgress: (progress: UploadProgress) => void
+) {
+  return {
+    setStage(stage: UploadProgress['stage'], progress: number, message: string) {
+      onProgress({ stage, progress, message });
+    },
+    
+    setError(error: string) {
+      onProgress({ 
+        stage: 'complete', 
+        progress: 0, 
+        message: 'Upload failed', 
+        error 
+      });
+    },
+    
+    setComplete() {
+      onProgress({ 
+        stage: 'complete', 
+        progress: 100, 
+        message: 'Upload completed successfully' 
+      });
+    }
+  };
+}
+
+/**
+ * Format file size for display
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 /**
- * Calculate total size
+ * Validate game ID format
  */
-export function calculateTotalSize(files: FileItem[]): number {
-  return files.reduce((acc, f) => acc + f.size, 0);
-}
-
-/**
- * Check if file has index.html
- */
-export function hasIndexFile(files: FileItem[]): boolean {
-  return files.some(f => f.path.endsWith('index.html'));
-}
-
-/**
- * Find manifest file
- */
-export function findManifestFile(files: FileItem[]): FileItem | undefined {
-  return files.find(f => f.path.endsWith('manifest.json'));
-}
-
-/**
- * Parse manifest safely
- */
-export async function parseManifestFile(file: File): Promise<ManifestData | null> {
-  try {
-    const text = await file.text();
-    return JSON.parse(text) as ManifestData;
-  } catch {
-    return null;
+export function validateGameId(gameId: string): { valid: boolean; error?: string } {
+  if (!gameId) {
+    return { valid: false, error: 'Game ID is required' };
   }
-}
-
-/**
- * Generate live checks based on current state
- * Only 2 required conditions: 1) Files uploaded, 2) Manifest info complete
- */
-export function generateLiveChecks(
-  files: FileItem[],
-  manifest: ManifestData | null,
-  hasDesktopThumb: boolean,
-  hasMobileThumb: boolean,
-  isZipMode: boolean
-): LiveCheckItem[] {
-  const checks: LiveCheckItem[] = [];
-  const totalSize = calculateTotalSize(files);
-
-  // 1. Files uploaded check (REQUIRED)
-  checks.push({
-    id: 'files',
-    label: 'Files đã upload',
-    status: files.length > 0 ? 'success' : 'error',
-    message: files.length > 0 ? `${files.length} file(s)` : 'Chưa chọn file',
-    action: files.length > 0 ? undefined : 'Upload file ZIP, thư mục hoặc files'
-  });
-
-  // 2. Manifest info complete check (REQUIRED)
-  const manifestComplete = manifest && 
-    manifest.id && 
-    manifest.version && 
-    manifest.title && 
-    manifest.runtime && 
-    manifest.entryUrl;
   
-  checks.push({
-    id: 'manifest',
-    label: 'Thông tin manifest',
-    status: manifestComplete ? 'success' : 'error',
-    message: manifestComplete ? 'Đầy đủ' : 'Thiếu thông tin',
-    action: manifestComplete ? undefined : 'Điền đầy đủ Game ID, Version, Tên, Runtime, Entry URL'
-  });
-
-  // 3. Size check (WARNING only)
-  if (totalSize > 0) {
-    const isOverLimit = totalSize >= UPLOAD_CONFIG.MAX_FILE_SIZE;
-    const isNearLimit = totalSize >= UPLOAD_CONFIG.RECOMMENDED_SIZE && !isOverLimit;
-    
-    checks.push({
-      id: 'size',
-      label: `Size: ${formatFileSize(totalSize)}`,
-      status: isOverLimit ? 'warning' : isNearLimit ? 'warning' : 'success',
-      message: isOverLimit ? 'Vượt 10MB' : isNearLimit ? 'Gần ngưỡng' : 'OK',
-      action: isOverLimit ? 'Khuyến nghị giảm dung lượng' : isNearLimit ? 'Khuyến nghị < 3MB để tải nhanh' : undefined
-    });
+  if (gameId.length < 3) {
+    return { valid: false, error: 'Game ID must be at least 3 characters' };
   }
-
-  // 4. index.html check (INFO only)
-  if (isZipMode) {
-    checks.push({
-      id: 'index',
-      label: 'index.html',
-      status: 'pending',
-      message: 'Kiểm tra sau upload'
-    });
-  } else {
-    const hasIndex = hasIndexFile(files);
-    checks.push({
-      id: 'index',
-      label: 'index.html',
-      status: hasIndex ? 'success' : 'warning',
-      message: hasIndex ? 'Có ở root' : 'Không tìm thấy',
-      action: hasIndex ? undefined : 'Đảm bảo có index.html ở thư mục gốc'
-    });
-  }
-
-  // 5. Thumbnail Desktop (OPTIONAL)
-  checks.push({
-    id: 'thumbDesktop',
-    label: `Thumbnail Desktop (${UPLOAD_CONFIG.THUMBNAIL_DESKTOP.width}×${UPLOAD_CONFIG.THUMBNAIL_DESKTOP.height})`,
-    status: hasDesktopThumb ? 'success' : 'warning',
-    message: hasDesktopThumb ? 'Đã có' : 'Chưa có',
-    action: hasDesktopThumb ? undefined : 'Upload ảnh để hiển thị đẹp hơn'
-  });
-
-  // 6. Thumbnail Mobile (OPTIONAL)
-  checks.push({
-    id: 'thumbMobile',
-    label: `Thumbnail Mobile (${UPLOAD_CONFIG.THUMBNAIL_MOBILE.width}×${UPLOAD_CONFIG.THUMBNAIL_MOBILE.height})`,
-    status: hasMobileThumb ? 'success' : 'warning',
-    message: hasMobileThumb ? 'Đã có' : 'Chưa có',
-    action: hasMobileThumb ? undefined : 'Upload ảnh để hiển thị đẹp hơn'
-  });
-
-  return checks;
-}
-
-/**
- * Generate validation message based on checks
- */
-export function generateValidationMessage(checks: LiveCheckItem[]): ValidationMessage | null {
-  const errors = checks.filter(c => c.status === 'error');
-  const warnings = checks.filter(c => c.status === 'warning');
-
-  if (errors.length > 0) {
-    const firstError = errors[0];
-    return {
-      type: 'error',
-      message: `${firstError.label}: ${firstError.message}`,
-      action: firstError.action
-    };
-  }
-
-  if (warnings.length > 0) {
-    return {
-      type: 'warning',
-      message: warnings.map(w => w.message).join(', '),
-      action: warnings[0].action
-    };
-  }
-
-  const allSuccess = checks.every(c => c.status === 'success');
-  if (allSuccess) {
-    return {
-      type: 'success',
-      message: 'Build hợp lệ',
-      action: 'Bạn có thể đăng bản build'
-    };
-  }
-
-  return null;
-}
-
-/**
- * Check if can submit - only requires files and complete manifest
- */
-export function canSubmitUpload(checks: LiveCheckItem[]): boolean {
-  const filesCheck = checks.find(c => c.id === 'files');
-  const manifestCheck = checks.find(c => c.id === 'manifest');
   
-  return filesCheck?.status === 'success' && manifestCheck?.status === 'success';
+  if (gameId.length > 50) {
+    return { valid: false, error: 'Game ID must be less than 50 characters' };
+  }
+  
+  if (!/^[a-z0-9.-]+$/.test(gameId)) {
+    return { 
+      valid: false, 
+      error: 'Game ID can only contain lowercase letters, numbers, dots, and hyphens' 
+    };
+  }
+  
+  if (gameId.startsWith('.') || gameId.endsWith('.')) {
+    return { valid: false, error: 'Game ID cannot start or end with a dot' };
+  }
+  
+  if (gameId.startsWith('-') || gameId.endsWith('-')) {
+    return { valid: false, error: 'Game ID cannot start or end with a hyphen' };
+  }
+  
+  return { valid: true };
 }
 
 /**
- * Build FormData for upload
+ * Validate version format (semantic versioning)
  */
-export function buildUploadFormData(
-  files: FileItem[],
-  manifest: ManifestData | null,
-  thumbnailDesktop: File | null,
-  thumbnailMobile: File | null,
-  isZipMode: boolean,
-  meta: any 
-): FormData {
-  const formData = new FormData();
-
-  if (manifest) {
-    formData.append('manifest', JSON.stringify(manifest));
+export function validateVersion(version: string): { valid: boolean; error?: string } {
+  if (!version) {
+    return { valid: false, error: 'Version is required' };
   }
-
-  formData.append('meta', JSON.stringify(meta ?? {}));
-
-  if (isZipMode && files.length > 0) {
-    formData.append('zipFile', files[0].file);
-  } else {
-    files.forEach(f => formData.append('files', f.file));
+  
+  const semverRegex = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
+  if (!semverRegex.test(version)) {
+    return { 
+      valid: false, 
+      error: 'Version must follow semantic versioning (e.g., 1.0.0)' 
+    };
   }
-
-  if (thumbnailDesktop) formData.append('thumbnailDesktop', thumbnailDesktop);
-  if (thumbnailMobile) formData.append('thumbnailMobile', thumbnailMobile);
-
-  return formData;
-}
-
-/**
- * Get upload endpoint
- */
-export function getUploadEndpoint(isZipMode: boolean): string {
-  return isZipMode ? '/api/upload-zip' : '/api/upload';
+  
+  return { valid: true };
 }

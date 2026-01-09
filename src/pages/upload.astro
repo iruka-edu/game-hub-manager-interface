@@ -6,6 +6,7 @@ import Layout from "../layouts/Layout.astro";
 import { getUserFromRequest } from "../lib/session";
 import type { User } from "../models/User";
 import UploadMetaForm from "../components/UploadMetaForm.astro";
+import GameUploadForm from "../components/GameUploadForm.astro";
 
 // Auth check
 const user = (await getUserFromRequest(Astro.request)) as User | null;
@@ -20,35 +21,31 @@ const sp = Astro.url.searchParams;
 const meta = {
   lop: sp.get("lop") ?? "",
   mon: sp.get("mon") ?? "",
-
   quyenSach: sp.get("quyenSach") ?? "",
   lesson: sp.get("lesson") ?? "",
-
-  game: sp.get("game") ?? "",
   level: sp.get("level") ?? "",
   skills: sp.getAll("skill").filter(Boolean),
   themes: sp.getAll("theme").filter(Boolean),
   github: sp.get("github") ?? "",
 };
 
-// Chỉ các key bạn muốn bắt buộc cho bước upload
-const metaReady = Boolean(meta.lop && meta.mon && meta.quyenSach && meta.lesson && meta.game && meta.level && meta.github)
+// Chỉ các key bạn muốn bắt buộc cho bước upload (bỏ game vì game được tạo sau khi upload zip)
+const metaReady = Boolean(meta.lop && meta.mon && meta.quyenSach && meta.lesson && meta.level && meta.github)
   && meta.skills.length > 0
   && meta.themes.length > 0;
 
-// Đây là phần “tổng hợp data cần thiết” để GameUploadForm dùng build payload
+// Đây là phần "tổng hợp data cần thiết" để GameUploadForm dùng build payload
 const gameMeta = {
   // Những cái API create game cần trực tiếp
   grade: meta.lop,
   subject: meta.mon,
   lesson: meta.lesson ? [meta.lesson] : [],
-  backendGameId: meta.game,
   level: meta.level,
   skills: meta.skills,
   themes: meta.themes,
   linkGithub: meta.github,
+  quyenSach: meta.quyenSach,
 };
-
 ---
 
 <Layout title="Tải Game Mới - Iruka Console">
@@ -73,12 +70,12 @@ const gameMeta = {
 
     {metaReady ? (
       <>
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4">
           <div class="flex items-center justify-between gap-4">
             <div class="text-xs font-bold text-slate-600">
               <span class="font-black text-slate-900">Metadata:</span>
               {" "}
-              {meta.lop} • {meta.mon} • {meta.quyenSach} • {meta.lesson} • {meta.game} • {meta.level} • {meta.skills} • {meta.themes}
+              {meta.lop} • {meta.mon} • {meta.quyenSach} • {meta.lesson} • {meta.level} • {meta.skills.join(", ")} • {meta.themes.join(", ")}
               {" "}
               • <span class="text-iruka-blue">{meta.github}</span>
             </div>
@@ -98,7 +95,6 @@ const gameMeta = {
           mons: [],
           quyensachs: [],
           lessons: [],
-          games: [],
           levels: [],
           skills: [],
           themes: [],
@@ -121,22 +117,59 @@ const gameMeta = {
         <p>Kiểm tra build trước khi upload:</p>
         <code class="block bg-slate-800 text-emerald-400 p-2 rounded text-[11px]">pnpm iruka-game:validate ./dist</code>
       </div>
-    </div>
+    </details>
   </div>
 </Layout>
 
 <script>
+  // Types for better TypeScript support
+  interface ManifestData {
+    gameId: string;
+    version: string;
+    runtime: string;
+    entryPoint: string;
+  }
+
+  interface GameMeta {
+    grade: string;
+    subject: string;
+    lesson: string[];
+    level: string;
+    skills: string[];
+    themes: string[];
+    linkGithub: string;
+    quyenSach: string;
+  }
+
   // Game upload state
-  let uploadedFile = null;
-  let manifestData = {
+  let uploadedFile: File | null = null;
+  let manifestData: ManifestData = {
     gameId: 'my-awesome-game',
     version: '1.0.0',
     runtime: 'HTML5',
     entryPoint: 'index.html'
   };
 
+  // Thumbnail state
+  interface ThumbnailData {
+    file: File | null;
+    dataUrl: string | null;
+    width: number;
+    height: number;
+    isValid: boolean;
+  }
+
+  const DESKTOP_SIZE = { width: 308, height: 211 };
+  const MOBILE_SIZE = { width: 343, height: 170 };
+
+  let desktopThumbnail: ThumbnailData = { file: null, dataUrl: null, width: 0, height: 0, isValid: false };
+  let mobileThumbnail: ThumbnailData = { file: null, dataUrl: null, width: 0, height: 0, isValid: false };
+
+  // Get metadata from server-side
+  const gameMeta: GameMeta = (window as any).gameMeta || {};
+
   // Utility functions
-  function formatFileSize(bytes) {
+  function formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -144,7 +177,7 @@ const gameMeta = {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
-  function updateFileInfo(file) {
+  function updateFileInfo(file: File): void {
     const fileName = document.getElementById('fileName');
     const fileSize = document.getElementById('fileSize');
     const previewSize = document.getElementById('previewSize');
@@ -154,7 +187,7 @@ const gameMeta = {
     if (previewSize) previewSize.textContent = formatFileSize(file.size);
   }
 
-  function updatePreview() {
+  function updatePreview(): void {
     const previewGameId = document.getElementById('previewGameId');
     const previewVersion = document.getElementById('previewVersion');
     const previewRuntime = document.getElementById('previewRuntime');
@@ -166,23 +199,25 @@ const gameMeta = {
     if (previewEntry) previewEntry.textContent = manifestData.entryPoint;
   }
 
-  function showUploadStatus() {
+  function showUploadStatus(): void {
     const uploadStatus = document.getElementById('uploadStatus');
     const manifestSection = document.getElementById('manifestSection');
+    const thumbnailSection = document.getElementById('thumbnailSection');
     const previewSection = document.getElementById('previewSection');
-    const publishBtn = document.getElementById('publishBtn');
+    const publishBtn = document.getElementById('publishBtn') as HTMLButtonElement;
     
     if (uploadStatus) uploadStatus.style.display = 'block';
     if (manifestSection) manifestSection.style.display = 'block';
+    if (thumbnailSection) thumbnailSection.classList.remove('hidden');
     if (previewSection) previewSection.style.display = 'block';
     if (publishBtn) publishBtn.disabled = false;
   }
 
-  function simulateUpload(file) {
+  function simulateUpload(file: File): void {
     const progressDiv = document.getElementById('uploadProgress');
-    const progressBar = document.getElementById('progressBar');
+    const progressBar = document.getElementById('progressBar') as HTMLElement;
     const progressText = document.getElementById('progressText');
-    const uploadZone = document.getElementById('uploadZone');
+    const uploadZone = document.getElementById('uploadZone') as HTMLElement;
     
     if (progressDiv) progressDiv.classList.remove('hidden');
     if (uploadZone) uploadZone.style.display = 'none';
@@ -210,14 +245,178 @@ const gameMeta = {
     }, 100);
   }
 
+  function showError(message: string, details?: string): void {
+    const errorDiv = document.getElementById('uploadError');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorDetails = document.getElementById('errorDetails');
+    
+    if (errorDiv && errorMessage) {
+      errorMessage.textContent = message;
+      if (errorDetails && details) {
+        errorDetails.textContent = details;
+        errorDetails.classList.remove('hidden');
+      }
+      errorDiv.classList.remove('hidden');
+    }
+  }
+
+  function hideError(): void {
+    const errorDiv = document.getElementById('uploadError');
+    if (errorDiv) {
+      errorDiv.classList.add('hidden');
+    }
+  }
+
+  async function uploadToGCS(file: File, manifest: ManifestData): Promise<boolean> {
+    hideError();
+    
+    try {
+      // Step 1: Create game record
+      const createResponse = await fetch('/api/games/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: manifest.gameId,
+          gameId: manifest.gameId,
+          subject: gameMeta.subject,
+          grade: gameMeta.grade,
+          gameType: 'html5',
+          description: `Game được tải lên từ ${gameMeta.linkGithub}`,
+        }),
+      });
+
+      const createData = await createResponse.json();
+      
+      if (!createResponse.ok) {
+        // Nếu game đã tồn tại, thử tìm game đó
+        if (createData.error?.includes('already exists') || createData.existingGame) {
+          console.log('Game đã tồn tại, sử dụng game hiện có');
+        } else {
+          showError('Lỗi tạo game', createData.error || createData.details || 'Không thể tạo bản ghi game');
+          return false;
+        }
+      }
+
+      // Lấy game ID (từ game mới tạo hoặc game đã tồn tại)
+      const gameId = createData.game?._id || createData.existingGame?._id;
+      
+      if (!gameId) {
+        showError('Lỗi', 'Không tìm thấy Game ID');
+        return false;
+      }
+
+      console.log('Game ID:', gameId);
+
+      // Step 2: Upload file to GCS
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('gameId', manifest.gameId);
+      formData.append('version', manifest.version);
+
+      const uploadResponse = await fetch('/api/games/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        showError('Lỗi tải file lên GCS', uploadData.error || uploadData.details || 'Không thể tải file lên storage');
+        return false;
+      }
+
+      console.log('Tải lên thành công:', uploadData);
+
+      // Step 3: Upload thumbnails if available
+      let thumbnailDesktopUrl = '';
+      let thumbnailMobileUrl = '';
+
+      if (desktopThumbnail.file) {
+        const thumbFormData = new FormData();
+        thumbFormData.append('file', desktopThumbnail.file);
+        thumbFormData.append('gameId', manifest.gameId);
+        thumbFormData.append('type', 'desktop');
+
+        const thumbResponse = await fetch('/api/games/upload-thumbnail', {
+          method: 'POST',
+          body: thumbFormData,
+        });
+
+        if (thumbResponse.ok) {
+          const thumbData = await thumbResponse.json();
+          thumbnailDesktopUrl = thumbData.url;
+          console.log('Desktop thumbnail uploaded:', thumbnailDesktopUrl);
+        } else {
+          console.warn('Không thể tải thumbnail desktop');
+        }
+      }
+
+      if (mobileThumbnail.file) {
+        const thumbFormData = new FormData();
+        thumbFormData.append('file', mobileThumbnail.file);
+        thumbFormData.append('gameId', manifest.gameId);
+        thumbFormData.append('type', 'mobile');
+
+        const thumbResponse = await fetch('/api/games/upload-thumbnail', {
+          method: 'POST',
+          body: thumbFormData,
+        });
+
+        if (thumbResponse.ok) {
+          const thumbData = await thumbResponse.json();
+          thumbnailMobileUrl = thumbData.url;
+          console.log('Mobile thumbnail uploaded:', thumbnailMobileUrl);
+        } else {
+          console.warn('Không thể tải thumbnail mobile');
+        }
+      }
+
+      // Step 4: Update game metadata (including thumbnails)
+      const updateResponse = await fetch(`/api/games/${gameId}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          thumbnailDesktop: thumbnailDesktopUrl || undefined,
+          thumbnailMobile: thumbnailMobileUrl || undefined,
+          metadata: {
+            runtime: manifest.runtime,
+            entryPoint: manifest.entryPoint,
+            skills: gameMeta.skills,
+            themes: gameMeta.themes,
+            level: gameMeta.level,
+            linkGithub: gameMeta.linkGithub,
+          },
+        }),
+      });
+
+      const updateData = await updateResponse.json();
+
+      if (!updateResponse.ok) {
+        showError('Lỗi cập nhật metadata', updateData.error || updateData.details || 'Không thể cập nhật thông tin game');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Lỗi tải lên:', error);
+      showError('Lỗi tải lên', (error as Error).message);
+      return false;
+    }
+  }
+
   // Event listeners
   document.addEventListener('DOMContentLoaded', () => {
     // File upload handler
-    const gameFileInput = document.getElementById('gameFile');
+    const gameFileInput = document.getElementById('gameFile') as HTMLInputElement;
     if (gameFileInput) {
       gameFileInput.addEventListener('change', function(e) {
-        if (e.target && e.target.files && e.target.files.length > 0) {
-          uploadedFile = e.target.files[0];
+        const target = e.target as HTMLInputElement;
+        if (target && target.files && target.files.length > 0) {
+          uploadedFile = target.files[0];
           simulateUpload(uploadedFile);
         }
       });
@@ -254,46 +453,75 @@ const gameMeta = {
     }
 
     // Form input handlers
-    const gameIdInput = document.getElementById('gameIdInput');
-    const versionInput = document.getElementById('versionInput');
-    const runtimeSelect = document.getElementById('runtimeSelect');
-    const entryInput = document.getElementById('entryInput');
+    const gameIdInput = document.getElementById('gameIdInput') as HTMLInputElement;
+    const versionInput = document.getElementById('versionInput') as HTMLInputElement;
+    const runtimeSelect = document.getElementById('runtimeSelect') as HTMLSelectElement;
+    const entryInput = document.getElementById('entryInput') as HTMLInputElement;
 
     if (gameIdInput) {
       gameIdInput.addEventListener('input', (e) => {
-        manifestData.gameId = e.target.value;
-        updatePreview();
+        const target = e.target as HTMLInputElement;
+        if (target) {
+          manifestData.gameId = target.value;
+          updatePreview();
+        }
       });
     }
 
     if (versionInput) {
       versionInput.addEventListener('input', (e) => {
-        manifestData.version = e.target.value;
-        updatePreview();
+        const target = e.target as HTMLInputElement;
+        if (target) {
+          manifestData.version = target.value;
+          updatePreview();
+        }
       });
     }
 
     if (runtimeSelect) {
       runtimeSelect.addEventListener('change', (e) => {
-        manifestData.runtime = e.target.value;
-        updatePreview();
+        const target = e.target as HTMLSelectElement;
+        if (target) {
+          manifestData.runtime = target.value;
+          updatePreview();
+        }
       });
     }
 
     if (entryInput) {
       entryInput.addEventListener('input', (e) => {
-        manifestData.entryPoint = e.target.value;
-        updatePreview();
+        const target = e.target as HTMLInputElement;
+        if (target) {
+          manifestData.entryPoint = target.value;
+          updatePreview();
+        }
+      });
+    }
+
+    // Validate button handler
+    const validateBtn = document.getElementById('validateBtn');
+    if (validateBtn) {
+      validateBtn.addEventListener('click', async () => {
+        if (uploadedFile) {
+          console.log('Validating game:', manifestData);
+          // TODO: Implement validation logic
+          alert('Game validation completed!');
+        }
       });
     }
 
     // Publish button handler
     const publishBtn = document.getElementById('publishBtn');
     if (publishBtn) {
-      publishBtn.addEventListener('click', () => {
+      publishBtn.addEventListener('click', async () => {
         if (uploadedFile && manifestData.gameId) {
           console.log('Publishing game:', manifestData);
-          alert('Game đã được đăng thành công!');
+          
+          const success = await uploadToGCS(uploadedFile, manifestData);
+          if (success) {
+            alert('Game đã được đăng thành công!');
+            window.location.href = '/dashboard';
+          }
         }
       });
     }
@@ -303,8 +531,140 @@ const gameMeta = {
     if (editManifestBtn) {
       editManifestBtn.addEventListener('click', () => {
         console.log('Toggle manifest edit mode');
+        // TODO: Implement edit mode toggle
       });
     }
+
+    // ========== THUMBNAIL HANDLING ==========
+    
+    function validateThumbnailSize(width: number, height: number, expectedWidth: number, expectedHeight: number): boolean {
+      return width === expectedWidth && height === expectedHeight;
+    }
+
+    function updateThumbnailStatus(type: 'desktop' | 'mobile', width: number, height: number, isValid: boolean): void {
+      const statusDiv = document.getElementById(`${type}Status`);
+      const validDiv = document.getElementById(`${type}Valid`);
+      const invalidDiv = document.getElementById(`${type}Invalid`);
+      const validText = document.getElementById(`${type}ValidText`);
+      const invalidText = document.getElementById(`${type}InvalidText`);
+      const warningDiv = document.getElementById('thumbnailWarning');
+
+      if (statusDiv) statusDiv.classList.remove('hidden');
+
+      if (isValid) {
+        if (validDiv) validDiv.classList.remove('hidden');
+        if (invalidDiv) invalidDiv.classList.add('hidden');
+        if (validText) validText.textContent = `Kích thước hợp lệ (${width}×${height})`;
+      } else {
+        if (validDiv) validDiv.classList.add('hidden');
+        if (invalidDiv) invalidDiv.classList.remove('hidden');
+        const expected = type === 'desktop' ? DESKTOP_SIZE : MOBILE_SIZE;
+        if (invalidText) invalidText.textContent = `Kích thước ${width}×${height} (cần ${expected.width}×${expected.height})`;
+      }
+
+      // Show warning if any thumbnail is invalid
+      const hasInvalid = !desktopThumbnail.isValid || !mobileThumbnail.isValid;
+      const hasAnyThumbnail = desktopThumbnail.file || mobileThumbnail.file;
+      if (warningDiv && hasAnyThumbnail && hasInvalid) {
+        warningDiv.classList.remove('hidden');
+      } else if (warningDiv) {
+        warningDiv.classList.add('hidden');
+      }
+    }
+
+    function handleThumbnailFile(file: File, type: 'desktop' | 'mobile'): void {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+          const expectedSize = type === 'desktop' ? DESKTOP_SIZE : MOBILE_SIZE;
+          const isValid = validateThumbnailSize(img.width, img.height, expectedSize.width, expectedSize.height);
+
+          // Update state
+          const thumbnailData: ThumbnailData = {
+            file,
+            dataUrl,
+            width: img.width,
+            height: img.height,
+            isValid
+          };
+
+          if (type === 'desktop') {
+            desktopThumbnail = thumbnailData;
+          } else {
+            mobileThumbnail = thumbnailData;
+          }
+
+          // Update UI
+          const preview = document.getElementById(`${type}Preview`) as HTMLImageElement;
+          const placeholder = document.getElementById(`${type}Placeholder`);
+          const dropZone = document.getElementById(`${type}DropZone`);
+
+          if (preview) {
+            preview.src = dataUrl;
+            preview.classList.remove('hidden');
+          }
+          if (placeholder) placeholder.classList.add('hidden');
+          if (dropZone) {
+            dropZone.classList.remove('border-slate-300');
+            dropZone.classList.add(isValid ? 'border-green-400' : 'border-red-400');
+          }
+
+          updateThumbnailStatus(type, img.width, img.height, isValid);
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function setupThumbnailUpload(type: 'desktop' | 'mobile'): void {
+      const dropZone = document.getElementById(`${type}DropZone`);
+      const fileInput = document.getElementById(`${type}File`) as HTMLInputElement;
+
+      if (!dropZone || !fileInput) return;
+
+      // Click to upload
+      dropZone.addEventListener('click', () => fileInput.click());
+
+      // File input change
+      fileInput.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        if (target.files && target.files[0]) {
+          handleThumbnailFile(target.files[0], type);
+        }
+      });
+
+      // Drag and drop
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500', 'bg-blue-50');
+      });
+
+      dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        
+        const files = e.dataTransfer?.files;
+        if (files && files[0]) {
+          const file = files[0];
+          if (file.type.startsWith('image/')) {
+            handleThumbnailFile(file, type);
+          } else {
+            alert('Vui lòng chọn file ảnh (PNG, JPG, WebP)');
+          }
+        }
+      });
+    }
+
+    // Initialize thumbnail uploads
+    setupThumbnailUpload('desktop');
+    setupThumbnailUpload('mobile');
   });
 </script>
 

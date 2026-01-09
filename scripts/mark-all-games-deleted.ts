@@ -19,4 +19,4 @@ config();
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/gamedev';
 const DRY_RUN = process.argv.includes('--dry-run');
-const CONFIRM = process.argv.includes('-
+const CONFIRM = process.argv.includes('--confirm');

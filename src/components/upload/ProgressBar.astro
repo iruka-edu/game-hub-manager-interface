@@ -1,0 +1,241 @@
+---
+/**
+ * Progress Bar Component - Shows upload progress with stages
+ */
+export interface Props {
+  id?: string;
+  progress?: number;
+  stage?: string;
+  message?: string;
+  error?: string;
+  className?: string;
+}
+
+const { 
+  id = 'progressBar',
+  progress = 0,
+  stage = 'idle',
+  message = '',
+  error = '',
+  className = ''
+} = Astro.props;
+---
+
+<div 
+  id={id}
+  class={`progress-bar ${className}`}
+  data-stage={stage}
+>
+  <!-- Progress Track -->
+  <div class="progress-bar__track">
+    <div 
+      class="progress-bar__fill"
+      style={`width: ${progress}%`}
+    ></div>
+  </div>
+
+  <!-- Stage Indicators -->
+  <div class="progress-bar__stages">
+    <div class="stage" data-stage="validating">
+      <div class="stage__icon">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <span class="stage__label">Kiểm tra</span>
+    </div>
+
+    <div class="stage" data-stage="uploading">
+      <div class="stage__icon">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+      </div>
+      <span class="stage__label">Tải lên</span>
+    </div>
+
+    <div class="stage" data-stage="processing">
+      <div class="stage__icon">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </div>
+      <span class="stage__label">Xử lý</span>
+    </div>
+
+    <div class="stage" data-stage="updating">
+      <div class="stage__icon">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+        </svg>
+      </div>
+      <span class="stage__label">Cập nhật</span>
+    </div>
+
+    <div class="stage" data-stage="complete">
+      <div class="stage__icon">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <span class="stage__label">Hoàn thành</span>
+    </div>
+  </div>
+
+  <!-- Message -->
+  <div class="progress-bar__message">
+    {error ? (
+      <p class="text-red-600 text-sm font-medium">{error}</p>
+    ) : (
+      <p class="text-slate-600 text-sm">{message}</p>
+    )}
+  </div>
+</div>
+
+<style>
+  .progress-bar {
+    @apply space-y-4;
+  }
+
+  .progress-bar__track {
+    @apply w-full bg-slate-200 rounded-full h-2 overflow-hidden;
+  }
+
+  .progress-bar__fill {
+    @apply h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out;
+  }
+
+  .progress-bar[data-stage="error"] .progress-bar__fill {
+    @apply from-red-500 to-red-600;
+  }
+
+  .progress-bar[data-stage="complete"] .progress-bar__fill {
+    @apply from-green-500 to-green-600;
+  }
+
+  .progress-bar__stages {
+    @apply flex justify-between items-center;
+  }
+
+  .stage {
+    @apply flex flex-col items-center space-y-1 text-slate-400 transition-colors;
+  }
+
+  .stage__icon {
+    @apply w-8 h-8 rounded-full border-2 border-slate-300 flex items-center justify-center transition-all;
+  }
+
+  .stage__label {
+    @apply text-xs font-medium;
+  }
+
+  /* Active stage */
+  .progress-bar[data-stage="validating"] .stage[data-stage="validating"],
+  .progress-bar[data-stage="uploading"] .stage[data-stage="uploading"],
+  .progress-bar[data-stage="processing"] .stage[data-stage="processing"],
+  .progress-bar[data-stage="updating"] .stage[data-stage="updating"],
+  .progress-bar[data-stage="complete"] .stage[data-stage="complete"] {
+    @apply text-blue-600;
+  }
+
+  .progress-bar[data-stage="validating"] .stage[data-stage="validating"] .stage__icon,
+  .progress-bar[data-stage="uploading"] .stage[data-stage="uploading"] .stage__icon,
+  .progress-bar[data-stage="processing"] .stage[data-stage="processing"] .stage__icon,
+  .progress-bar[data-stage="updating"] .stage[data-stage="updating"] .stage__icon {
+    @apply border-blue-500 bg-blue-50;
+  }
+
+  .progress-bar[data-stage="complete"] .stage[data-stage="complete"] .stage__icon {
+    @apply border-green-500 bg-green-50 text-green-600;
+  }
+
+  /* Completed stages */
+  .progress-bar[data-stage="uploading"] .stage[data-stage="validating"],
+  .progress-bar[data-stage="processing"] .stage[data-stage="validating"],
+  .progress-bar[data-stage="processing"] .stage[data-stage="uploading"],
+  .progress-bar[data-stage="updating"] .stage[data-stage="validating"],
+  .progress-bar[data-stage="updating"] .stage[data-stage="uploading"],
+  .progress-bar[data-stage="updating"] .stage[data-stage="processing"],
+  .progress-bar[data-stage="complete"] .stage[data-stage="validating"],
+  .progress-bar[data-stage="complete"] .stage[data-stage="uploading"],
+  .progress-bar[data-stage="complete"] .stage[data-stage="processing"],
+  .progress-bar[data-stage="complete"] .stage[data-stage="updating"] {
+    @apply text-green-600;
+  }
+
+  .progress-bar[data-stage="uploading"] .stage[data-stage="validating"] .stage__icon,
+  .progress-bar[data-stage="processing"] .stage[data-stage="validating"] .stage__icon,
+  .progress-bar[data-stage="processing"] .stage[data-stage="uploading"] .stage__icon,
+  .progress-bar[data-stage="updating"] .stage[data-stage="validating"] .stage__icon,
+  .progress-bar[data-stage="updating"] .stage[data-stage="uploading"] .stage__icon,
+  .progress-bar[data-stage="updating"] .stage[data-stage="processing"] .stage__icon,
+  .progress-bar[data-stage="complete"] .stage[data-stage="validating"] .stage__icon,
+  .progress-bar[data-stage="complete"] .stage[data-stage="uploading"] .stage__icon,
+  .progress-bar[data-stage="complete"] .stage[data-stage="processing"] .stage__icon,
+  .progress-bar[data-stage="complete"] .stage[data-stage="updating"] .stage__icon {
+    @apply border-green-500 bg-green-50 text-green-600;
+  }
+
+  /* Error state */
+  .progress-bar[data-stage="error"] .stage {
+    @apply text-red-600;
+  }
+
+  .progress-bar[data-stage="error"] .stage__icon {
+    @apply border-red-500 bg-red-50;
+  }
+
+  .progress-bar__message {
+    @apply text-center;
+  }
+</style>
+
+<script>
+  class ProgressBar {
+    private element: HTMLElement;
+    private fill: HTMLElement;
+    private message: HTMLElement;
+
+    constructor(element: HTMLElement) {
+      this.element = element;
+      this.fill = element.querySelector('.progress-bar__fill')!;
+      this.message = element.querySelector('.progress-bar__message p')!;
+    }
+
+    public setProgress(progress: number): void {
+      this.fill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    }
+
+    public setStage(stage: string): void {
+      this.element.dataset.stage = stage;
+    }
+
+    public setMessage(message: string, isError: boolean = false): void {
+      this.message.textContent = message;
+      this.message.className = isError 
+        ? 'text-red-600 text-sm font-medium'
+        : 'text-slate-600 text-sm';
+    }
+
+    public setError(error: string): void {
+      this.setStage('error');
+      this.setMessage(error, true);
+    }
+
+    public reset(): void {
+      this.setProgress(0);
+      this.setStage('idle');
+      this.setMessage('');
+    }
+  }
+
+  // Initialize progress bars
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.progress-bar').forEach(element => {
+      new ProgressBar(element as HTMLElement);
+    });
+  });
+
+  // Export for external use
+  (window as any).ProgressBar = ProgressBar;
+</script>

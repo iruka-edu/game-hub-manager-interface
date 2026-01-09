@@ -164,3 +164,129 @@ export const listFiles = async (prefix: string): Promise<string[]> => {
   const [files] = await bucket.getFiles({ prefix });
   return files.map((f) => f.name);
 };
+
+/**
+ * Upload game files (ZIP) to GCS
+ * Extracts ZIP and uploads all files to the specified storage path
+ * @param buffer - ZIP file buffer
+ * @param storagePath - Base path in GCS (e.g., "games/my-game/1.0.0")
+ * @param fileName - Original file name for logging
+ * @returns Upload result with URL
+ */
+export const uploadGameFiles = async (
+  buffer: Buffer,
+  storagePath: string,
+  fileName: string
+): Promise<{ url: string; files: string[] }> => {
+  const JSZip = (await import('jszip')).default;
+  
+  try {
+    // Load ZIP file
+    const zip = await JSZip.loadAsync(buffer);
+    const uploadedFiles: string[] = [];
+    const uploadItems: UploadItem[] = [];
+
+    // Iterate through all files in ZIP
+    for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
+      // Skip directories
+      if (zipEntry.dir) continue;
+
+      // Get file content
+      const content = await zipEntry.async('nodebuffer');
+      
+      // Determine content type
+      const contentType = getContentType(relativePath);
+      const isHtml = relativePath.endsWith('.html') || relativePath.endsWith('.htm');
+      
+      // Build destination path
+      const destination = `${storagePath}/${relativePath}`;
+      
+      uploadItems.push({
+        destination,
+        buffer: content,
+        contentType,
+        isHtml,
+      });
+      
+      uploadedFiles.push(relativePath);
+    }
+
+    // Upload all files in parallel
+    console.log(`[GCS] Đang tải lên ${uploadItems.length} file từ ${fileName}...`);
+    
+    const results = await uploadBufferBatch(uploadItems, 5, (completed, total, currentFile) => {
+      console.log(`[GCS] Tiến độ: ${completed}/${total} - ${currentFile}`);
+    });
+
+    // Check for errors
+    const errors = results.filter(r => !r.success);
+    if (errors.length > 0) {
+      console.error('[GCS] Một số file tải lên thất bại:', errors);
+      throw new Error(`Tải lên thất bại cho ${errors.length} file`);
+    }
+
+    console.log(`[GCS] Tải lên thành công ${uploadedFiles.length} file`);
+
+    // Return the entry URL (index.html)
+    const entryUrl = `${CDN_BASE}/${storagePath}/index.html`;
+    
+    return {
+      url: entryUrl,
+      files: uploadedFiles,
+    };
+  } catch (error: any) {
+    console.error('[GCS] Lỗi tải lên game:', error);
+    throw new Error(`Lỗi tải lên game: ${error.message}`);
+  }
+};
+
+/**
+ * Get content type based on file extension
+ */
+function getContentType(filePath: string): string {
+  const ext = filePath.split('.').pop()?.toLowerCase() || '';
+  
+  const mimeTypes: Record<string, string> = {
+    // Web
+    'html': 'text/html',
+    'htm': 'text/html',
+    'css': 'text/css',
+    'js': 'application/javascript',
+    'mjs': 'application/javascript',
+    'json': 'application/json',
+    'xml': 'application/xml',
+    
+    // Images
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'svg': 'image/svg+xml',
+    'webp': 'image/webp',
+    'ico': 'image/x-icon',
+    
+    // Audio
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'm4a': 'audio/mp4',
+    
+    // Video
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    
+    // Fonts
+    'woff': 'font/woff',
+    'woff2': 'font/woff2',
+    'ttf': 'font/ttf',
+    'otf': 'font/otf',
+    'eot': 'application/vnd.ms-fontobject',
+    
+    // Data
+    'wasm': 'application/wasm',
+    'bin': 'application/octet-stream',
+    'data': 'application/octet-stream',
+  };
+  
+  return mimeTypes[ext] || 'application/octet-stream';
+}

@@ -117,13 +117,35 @@ export const POST: APIRoute = async ({ request }) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     
     if (errorMessage.includes('already exists')) {
+      // Tìm game đã tồn tại và trả về
+      try {
+        const gameRepo = await GameRepository.getInstance();
+        const existingGame = await gameRepo.findByGameId(
+          (await request.clone().json()).gameId?.trim()
+        );
+        
+        if (existingGame) {
+          return new Response(JSON.stringify({ 
+            success: true,
+            message: 'Game đã tồn tại, sử dụng game hiện có',
+            game: existingGame,
+            existingGame: existingGame,
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (e) {
+        console.error('Error finding existing game:', e);
+      }
+      
       return new Response(JSON.stringify({ error: 'Game ID đã tồn tại' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Lỗi hệ thống' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

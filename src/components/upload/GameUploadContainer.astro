@@ -1,0 +1,399 @@
+---
+/**
+ * Game Upload Container - Main upload component with state management
+ */
+import type { GameMetadata } from '../../types/upload';
+import UploadZone from './UploadZone.astro';
+import ProgressBar from './ProgressBar.astro';
+import ManifestForm from './ManifestForm.astro';
+import ValidationResults from './ValidationResults.astro';
+
+export interface Props {
+  metadata: GameMetadata;
+  className?: string;
+}
+
+const { metadata, className = '' } = Astro.props;
+
+// Default manifest based on metadata
+const defaultManifest = {
+  gameId: metadata.backendGameId,
+  version: '1.0.0',
+  runtime: 'HTML5',
+  entryPoint: 'index.html',
+  title: '',
+  description: '',
+};
+---
+
+<div class={`game-upload-container ${className}`} data-metadata={JSON.stringify(metadata)}>
+  <!-- Upload Section -->
+  <section class="upload-section">
+    <div class="section-header">
+      <h2 class="section-title">Upload Game Files</h2>
+      <p class="section-subtitle">Chọn file ZIP chứa game của bạn</p>
+    </div>
+
+    <UploadZone id="gameUploadZone" />
+    <ValidationResults id="gameValidationResults" />
+  </section>
+
+  <!-- Progress Section -->
+  <section class="progress-section hidden">
+    <div class="section-header">
+      <h2 class="section-title">Upload Progress</h2>
+      <p class="section-subtitle">Theo dõi tiến trình upload</p>
+    </div>
+
+    <ProgressBar id="gameUploadProgress" />
+  </section>
+
+  <!-- Manifest Section -->
+  <section class="manifest-section hidden">
+    <div class="section-header">
+      <h2 class="section-title">Game Configuration</h2>
+      <p class="section-subtitle">Cấu hình thông tin game</p>
+    </div>
+
+    <ManifestForm manifest={defaultManifest} />
+  </section>
+
+  <!-- Metadata Preview -->
+  <section class="metadata-section">
+    <div class="section-header">
+      <h2 class="section-title">Metadata Preview</h2>
+      <p class="section-subtitle">Thông tin từ form metadata</p>
+    </div>
+
+    <div class="metadata-preview">
+      <div class="metadata-grid">
+        <div class="metadata-item">
+          <span class="metadata-label">Lớp:</span>
+          <span class="metadata-value">{metadata.grade}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Môn:</span>
+          <span class="metadata-value">{metadata.subject}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Bài:</span>
+          <span class="metadata-value">{metadata.lesson.join(', ')}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Level:</span>
+          <span class="metadata-value">{metadata.level}</span>
+        </div>
+        <div class="metadata-item metadata-item--full">
+          <span class="metadata-label">Skills:</span>
+          <span class="metadata-value">{metadata.skills.join(', ')}</span>
+        </div>
+        <div class="metadata-item metadata-item--full">
+          <span class="metadata-label">Themes:</span>
+          <span class="metadata-value">{metadata.themes.join(', ')}</span>
+        </div>
+        <div class="metadata-item metadata-item--full">
+          <span class="metadata-label">GitHub:</span>
+          <a href={metadata.linkGithub} class="metadata-link" target="_blank">
+            {metadata.linkGithub}
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Actions -->
+  <section class="actions-section">
+    <div class="actions-container">
+      <button 
+        type="button" 
+        class="btn btn--secondary"
+        id="resetUpload"
+      >
+        Reset
+      </button>
+      
+      <button 
+        type="button" 
+        class="btn btn--primary"
+        id="startUpload"
+        disabled
+      >
+        Start Upload
+      </button>
+    </div>
+  </section>
+</div>
+
+<style>
+  .game-upload-container {
+    @apply space-y-8;
+  }
+
+  .upload-section,
+  .progress-section,
+  .manifest-section,
+  .metadata-section,
+  .actions-section {
+    @apply space-y-4;
+  }
+
+  .section-header {
+    @apply space-y-1;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold text-slate-900;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-slate-600;
+  }
+
+  .metadata-preview {
+    @apply bg-slate-50 rounded-lg border border-slate-200 p-4;
+  }
+
+  .metadata-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3;
+  }
+
+  .metadata-item {
+    @apply flex justify-between items-center;
+  }
+
+  .metadata-item--full {
+    @apply md:col-span-2;
+  }
+
+  .metadata-label {
+    @apply text-sm font-medium text-slate-600;
+  }
+
+  .metadata-value {
+    @apply text-sm text-slate-900;
+  }
+
+  .metadata-link {
+    @apply text-sm text-blue-600 hover:text-blue-700 underline;
+  }
+
+  .actions-container {
+    @apply flex justify-end space-x-3 pt-6 border-t border-slate-200;
+  }
+
+  .btn {
+    @apply px-6 py-2 rounded-lg font-medium text-sm transition-colors;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn--primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .btn--secondary {
+    @apply bg-slate-100 text-slate-700 hover:bg-slate-200;
+  }
+</style>
+
+<script>
+  import type { GameMetadata, UploadConfig } from '../../types/upload';
+  import { UploadManager } from '../../lib/upload/upload-manager';
+
+  // Define stage message type
+  type UploadStage = 'validating' | 'uploading' | 'processing' | 'updating' | 'complete' | 'error';
+
+  class GameUploadContainer {
+    private container: HTMLElement;
+    private uploadManager: UploadManager;
+    private metadata: GameMetadata;
+    
+    // UI Elements - using definite assignment assertion since they're initialized in initializeElements
+    private startButton!: HTMLButtonElement;
+    private resetButton!: HTMLButtonElement;
+    
+    // Sections - using definite assignment assertion since they're initialized in initializeElements
+    private progressSection!: HTMLElement;
+    private manifestSection!: HTMLElement;
+
+    constructor(container: HTMLElement) {
+      this.container = container;
+      this.metadata = JSON.parse(container.dataset.metadata || '{}');
+      
+      // Initialize upload manager
+      const config: UploadConfig = {
+        endpoints: {
+          upload: '/api/games/upload',
+          update: '/api/games/{id}/update',
+          validate: '/api/games/validate',
+        },
+        validation: {
+          maxFileSize: 50 * 1024 * 1024, // 50MB
+          allowedTypes: ['zip'],
+          requiredFiles: ['index.html', 'manifest.json'],
+        },
+        ui: {
+          showProgress: true,
+          showValidation: true,
+          autoRedirect: true,
+        },
+      };
+
+      this.uploadManager = new UploadManager(config, this.metadata);
+      
+      this.initializeElements();
+      this.setupEventListeners();
+      this.subscribeToUploadManager();
+    }
+
+    private initializeElements(): void {
+      // Get sections
+      this.progressSection = this.container.querySelector('.progress-section') as HTMLElement;
+      this.manifestSection = this.container.querySelector('.manifest-section') as HTMLElement;
+      
+      // Get buttons
+      this.startButton = this.container.querySelector('#startUpload') as HTMLButtonElement;
+      this.resetButton = this.container.querySelector('#resetUpload') as HTMLButtonElement;
+
+      // Validate that required elements exist
+      if (!this.progressSection || !this.manifestSection || !this.startButton || !this.resetButton) {
+        throw new Error('Required UI elements not found in GameUploadContainer');
+      }
+    }
+
+    private setupEventListeners(): void {
+      // File selection
+      this.container.addEventListener('fileselected', (e: Event) => {
+        const customEvent = e as CustomEvent;
+        this.handleFileSelected(customEvent.detail.file);
+      });
+
+      // Manifest updates
+      this.container.addEventListener('manifestupdate', (e: Event) => {
+        const customEvent = e as CustomEvent;
+        this.uploadManager.updateManifest(customEvent.detail.manifest);
+      });
+
+      // Button clicks
+      this.startButton.addEventListener('click', () => {
+        this.handleStartUpload();
+      });
+
+      this.resetButton.addEventListener('click', () => {
+        this.handleReset();
+      });
+    }
+
+    private subscribeToUploadManager(): void {
+      this.uploadManager.subscribe((state) => {
+        this.updateUI(state);
+      });
+    }
+
+    private async handleFileSelected(file: File): Promise<void> {
+      const validationResults = this.container.querySelector('#gameValidationResults .validation-results') as HTMLElement;
+      
+      if (validationResults && (window as any).ValidationResults) {
+        const validationComponent = new (window as any).ValidationResults(validationResults);
+        
+        // Show loading
+        validationComponent.showLoading();
+        
+        // Validate file
+        const result = await this.uploadManager.setFile(file);
+        
+        // Show results
+        validationComponent.showResults(result);
+        
+        // Update UI based on validation
+        if (result.valid) {
+          this.manifestSection.classList.remove('hidden');
+          this.startButton.disabled = false;
+        } else {
+          this.manifestSection.classList.add('hidden');
+          this.startButton.disabled = true;
+        }
+      }
+    }
+
+    private async handleStartUpload(): Promise<void> {
+      this.progressSection.classList.remove('hidden');
+      this.startButton.disabled = true;
+      
+      const success = await this.uploadManager.upload();
+      
+      if (success) {
+        // Redirect to dashboard after successful upload
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 2000);
+      } else {
+        this.startButton.disabled = false;
+      }
+    }
+
+    private handleReset(): void {
+      this.uploadManager.reset();
+      this.progressSection.classList.add('hidden');
+      this.manifestSection.classList.add('hidden');
+      this.startButton.disabled = true;
+      
+      // Reset validation results
+      const validationResults = this.container.querySelector('#gameValidationResults') as HTMLElement;
+      if (validationResults && (window as any).ValidationResults) {
+        const validationComponent = new (window as any).ValidationResults(validationResults);
+        validationComponent.hide();
+      }
+    }
+
+    private updateUI(state: any): void {
+      // Update progress bar
+      if (state.stage !== 'idle') {
+        const progressElement = this.container.querySelector('#gameUploadProgress') as HTMLElement;
+        if (progressElement && (window as any).ProgressBar) {
+          const progressComponent = new (window as any).ProgressBar(progressElement);
+          
+          progressComponent.setProgress(state.progress);
+          progressComponent.setStage(state.stage);
+          
+          if (state.error) {
+            progressComponent.setError(state.error);
+          } else {
+            progressComponent.setMessage(this.getStageMessage(state.stage));
+          }
+        }
+      }
+      
+      // Update form state
+      const manifestFormElement = this.container.querySelector('.manifest-form form') as HTMLFormElement;
+      if (manifestFormElement && (window as any).ManifestForm) {
+        const manifestComponent = new (window as any).ManifestForm(manifestFormElement);
+        manifestComponent.setDisabled(state.isUploading);
+      }
+    }
+
+    private getStageMessage(stage: string): string {
+      const messages: Record<UploadStage, string> = {
+        validating: 'Đang kiểm tra file...',
+        uploading: 'Đang tải file lên server...',
+        processing: 'Đang xử lý file...',
+        updating: 'Đang cập nhật thông tin game...',
+        complete: 'Upload hoàn thành thành công!',
+        error: 'Có lỗi xảy ra trong quá trình upload',
+      };
+      
+      // Type-safe access to messages object
+      if (stage in messages) {
+        return messages[stage as UploadStage];
+      }
+      
+      return 'Đang xử lý...';
+    }
+  }
+
+  // Initialize upload containers
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.game-upload-container').forEach(container => {
+      new GameUploadContainer(container as HTMLElement);
+    });
+  });
+</script>

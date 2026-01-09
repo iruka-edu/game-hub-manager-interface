@@ -1,0 +1,383 @@
+---
+/**
+ * Manifest Form Component - Editable game manifest configuration
+ */
+import type { ManifestData } from '../../types/upload';
+
+export interface Props {
+  manifest: ManifestData;
+  disabled?: boolean;
+  className?: string;
+}
+
+const { 
+  manifest,
+  disabled = false,
+  className = ''
+} = Astro.props;
+---
+
+<div class={`manifest-form ${className}`}>
+  <div class="manifest-form__header">
+    <h3 class="text-lg font-semibold text-slate-900">Game Manifest</h3>
+    <p class="text-sm text-slate-600">Cấu hình thông tin cơ bản của game</p>
+  </div>
+
+  <form class="manifest-form__form">
+    <div class="form-grid">
+      <!-- Game ID -->
+      <div class="form-field">
+        <label for="gameId" class="form-label">
+          Game ID <span class="text-red-500">*</span>
+        </label>
+        <input 
+          type="text" 
+          id="gameId"
+          name="gameId"
+          value={manifest.gameId}
+          class="form-input"
+          placeholder="com.example.my-game"
+          disabled={disabled}
+          required
+        >
+        <p class="form-help">
+          Định danh duy nhất của game (chỉ chữ thường, số, dấu chấm và gạch ngang)
+        </p>
+      </div>
+
+      <!-- Version -->
+      <div class="form-field">
+        <label for="version" class="form-label">
+          Version <span class="text-red-500">*</span>
+        </label>
+        <input 
+          type="text" 
+          id="version"
+          name="version"
+          value={manifest.version}
+          class="form-input"
+          placeholder="1.0.0"
+          disabled={disabled}
+          required
+        >
+        <p class="form-help">
+          Phiên bản theo chuẩn Semantic Versioning (vd: 1.0.0)
+        </p>
+      </div>
+
+      <!-- Title -->
+      <div class="form-field">
+        <label for="title" class="form-label">
+          Title
+        </label>
+        <input 
+          type="text" 
+          id="title"
+          name="title"
+          value={manifest.title || ''}
+          class="form-input"
+          placeholder="Tên hiển thị của game"
+          disabled={disabled}
+        >
+      </div>
+
+      <!-- Runtime -->
+      <div class="form-field">
+        <label for="runtime" class="form-label">
+          Runtime <span class="text-red-500">*</span>
+        </label>
+        <select 
+          id="runtime"
+          name="runtime"
+          class="form-select"
+          disabled={disabled}
+          required
+        >
+          <option value="HTML5" selected={manifest.runtime === 'HTML5'}>HTML5</option>
+          <option value="Unity WebGL" selected={manifest.runtime === 'Unity WebGL'}>Unity WebGL</option>
+          <option value="Phaser" selected={manifest.runtime === 'Phaser'}>Phaser</option>
+          <option value="Construct 3" selected={manifest.runtime === 'Construct 3'}>Construct 3</option>
+          <option value="Custom" selected={manifest.runtime === 'Custom'}>Custom</option>
+        </select>
+      </div>
+
+      <!-- Entry Point -->
+      <div class="form-field">
+        <label for="entryPoint" class="form-label">
+          Entry Point <span class="text-red-500">*</span>
+        </label>
+        <input 
+          type="text" 
+          id="entryPoint"
+          name="entryPoint"
+          value={manifest.entryPoint}
+          class="form-input"
+          placeholder="index.html"
+          disabled={disabled}
+          required
+        >
+        <p class="form-help">
+          File chính để khởi chạy game (thường là index.html)
+        </p>
+      </div>
+
+      <!-- Description -->
+      <div class="form-field form-field--full">
+        <label for="description" class="form-label">
+          Description
+        </label>
+        <textarea 
+          id="description"
+          name="description"
+          class="form-textarea"
+          placeholder="Mô tả ngắn về game..."
+          disabled={disabled}
+          rows="3"
+        >{manifest.description || ''}</textarea>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="manifest-form__actions">
+      <button 
+        type="button" 
+        class="btn btn--secondary"
+        id="resetManifest"
+        disabled={disabled}
+      >
+        Reset
+      </button>
+      
+      <button 
+        type="button" 
+        class="btn btn--primary"
+        id="validateManifest"
+        disabled={disabled}
+      >
+        Validate
+      </button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .manifest-form {
+    @apply bg-white rounded-lg border border-slate-200 p-6 space-y-6;
+  }
+
+  .manifest-form__header {
+    @apply space-y-1;
+  }
+
+  .manifest-form__form {
+    @apply space-y-6;
+  }
+
+  .form-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+  }
+
+  .form-field {
+    @apply space-y-2;
+  }
+
+  .form-field--full {
+    @apply md:col-span-2;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-slate-700;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-lg text-sm;
+    @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+    @apply disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed;
+  }
+
+  .form-help {
+    @apply text-xs text-slate-500;
+  }
+
+  .manifest-form__actions {
+    @apply flex justify-end space-x-3 pt-4 border-t border-slate-200;
+  }
+
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium text-sm transition-colors;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn--primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .btn--secondary {
+    @apply bg-slate-100 text-slate-700 hover:bg-slate-200;
+  }
+</style>
+
+<script>
+  class ManifestForm {
+    private form: HTMLFormElement;
+    private fields: NodeListOf<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>;
+    private onUpdate?: (manifest: any) => void;
+
+    constructor(form: HTMLFormElement) {
+      this.form = form;
+      this.fields = form.querySelectorAll('input, select, textarea');
+      this.setupEventListeners();
+    }
+
+    private setupEventListeners(): void {
+      // Field changes
+      this.fields.forEach(field => {
+        field.addEventListener('input', () => {
+          this.handleUpdate();
+        });
+
+        field.addEventListener('change', () => {
+          this.handleUpdate();
+        });
+      });
+
+      // Reset button
+      const resetBtn = this.form.querySelector('#resetManifest') as HTMLButtonElement;
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          this.reset();
+        });
+      }
+
+      // Validate button
+      const validateBtn = this.form.querySelector('#validateManifest') as HTMLButtonElement;
+      if (validateBtn) {
+        validateBtn.addEventListener('click', () => {
+          this.validate();
+        });
+      }
+    }
+
+    private handleUpdate(): void {
+      const manifest = this.getManifest();
+      
+      // Trigger callback
+      if (this.onUpdate) {
+        this.onUpdate(manifest);
+      }
+
+      // Dispatch custom event
+      this.form.dispatchEvent(new CustomEvent('manifestupdate', {
+        detail: { manifest },
+        bubbles: true
+      }));
+    }
+
+    public getManifest(): any {
+      const formData = new FormData(this.form);
+      return {
+        gameId: formData.get('gameId') as string,
+        version: formData.get('version') as string,
+        title: formData.get('title') as string,
+        runtime: formData.get('runtime') as string,
+        entryPoint: formData.get('entryPoint') as string,
+        description: formData.get('description') as string,
+      };
+    }
+
+    public setManifest(manifest: any): void {
+      Object.keys(manifest).forEach(key => {
+        const field = this.form.querySelector(`[name="${key}"]`) as HTMLInputElement;
+        if (field) {
+          field.value = manifest[key] || '';
+        }
+      });
+    }
+
+    public validate(): boolean {
+      const manifest = this.getManifest();
+      const errors: string[] = [];
+
+      // Required fields
+      if (!manifest.gameId) errors.push('Game ID là bắt buộc');
+      if (!manifest.version) errors.push('Version là bắt buộc');
+      if (!manifest.runtime) errors.push('Runtime là bắt buộc');
+      if (!manifest.entryPoint) errors.push('Entry Point là bắt buộc');
+
+      // Format validation
+      if (manifest.gameId && !/^[a-z0-9.-]+$/.test(manifest.gameId)) {
+        errors.push('Game ID chỉ được chứa chữ thường, số, dấu chấm và gạch ngang');
+      }
+
+      if (manifest.version && !/^\d+\.\d+\.\d+/.test(manifest.version)) {
+        errors.push('Version phải theo chuẩn Semantic Versioning (vd: 1.0.0)');
+      }
+
+      // Show validation results
+      this.showValidationResults(errors);
+
+      return errors.length === 0;
+    }
+
+    private showValidationResults(errors: string[]): void {
+      // Remove existing validation messages
+      this.form.querySelectorAll('.validation-message').forEach(el => el.remove());
+
+      if (errors.length > 0) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'validation-message bg-red-50 border border-red-200 rounded-lg p-3';
+        errorDiv.innerHTML = `
+          <h4 class="text-red-800 font-medium text-sm mb-2">Validation Errors:</h4>
+          <ul class="text-red-600 text-sm space-y-1">
+            ${errors.map(error => `<li>• ${error}</li>`).join('')}
+          </ul>
+        `;
+        this.form.appendChild(errorDiv);
+      } else {
+        const successDiv = document.createElement('div');
+        successDiv.className = 'validation-message bg-green-50 border border-green-200 rounded-lg p-3';
+        successDiv.innerHTML = `
+          <p class="text-green-600 text-sm font-medium">✓ Manifest hợp lệ</p>
+        `;
+        this.form.appendChild(successDiv);
+
+        // Remove success message after 3 seconds
+        setTimeout(() => {
+          successDiv.remove();
+        }, 3000);
+      }
+    }
+
+    public reset(): void {
+      this.form.reset();
+      this.form.querySelectorAll('.validation-message').forEach(el => el.remove());
+    }
+
+    public setDisabled(disabled: boolean): void {
+      this.fields.forEach(field => {
+        field.disabled = disabled;
+      });
+
+      const buttons = this.form.querySelectorAll('button');
+      buttons.forEach(button => {
+        button.disabled = disabled;
+      });
+    }
+
+    public onChange(callback: (manifest: any) => void): void {
+      this.onUpdate = callback;
+    }
+  }
+
+  // Initialize manifest forms
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.manifest-form form').forEach(form => {
+      new ManifestForm(form as HTMLFormElement);
+    });
+  });
+
+  // Export for external use
+  (window as any).ManifestForm = ManifestForm;
+</script>

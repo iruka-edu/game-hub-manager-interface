@@ -2,12 +2,12 @@
 type Option = { value: string; label: string };
 
 // Tên field SELECT (không gồm github)
+// Note: "game" field removed - game is created after zip upload
 type SelectName =
   | "lop"
   | "mon"
   | "quyenSach"
   | "lesson"
-  | "game" 
   | "level"
   | "skill"
   | "theme";
@@ -36,7 +36,6 @@ type Props = {
     mons: Option[];
     quyensachs: Option[];
     lessons: Option[];
-    games: Option[];
     levels: Option[];
     skills: Option[];
     themes: Option[];
@@ -78,18 +77,8 @@ const fields: Field[] = [
     hint: "Chọn Quyển sách trước",
   },
 
-  {
-    name: "game",
-    label: "GAME",
-    opts: options.games,
-    span: 12,
-    disabled: !has("lesson"),
-    hint: "Chọn Lesson trước",
-  },
-
   // Tagging (2 cols)
-  // { name: "game", label: "GAME", opts: options.games, span: 6 },
-  { name: "level", label: "LEVEL", opts: options.levels, span: 6 },
+  { name: "level", label: "LEVEL", opts: options.levels, span: 12 },
   { name: "skill", label: "SKILL", opts: options.skills, span: 6 },
   { name: "theme", label: "THEME", opts: options.themes, span: 6 },
 ];
@@ -115,7 +104,7 @@ const fields: Field[] = [
     {fields.map((f) => {
       const isMulti = f.name === "skill" || f.name === "theme";
       const isSearchable =
-        f.name === "quyenSach" || f.name === "lesson" || f.name === "game";
+        f.name === "quyenSach" || f.name === "lesson";
 
       const sp = Astro.url.searchParams;
 
@@ -143,12 +132,12 @@ const fields: Field[] = [
                 type="button"
                 data-multi-trigger
                 disabled={f.disabled}
-                class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
+                class="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
                       disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed
                       flex items-center justify-between gap-2"
               >
                 <div
-                  class="min-w-0 flex-1 flex items-center gap-1 flex-wrap"
+                  class="min-w-0 flex-1 flex items-center gap-1 flex-wrap overflow-hidden"
                   data-multi-chips
                 >
                   <span class="text-slate-400 font-bold">-- Chọn --</span>
@@ -202,7 +191,7 @@ const fields: Field[] = [
               </p>
             </div>
           ) : isSearchable ? (
-            /* 2) SEARCHABLE: quyenSach/lesson/game */
+            /* 2) SEARCHABLE: quyenSach/lesson */
             <div
               class="relative"
               data-search-root={String(f.name)}
@@ -330,9 +319,9 @@ const fields: Field[] = [
 </form>
 
 <script type="module">
-  // Gọi qua proxy để khỏi CORS + thấy request trong Network
-  const API_BASE = "/api/game-lessons";
-  const API_BASE_GAME = "/api/games";
+  // API endpoints
+  const API_BASE = "/api/game-lessons";      // External API for subjects, age-bands, tracks, lessons
+  const API_HOC_LIEU = "/api/hoc-lieu";      // Internal API for học liệu (levels, skills, themes)
 
   const form = document.querySelector("form");
   const $sel = (name) => form?.querySelector(`select[name="${name}"]`);
@@ -342,7 +331,6 @@ const fields: Field[] = [
     mon: $sel("mon"),
     quyenSach: $sel("quyenSach"),
     lesson: $sel("lesson"),
-    game: $sel("game"),
     level: $sel("level"),
     skill: $sel("skill"),
     theme: $sel("theme"),
@@ -409,6 +397,11 @@ const fields: Field[] = [
       opt.value = o.value;
       opt.textContent = o.label;
       opt.dataset.keywords = (o.keywords || `${o.value} ${o.label}`).trim();
+      
+      // Store group info for grouped rendering
+      if (o.group) {
+        opt.dataset.group = o.group;
+      }
 
       if (isMulti && desiredMulti.includes(o.value)) opt.selected = true;
       if (!isMulti && desiredSingle === o.value) opt.selected = true;
@@ -492,26 +485,6 @@ const fields: Field[] = [
     return data;
   }
 
-  async function fetchJsonGames(path) {
-    const url = `${API_BASE_GAME}${path}`;
-
-    if (cache.has(url)) return cache.get(url);
-
-    // abort previous same endpoint
-    if (aborters.has(url)) aborters.get(url).abort();
-    const ac = new AbortController();
-    aborters.set(url, ac);
-
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      signal: ac.signal,
-    });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
-    const data = await res.json();
-    cache.set(url, data);
-    return data;
-  }
-
   // ---------- MultiSelect UI (checkbox + chips) ----------
   function initMultiSelect(name) {
     const root = form?.querySelector(`[data-multi-root="${name}"]`);
@@ -547,7 +520,7 @@ const fields: Field[] = [
       // loading state
       if (select.disabled && select.dataset.loading) {
         const span = document.createElement("span");
-        span.className = "text-slate-400 font-bold";
+        span.className = "text-slate-400 font-bold text-sm truncate";
         span.textContent = select.dataset.loading;
         chips.appendChild(span);
         return;
@@ -555,26 +528,29 @@ const fields: Field[] = [
 
       if (selected.length === 0) {
         const span = document.createElement("span");
-        span.className = "text-slate-400 font-bold";
+        span.className = "text-slate-400 font-bold text-sm";
         span.textContent = placeholder;
         chips.appendChild(span);
         return;
       }
 
-      selected.slice(0, 3).forEach((o) => {
-        const chip = document.createElement("span");
-        chip.className =
-          "inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-black text-slate-700 max-w-full";
-        chip.textContent = o.textContent || o.value;
-        chips.appendChild(chip);
-      });
-
-      if (selected.length > 3) {
-        const more = document.createElement("span");
-        more.className = "text-xs font-black text-slate-500";
-        more.textContent = `+${selected.length - 3}`;
-        chips.appendChild(more);
-      }
+      // Show count badge instead of chips to prevent overflow
+      const countBadge = document.createElement("span");
+      countBadge.className = "inline-flex items-center gap-1.5 text-sm font-bold text-slate-700";
+      
+      const badge = document.createElement("span");
+      badge.className = "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-black";
+      badge.textContent = String(selected.length);
+      
+      const text = document.createElement("span");
+      text.className = "truncate";
+      text.textContent = selected.length === 1 
+        ? (selected[0].textContent || selected[0].value)
+        : `mục đã chọn`;
+      
+      countBadge.appendChild(badge);
+      countBadge.appendChild(text);
+      chips.appendChild(countBadge);
     }
 
     function renderList() {
@@ -591,10 +567,61 @@ const fields: Field[] = [
         return;
       }
 
+      // Group options by their group attribute
+      const groups = new Map();
+      const ungrouped = [];
+
       opts.forEach((opt) => {
         const hay = (opt.dataset.keywords || opt.textContent || "").toLowerCase();
         if (q && !hay.includes(q)) return;
 
+        const group = opt.dataset.group || "";
+        if (group) {
+          if (!groups.has(group)) groups.set(group, []);
+          groups.get(group).push(opt);
+        } else {
+          ungrouped.push(opt);
+        }
+      });
+
+      // Render grouped options
+      groups.forEach((groupOpts, groupName) => {
+        // Group header
+        const header = document.createElement("div");
+        header.className = "px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider bg-slate-50 sticky top-0";
+        header.textContent = groupName;
+        list.appendChild(header);
+
+        // Group items
+        groupOpts.forEach((opt) => {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className =
+            "w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-left";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = opt.selected;
+          cb.className = "w-4 h-4";
+
+          const label = document.createElement("div");
+          label.className = "text-sm font-bold text-slate-700";
+          label.textContent = opt.textContent || opt.value;
+
+          row.appendChild(cb);
+          row.appendChild(label);
+
+          row.addEventListener("click", () => {
+            opt.selected = !opt.selected;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+
+          list.appendChild(row);
+        });
+      });
+
+      // Render ungrouped options
+      ungrouped.forEach((opt) => {
         const row = document.createElement("button");
         row.type = "button";
         row.className =
@@ -619,6 +646,14 @@ const fields: Field[] = [
 
         list.appendChild(row);
       });
+
+      // Show empty message if no results
+      if (groups.size === 0 && ungrouped.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "px-3 py-2 text-sm font-bold text-slate-400";
+        empty.textContent = "Không tìm thấy";
+        list.appendChild(empty);
+      }
     }
 
     function sync() {
@@ -767,7 +802,6 @@ const fields: Field[] = [
   const searchUIs = {
     quyenSach: initSearchSelect("quyenSach"),
     lesson: initSearchSelect("lesson"),
-    game: initSearchSelect("game"),
   };
 
   // ---- loaders ----
@@ -805,7 +839,6 @@ const fields: Field[] = [
     // reset tầng dưới
     clearSelect(sels.quyenSach, "-- Chọn quyển sách --");
     clearSelect(sels.lesson, "-- Chọn lesson --");
-    clearSelect(sels.game, "-- Chọn game --");
 
     if (!subjectId || !ageBandId) return;
 
@@ -830,7 +863,6 @@ const fields: Field[] = [
     const trackId = sels.quyenSach?.value || "";
 
     clearSelect(sels.lesson, "-- Chọn lesson --");
-    clearSelect(sels.game, "-- Chọn game --");
 
     if (!trackId) return;
 
@@ -849,35 +881,65 @@ const fields: Field[] = [
     setOptions(sels.lesson, opts, "-- Chọn lesson --");
   }
 
-  async function loadGames() {
-    const lessonId = (sels.lesson?.value || "").trim();
-
-    clearSelect(sels.game, "-- Chọn game --");
-    if (!lessonId) return;
-
-    setLoading(sels.game, "Đang tải game...");
-
-    const data = await fetchJsonGames(`/by_lesson/${lessonId}`);
-
-    const opts = toOptions(data);
+  // Fetch học liệu data from internal API
+  async function fetchHocLieu(type) {
+    const url = `${API_HOC_LIEU}?type=${type}`;
+    if (cache.has(url)) return cache.get(url);
     
-    sels.game.disabled = false;
-    sels.game.dataset.loading = "";
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+    const data = await res.json();
+    cache.set(url, data);
+    return data;
+  }
 
-    setOptions(sels.game, opts, "-- Chọn game --");
+  // Convert học liệu options to select options format
+  function toHocLieuOptions(options, groups) {
+    if (!groups || groups.length === 0) {
+      // Simple list without groups
+      return options.map(o => ({
+        value: o.value,
+        label: o.label,
+        keywords: `${o.value} ${o.label}`,
+      }));
+    }
+
+    // Grouped options - add group prefix for better UX
+    return options.map(o => ({
+      value: o.value,
+      label: o.label,
+      group: o.group || '',
+      keywords: `${o.value} ${o.label} ${o.group || ''}`,
+    }));
   }
 
   async function loadStaticLists() {
+    // Load levels from học liệu API
+    try {
+      setLoading(sels.level, "Đang tải level...");
+      const levelData = await fetchHocLieu("levels");
+      const levelOpts = levelData.options.map(o => ({
+        value: o.value,
+        label: `${o.label} - ${o.description}`,
+        keywords: `${o.value} ${o.label} ${o.description}`,
+      }));
+      setOptions(sels.level, levelOpts, "-- Chọn level --");
+      sels.level.disabled = false;
+    } catch (e) {
+      console.error("[levels] load failed:", e);
+    }
+
+    // Load skills from học liệu API (grouped)
     try {
       setLoading(sels.skill, "Đang tải skill...");
-      const skills = await fetchJson("/skills");
-      setOptions(sels.skill, toOptions(skills), "-- Chọn skill --");
+      const skillData = await fetchHocLieu("skills");
+      const skillOpts = toHocLieuOptions(skillData.options, skillData.groups);
+      setOptions(sels.skill, skillOpts, "-- Chọn skill --");
       sels.skill.disabled = false;
       sels.skill.dataset.loading = "";
       multiUIs.skill?.sync();
     } catch (e) {
       console.error("[skills] load failed:", e);
-      // Thoát loading để UI không kẹt
       if (sels.skill) {
         sels.skill.disabled = false;
         sels.skill.dataset.loading = "";
@@ -885,19 +947,12 @@ const fields: Field[] = [
       }
     }
 
-    try {
-      setLoading(sels.level, "Đang tải level...");
-      const levels = await fetchJson("/levels");
-      setOptions(sels.level, toOptions(levels), "-- Chọn level --");
-      sels.level.disabled = false;
-    } catch (e) {
-      console.error("[levels] load failed:", e);
-    }
-
+    // Load themes from học liệu API (grouped)
     try {
       setLoading(sels.theme, "Đang tải theme...");
-      const themes = await fetchJson("/themes");
-      setOptions(sels.theme, toOptions(themes), "-- Chọn theme --");
+      const themeData = await fetchHocLieu("themes");
+      const themeOpts = toHocLieuOptions(themeData.options, themeData.groups);
+      setOptions(sels.theme, themeOpts, "-- Chọn theme --");
       sels.theme.disabled = false;
       sels.theme.dataset.loading = "";
       multiUIs.theme?.sync();
@@ -960,7 +1015,6 @@ const fields: Field[] = [
   sels.lop?.addEventListener("change", loadTracks);
   sels.mon?.addEventListener("change", loadTracks);
   sels.quyenSach?.addEventListener("change", loadLessons);
-  sels.lesson?.addEventListener("change", loadGames);
   document.getElementById("btn_reset_all")?.addEventListener("click", resetAll);
 
   // ---- boot ----
@@ -975,6 +1029,5 @@ const fields: Field[] = [
     // (VD user đã có mon+lop => tự load )
     await loadTracks();
     if (sels.quyenSach?.value) await loadLessons();
-    if (sels.lesson?.value) await loadGames();
   })().catch((e) => console.error(e));
 </script>
