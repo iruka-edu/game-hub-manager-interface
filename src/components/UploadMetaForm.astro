@@ -332,6 +332,7 @@ const fields: Field[] = [
 <script type="module">
   // Gọi qua proxy để khỏi CORS + thấy request trong Network
   const API_BASE = "/api/game-lessons";
+  const API_BASE_GAME = "/api/games";
 
   const form = document.querySelector("form");
   const $sel = (name) => form?.querySelector(`select[name="${name}"]`);
@@ -354,15 +355,33 @@ const fields: Field[] = [
   function toLabel(item) {
     const name = item.name ?? item.title ?? item.label ?? "";
     const code = item.code ?? "";
-    if (code && name) return `${code} — ${name}`;
-    return name || code || item.id || "(unknown)";
+    const id = item.id != null ? String(item.id) : "";
+
+    // Nếu code nhìn giống UUID/24hex thì coi như id => KHÔNG show
+    const looksLikeId =
+      /^[0-9a-f]{24}$/i.test(code) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(code) ||
+      code === id;
+
+    // Hiển thị gọn: ưu tiên name
+    if (name) return name;
+
+    // Nếu không có name thì fallback
+    return !looksLikeId ? (code || id || "(unknown)") : (id || "(unknown)");
   }
 
   function toOptions(items) {
-    return (Array.isArray(items) ? items : []).map((it) => ({
-      value: String(it.id),
-      label: toLabel(it),
-    }));
+    return (Array.isArray(items) ? items : []).map((it) => {
+      const id = it?.id != null ? String(it.id) : "";
+      const name = it?.name ?? it?.title ?? it?.label ?? "";
+      const code = it?.code ?? "";
+
+      return {
+        value: id,
+        label: toLabel(it), // CHỈ hiển thị name (gọn)
+        keywords: [id, code, name].filter(Boolean).join(" "), // để search match cả id/code/name
+      };
+    });
   }
 
   function setOptions(select, options, placeholder) {
@@ -389,6 +408,7 @@ const fields: Field[] = [
       const opt = document.createElement("option");
       opt.value = o.value;
       opt.textContent = o.label;
+      opt.dataset.keywords = (o.keywords || `${o.value} ${o.label}`).trim();
 
       if (isMulti && desiredMulti.includes(o.value)) opt.selected = true;
       if (!isMulti && desiredSingle === o.value) opt.selected = true;
@@ -454,6 +474,26 @@ const fields: Field[] = [
 
   async function fetchJson(path) {
     const url = `${API_BASE}${path}`;
+
+    if (cache.has(url)) return cache.get(url);
+
+    // abort previous same endpoint
+    if (aborters.has(url)) aborters.get(url).abort();
+    const ac = new AbortController();
+    aborters.set(url, ac);
+
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: ac.signal,
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+    const data = await res.json();
+    cache.set(url, data);
+    return data;
+  }
+
+  async function fetchJsonGames(path) {
+    const url = `${API_BASE_GAME}${path}`;
 
     if (cache.has(url)) return cache.get(url);
 
@@ -552,8 +592,8 @@ const fields: Field[] = [
       }
 
       opts.forEach((opt) => {
-        const text = (opt.textContent || "").toLowerCase();
-        if (q && !text.includes(q)) return;
+        const hay = (opt.dataset.keywords || opt.textContent || "").toLowerCase();
+        if (q && !hay.includes(q)) return;
 
         const row = document.createElement("button");
         row.type = "button";
@@ -670,8 +710,8 @@ const fields: Field[] = [
 
       let shown = 0;
       for (const opt of opts) {
-        const text = (opt.textContent || "").toLowerCase();
-        if (q && !text.includes(q)) continue;
+        const hay = (opt.dataset.keywords || opt.textContent || "").toLowerCase();
+        if (q && !hay.includes(q)) continue;
 
         const row = document.createElement("button");
         row.type = "button";
@@ -817,9 +857,7 @@ const fields: Field[] = [
 
     setLoading(sels.game, "Đang tải game...");
 
-    // CHỈ CẦN ĐỔI CHỖ NÀY nếu API khác shape
-    const qs = new URLSearchParams({ lesson_id: lessonId });
-    const data = await fetchJson(`/games?${qs.toString()}`);
+    const data = await fetchJsonGames(`/by_lesson/${lessonId}`);
 
     const opts = toOptions(data);
     

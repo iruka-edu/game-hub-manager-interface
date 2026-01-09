@@ -59,6 +59,7 @@ export interface SelfQaItem {
  */
 export interface Game {
   _id: ObjectId;
+  backendGameId?: ObjectId; // Reference to backend system game ID
   gameId: string; // e.g., "com.iruka.math" (also used as slug)
   title: string;
   description?: string;
@@ -253,6 +254,7 @@ export class GameRepository {
     const now = new Date();
     const game: Omit<Game, "_id"> = {
       gameId: input.gameId.trim(),
+      backendGameId: input.backendGameId,
       title: input.title || "",
       description: input.description,
       thumbnailDesktop: input.thumbnailDesktop,
@@ -267,6 +269,11 @@ export class GameRepository {
       gameType: input.gameType,
       priority: input.priority,
       tags: input.tags,
+      lesson: input.lesson,
+      level: input.level,
+      skills: input.skills,
+      themes: input.themes,
+      linkGithub: input.linkGithub,
       disabled: input.disabled ?? false,
       rolloutPercentage: input.rolloutPercentage ?? 100,
       publishedAt: input.publishedAt,

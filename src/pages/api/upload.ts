@@ -121,6 +121,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
+    console.log("[Upload] metaRaw:", formData.get("meta"));
+
+    // ✅ 0. Read meta from client (UploadMetaForm -> GameUploadForm)
+    const metaRaw = formData.get("meta");
+    let meta: any = {};
+    if (typeof metaRaw === "string" && metaRaw.trim()) {
+      try { meta = JSON.parse(metaRaw); } catch { meta = {}; }
+    }
+
+    // ✅ 0. Read manifest from client (UI editor) if provided
+    const manifestFromClient = formData.get("manifest");
 
     if (files.length === 0) {
       return new Response(
@@ -152,15 +163,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let thumbnailMobileUrl: string | undefined;
 
     // 1. Parse and enhance manifest with server-generated fields
-    const manifestContent = await manifestFile.text();
+    const manifestContent =
+      typeof manifestFromClient === "string" && manifestFromClient.trim()
+        ? manifestFromClient
+        : await manifestFile.text();
+
     let manifest;
     try {
       manifest = JSON.parse(manifestContent);
     } catch {
-      return new Response(
-        JSON.stringify({ error: "Manifest JSON không hợp lệ" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Manifest JSON không hợp lệ" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const { id, version } = manifest;
@@ -384,6 +399,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
         thumbnailDesktop: thumbnailDesktopUrl,
         thumbnailMobile: thumbnailMobileUrl,
         ownerId: locals.user._id.toString(),
+
+        // ====== META từ FE ======
+        subject: meta?.subject,
+        grade: meta?.grade,
+        backendGameId: meta?.backendGameId,
+        lesson: Array.isArray(meta?.lesson) ? meta.lesson[0] : meta?.lesson, // vì model lesson là string
+        level: meta?.level,
+        skills: meta?.skills,
+        themes: meta?.themes,
+        linkGithub: meta?.linkGithub,
       });
 
       // Record history

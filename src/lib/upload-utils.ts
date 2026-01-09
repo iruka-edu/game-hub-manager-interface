@@ -195,13 +195,16 @@ export function buildUploadFormData(
   manifest: ManifestData | null,
   thumbnailDesktop: File | null,
   thumbnailMobile: File | null,
-  isZipMode: boolean
+  isZipMode: boolean,
+  meta: any 
 ): FormData {
   const formData = new FormData();
 
   if (manifest) {
     formData.append('manifest', JSON.stringify(manifest));
   }
+
+  formData.append('meta', JSON.stringify(meta ?? {}));
 
   if (isZipMode && files.length > 0) {
     formData.append('zipFile', files[0].file);

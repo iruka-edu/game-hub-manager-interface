@@ -131,6 +131,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const thumbnailMobileFile = formData.get("thumbnailMobile") as File;
     const manifestData = formData.get("manifest") as string;
 
+    const metaRaw = formData.get("meta");
+    let meta: any = {};
+    if (typeof metaRaw === "string" && metaRaw.trim()) {
+      try { meta = JSON.parse(metaRaw); } catch { meta = {}; }
+    }
+
     if (!zipFile) {
       return new Response(
         JSON.stringify({ error: "Không tìm thấy file ZIP" }),
@@ -397,6 +403,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
         thumbnailDesktop: thumbnailDesktopUrl,
         thumbnailMobile: thumbnailMobileUrl,
         ownerId: locals.user._id.toString(),
+
+        // ====== META từ FE ======
+        subject: meta?.subject,
+        grade: meta?.grade,
+        backendGameId: meta?.backendGameId,
+        lesson: Array.isArray(meta?.lesson) ? meta.lesson[0] : meta?.lesson, // vì model lesson là string
+        level: meta?.level,
+        skills: meta?.skills,
+        themes: meta?.themes,
+        linkGithub: meta?.linkGithub,
       });
 
       // Record history
