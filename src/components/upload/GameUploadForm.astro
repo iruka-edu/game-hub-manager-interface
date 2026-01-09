@@ -3,9 +3,14 @@
  * Game Upload Form - Horizontal Layout with Manifest Editor
  */
 import { TABS } from '../../types/upload-types';
+
+const { meta } = Astro.props as { meta?: any };
+const metaJson = JSON.stringify(meta ?? {});
+
 ---
 
 <div class="game-upload-form" id="uploadForm">
+  <script id="__upload_meta__" type="application/json" set:html={metaJson}></script>
   <!-- Horizontal Layout: 3 columns -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     
@@ -539,7 +544,11 @@ import { TABS } from '../../types/upload-types';
       }, 100);
 
       try {
-        const formData = buildUploadFormData(files, manifest, thumbDesktop, thumbMobile, mode === 'zip');
+        const metaEl = document.getElementById('__upload_meta__');
+        const metaFromUpload = metaEl ? JSON.parse(metaEl.textContent || '{}') : {};
+
+        const formData = buildUploadFormData(files, manifest, thumbDesktop, thumbMobile, mode === 'zip', metaFromUpload);
+
         const res = await fetch(getUploadEndpoint(mode === 'zip'), { method: 'POST', body: formData });
         clearInterval(interval);
         
