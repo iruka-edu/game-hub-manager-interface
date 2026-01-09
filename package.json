@@ -3,7 +3,6 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "preinstall": "node -e \"if(process.env.GITHUB_TOKEN){require('fs').writeFileSync('.npmrc','@iruka-edu:registry=https://npm.pkg.github.com/\\n//npm.pkg.github.com/:_authToken='+process.env.GITHUB_TOKEN+'\\n')}\"",
     "dev": "astro dev",
     "build": "astro build",
     "build:node": "USE_NODE_ADAPTER=true astro build",
