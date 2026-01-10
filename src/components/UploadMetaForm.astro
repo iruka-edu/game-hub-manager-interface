@@ -933,10 +933,19 @@ const fields: Field[] = [
     setOptions(sels.game, opts, "-- Chọn game --");
   }
 
-  async function loadStaticLists() {
+  async function loadSkills() {
     try {
+      const subjectId = (sels.mon?.value || "").trim();
+      const ageBandId = (sels.lop?.value || "").trim();
+
       setLoading(sels.skill, "Đang tải skill...");
-      const skills = await fetchJson("/skills");
+
+      const qs = new URLSearchParams({
+        subject_id: subjectId,
+        age_band_id: ageBandId,
+      });
+
+      const skills = await fetchJson(`/skills/filter?${qs.toString()}`);
       setOptions(sels.skill, toOptions(skills), "-- Chọn skill --");
       sels.skill.disabled = false;
       sels.skill.dataset.loading = "";
@@ -950,7 +959,9 @@ const fields: Field[] = [
         multiUIs.skill?.sync();
       }
     }
+  }
 
+  async function loadStaticLists() {
     try {
       setLoading(sels.level, "Đang tải level...");
       const levels = await fetchJson("/levels");
@@ -1027,6 +1038,8 @@ const fields: Field[] = [
   sels.mon?.addEventListener("change", loadTracks);
   sels.quyenSach?.addEventListener("change", loadLessons);
   sels.lesson?.addEventListener("change", loadGames);
+  sels.lop?.addEventListener("change", loadSkills);
+  sels.mon?.addEventListener("change", loadSkills);
   document.getElementById("btn_reset_all")?.addEventListener("click", resetAll);
 
   // ---- boot ----
@@ -1040,6 +1053,7 @@ const fields: Field[] = [
     // Nếu có selected từ querystring/SSR, tự chạy chain để fill tiếp
     // (VD user đã có mon+lop => tự load )
     await loadTracks();
+    await loadSkills();
     if (sels.quyenSach?.value) await loadLessons();
     if (sels.lesson?.value) await loadGames();
   })().catch((e) => console.error(e));
