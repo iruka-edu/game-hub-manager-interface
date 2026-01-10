@@ -31,7 +31,23 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json();
-    const { title, gameId, subject, grade, unit, gameType, priority, description } = body;
+    const {
+      title,
+      gameId,
+      subject,
+      grade,
+      unit,
+      gameType,
+      priority,
+      description,
+
+      backendGameId,
+      lesson,
+      level,
+      skills,
+      themes,
+      linkGithub,
+    } = body;
 
     // Validate required fields
     if (!title || !title.trim()) {
@@ -48,6 +64,19 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // backendGameId: FE thường gửi string -> convert ObjectId nếu hợp lệ
+    const parsedBackendGameId =
+      typeof backendGameId === "string" && ObjectId.isValid(backendGameId)
+        ? new ObjectId(backendGameId)
+        : backendGameId;
+
+    // lesson: model hiện tại là string, FE bạn lại gửi string[]
+    const normalizedLesson =
+      Array.isArray(lesson) ? (lesson[0] ?? "") : (typeof lesson === "string" ? lesson : undefined);
+
+    const normalizedSkills = Array.isArray(skills) ? skills.filter(Boolean) : undefined;
+    const normalizedThemes = Array.isArray(themes) ? themes.filter(Boolean) : undefined;
+
     const gameRepo = await GameRepository.getInstance();
     const versionRepo = await GameVersionRepository.getInstance();
 
@@ -62,6 +91,14 @@ export const POST: APIRoute = async ({ request }) => {
       unit,
       gameType,
       priority,
+
+      backendGameId: parsedBackendGameId,
+      lesson: normalizedLesson,
+      level: typeof level === "string" ? level : undefined,
+      skills: normalizedSkills,
+      themes: normalizedThemes,
+      linkGithub: typeof linkGithub === "string" ? linkGithub : undefined,
+
       isDeleted: false,
     });
 

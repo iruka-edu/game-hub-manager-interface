@@ -8,6 +8,7 @@ type SelectName =
   | "mon"
   | "quyenSach"
   | "lesson"
+  | "game"
   | "level"
   | "skill"
   | "theme";
@@ -36,6 +37,7 @@ type Props = {
     mons: Option[];
     quyensachs: Option[];
     lessons: Option[];
+    games: Option[];
     levels: Option[];
     skills: Option[];
     themes: Option[];
@@ -75,6 +77,15 @@ const fields: Field[] = [
     span: 12,
     disabled: !has("quyenSach"),
     hint: "Chọn Quyển sách trước",
+  },
+
+  {
+    name: "game",
+    label: "GAME",
+    opts: options.games,
+    span: 12,
+    disabled: !has("lesson"),
+    hint: "Chọn Lesson trước",
   },
 
   // Tagging (2 cols)
@@ -191,7 +202,7 @@ const fields: Field[] = [
               </p>
             </div>
           ) : isSearchable ? (
-            /* 2) SEARCHABLE: quyenSach/lesson */
+            /* 2) SEARCHABLE: quyenSach/lesson/game */
             <div
               class="relative"
               data-search-root={String(f.name)}
@@ -320,8 +331,8 @@ const fields: Field[] = [
 
 <script type="module">
   // API endpoints
-  const API_BASE = "/api/game-lessons";      // External API for subjects, age-bands, tracks, lessons
-  const API_HOC_LIEU = "/api/hoc-lieu";      // Internal API for học liệu (levels, skills, themes)
+  const API_BASE = "/api/game-lessons";      // External API for subjects, age-bands, tracks, lessons, level, skills, themes
+  const API_BASE_GAME = "/api/games"; 
 
   const form = document.querySelector("form");
   const $sel = (name) => form?.querySelector(`select[name="${name}"]`);
@@ -331,6 +342,7 @@ const fields: Field[] = [
     mon: $sel("mon"),
     quyenSach: $sel("quyenSach"),
     lesson: $sel("lesson"),
+    game: $sel("game"),
     level: $sel("level"),
     skill: $sel("skill"),
     theme: $sel("theme"),
@@ -467,6 +479,26 @@ const fields: Field[] = [
 
   async function fetchJson(path) {
     const url = `${API_BASE}${path}`;
+
+    if (cache.has(url)) return cache.get(url);
+
+    // abort previous same endpoint
+    if (aborters.has(url)) aborters.get(url).abort();
+    const ac = new AbortController();
+    aborters.set(url, ac);
+
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: ac.signal,
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
+    const data = await res.json();
+    cache.set(url, data);
+    return data;
+  }
+
+  async function fetchJsonGames(path) {
+    const url = `${API_BASE_GAME}${path}`;
 
     if (cache.has(url)) return cache.get(url);
 
@@ -839,6 +871,7 @@ const fields: Field[] = [
     // reset tầng dưới
     clearSelect(sels.quyenSach, "-- Chọn quyển sách --");
     clearSelect(sels.lesson, "-- Chọn lesson --");
+    clearSelect(sels.game, "-- Chọn game --");
 
     if (!subjectId || !ageBandId) return;
 
@@ -863,6 +896,7 @@ const fields: Field[] = [
     const trackId = sels.quyenSach?.value || "";
 
     clearSelect(sels.lesson, "-- Chọn lesson --");
+    clearSelect(sels.game, "-- Chọn game --");
 
     if (!trackId) return;
 
@@ -881,78 +915,66 @@ const fields: Field[] = [
     setOptions(sels.lesson, opts, "-- Chọn lesson --");
   }
 
-  // Fetch học liệu data from internal API
-  async function fetchHocLieu(type) {
-    const url = `${API_HOC_LIEU}?type=${type}`;
-    if (cache.has(url)) return cache.get(url);
-    
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
-    const data = await res.json();
-    cache.set(url, data);
-    return data;
+  async function loadGames() {
+    const lessonId = (sels.lesson?.value || "").trim();
+
+    clearSelect(sels.game, "-- Chọn game --");
+    if (!lessonId) return;
+
+    setLoading(sels.game, "Đang tải game...");
+
+    const data = await fetchJsonGames(`/by_lesson/${lessonId}`);
+
+    const opts = toOptions(data);
+
+    sels.game.disabled = false;
+    sels.game.dataset.loading = "";
+
+    setOptions(sels.game, opts, "-- Chọn game --");
   }
 
-  // Convert học liệu options to select options format
-  function toHocLieuOptions(options, groups) {
-    if (!groups || groups.length === 0) {
-      // Simple list without groups
-      return options.map(o => ({
-        value: o.value,
-        label: o.label,
-        keywords: `${o.value} ${o.label}`,
-      }));
-    }
-
-    // Grouped options - add group prefix for better UX
-    return options.map(o => ({
-      value: o.value,
-      label: o.label,
-      group: o.group || '',
-      keywords: `${o.value} ${o.label} ${o.group || ''}`,
-    }));
-  }
-
-  async function loadStaticLists() {
-    // Load levels from học liệu API
+  async function loadSkills() {
     try {
-      setLoading(sels.level, "Đang tải level...");
-      const levelData = await fetchHocLieu("levels");
-      const levelOpts = levelData.options.map(o => ({
-        value: o.value,
-        label: `${o.label} - ${o.description}`,
-        keywords: `${o.value} ${o.label} ${o.description}`,
-      }));
-      setOptions(sels.level, levelOpts, "-- Chọn level --");
-      sels.level.disabled = false;
-    } catch (e) {
-      console.error("[levels] load failed:", e);
-    }
+      const subjectId = (sels.mon?.value || "").trim();
+      const ageBandId = (sels.lop?.value || "").trim();
 
-    // Load skills from học liệu API (grouped)
-    try {
       setLoading(sels.skill, "Đang tải skill...");
-      const skillData = await fetchHocLieu("skills");
-      const skillOpts = toHocLieuOptions(skillData.options, skillData.groups);
-      setOptions(sels.skill, skillOpts, "-- Chọn skill --");
+
+      const qs = new URLSearchParams({
+        subject_id: subjectId,
+        age_band_id: ageBandId,
+      });
+
+      const skills = await fetchJson(`/skills/filter?${qs.toString()}`);
+      setOptions(sels.skill, toOptions(skills), "-- Chọn skill --");
       sels.skill.disabled = false;
       sels.skill.dataset.loading = "";
       multiUIs.skill?.sync();
     } catch (e) {
       console.error("[skills] load failed:", e);
+      // Thoát loading để UI không kẹt
       if (sels.skill) {
         sels.skill.disabled = false;
         sels.skill.dataset.loading = "";
         multiUIs.skill?.sync();
       }
     }
+  }
 
-    // Load themes from học liệu API (grouped)
+  async function loadStaticLists() {
+    try {
+      setLoading(sels.level, "Đang tải level...");
+      const levels = await fetchJson("/levels");
+      setOptions(sels.level, toOptions(levels), "-- Chọn level --");
+      sels.level.disabled = false;
+    } catch (e) {
+      console.error("[levels] load failed:", e);
+    }
+
     try {
       setLoading(sels.theme, "Đang tải theme...");
-      const themeData = await fetchHocLieu("themes");
-      const themeOpts = toHocLieuOptions(themeData.options, themeData.groups);
-      setOptions(sels.theme, themeOpts, "-- Chọn theme --");
+      const themes = await fetchJson("/themes");
+      setOptions(sels.theme, toOptions(themes), "-- Chọn theme --");
       sels.theme.disabled = false;
       sels.theme.dataset.loading = "";
       multiUIs.theme?.sync();
@@ -1015,6 +1037,9 @@ const fields: Field[] = [
   sels.lop?.addEventListener("change", loadTracks);
   sels.mon?.addEventListener("change", loadTracks);
   sels.quyenSach?.addEventListener("change", loadLessons);
+  sels.lesson?.addEventListener("change", loadGames);
+  sels.lop?.addEventListener("change", loadSkills);
+  sels.mon?.addEventListener("change", loadSkills);
   document.getElementById("btn_reset_all")?.addEventListener("click", resetAll);
 
   // ---- boot ----
@@ -1028,6 +1053,8 @@ const fields: Field[] = [
     // Nếu có selected từ querystring/SSR, tự chạy chain để fill tiếp
     // (VD user đã có mon+lop => tự load )
     await loadTracks();
+    await loadSkills();
     if (sels.quyenSach?.value) await loadLessons();
+    if (sels.lesson?.value) await loadGames();
   })().catch((e) => console.error(e));
 </script>

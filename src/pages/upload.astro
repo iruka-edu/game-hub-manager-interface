@@ -24,13 +24,14 @@ const meta = {
   quyenSach: sp.get("quyenSach") ?? "",
   lesson: sp.get("lesson") ?? "",
   level: sp.get("level") ?? "",
+  game: sp.get("game") ?? "",
   skills: sp.getAll("skill").filter(Boolean),
   themes: sp.getAll("theme").filter(Boolean),
   github: sp.get("github") ?? "",
 };
 
-// Chỉ các key bạn muốn bắt buộc cho bước upload (bỏ game vì game được tạo sau khi upload zip)
-const metaReady = Boolean(meta.lop && meta.mon && meta.quyenSach && meta.lesson && meta.level && meta.github)
+// Chỉ các key bạn muốn bắt buộc cho bước upload
+const metaReady = Boolean(meta.lop && meta.mon && meta.quyenSach && meta.lesson && meta.game && meta.level && meta.github)
   && meta.skills.length > 0
   && meta.themes.length > 0;
 
@@ -40,6 +41,7 @@ const gameMeta = {
   grade: meta.lop,
   subject: meta.mon,
   lesson: meta.lesson ? [meta.lesson] : [],
+  backendGameId: meta.game,
   level: meta.level,
   skills: meta.skills,
   themes: meta.themes,
@@ -75,7 +77,7 @@ const gameMeta = {
             <div class="text-xs font-bold text-slate-600">
               <span class="font-black text-slate-900">Metadata:</span>
               {" "}
-              {meta.lop} • {meta.mon} • {meta.quyenSach} • {meta.lesson} • {meta.level} • {meta.skills.join(", ")} • {meta.themes.join(", ")}
+              {meta.lop} • {meta.mon} • {meta.quyenSach} • {meta.lesson} • {meta.game} • {meta.level} • {meta.skills.join(", ")} • {meta.themes.join(", ")}
               {" "}
               • <span class="text-iruka-blue">{meta.github}</span>
             </div>
@@ -95,6 +97,7 @@ const gameMeta = {
           mons: [],
           quyensachs: [],
           lessons: [],
+          games: [],
           levels: [],
           skills: [],
           themes: [],
@@ -121,6 +124,10 @@ const gameMeta = {
   </div>
 </Layout>
 
+<script is:inline define:vars={{ gameMeta }}>
+  window.gameMeta = gameMeta;
+</script>
+
 <script>
   // Types for better TypeScript support
   interface ManifestData {
@@ -134,6 +141,7 @@ const gameMeta = {
     grade: string;
     subject: string;
     lesson: string[];
+    backendGameId: string;
     level: string;
     skills: string[];
     themes: string[];
@@ -282,6 +290,12 @@ const gameMeta = {
           gameId: manifest.gameId,
           subject: gameMeta.subject,
           grade: gameMeta.grade,
+          lesson: gameMeta.lesson,
+          backendGameId: gameMeta.backendGameId,
+          level: gameMeta.level,
+          skills: gameMeta.skills,
+          themes: gameMeta.themes,
+          linkGithub: gameMeta.linkGithub,
           gameType: 'html5',
           description: `Game được tải lên từ ${gameMeta.linkGithub}`,
         }),
@@ -385,6 +399,8 @@ const gameMeta = {
           metadata: {
             runtime: manifest.runtime,
             entryPoint: manifest.entryPoint,
+            backendGameId: gameMeta.backendGameId,
+            lesson: gameMeta.lesson,
             skills: gameMeta.skills,
             themes: gameMeta.themes,
             level: gameMeta.level,
