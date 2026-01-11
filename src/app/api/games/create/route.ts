@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { ObjectId } from 'mongodb';
 import { GameRepository } from '@/models/Game';
 import { GameVersionRepository } from '@/models/GameVersion';
-import { getUserFromHeaders } from '@/lib/auth';
+import { verifySession } from '@/lib/session';
+import { UserRepository } from '@/models/User';
 import { hasPermissionString } from '@/lib/auth-rbac';
 import { AuditLogger } from '@/lib/audit';
 import { GameHistoryService } from '@/lib/game-history';
@@ -15,9 +17,24 @@ import { generateStoragePath } from '@/lib/storage-path';
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getUserFromHeaders(request.headers);
-    if (!user) {
+    // Auth check using cookies instead of headers
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('iruka_session');
+    
+    if (!sessionCookie?.value) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = verifySession(sessionCookie.value);
+    if (!session) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
+    const userRepo = await UserRepository.getInstance();
+    const user = await userRepo.findById(session.userId);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     if (!hasPermissionString(user, 'games:create')) {

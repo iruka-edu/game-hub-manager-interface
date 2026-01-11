@@ -2,10 +2,24 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { User, Role } from '@/models/User';
+import type { Role } from '@/models/User';
+
+// Serialized user type for client components
+interface SerializedUser {
+  _id: string;
+  email: string;
+  name?: string;
+  roles: Role[];
+  isActive: boolean;
+  avatar?: string;
+  teamIds?: string[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface SidebarProps {
-  user: User;
+  user: SerializedUser;
 }
 
 interface MenuItem {
@@ -24,7 +38,7 @@ const roleLabels: Record<Role, string> = {
   admin: 'Administrator',
 };
 
-function getMenuItems(user: User): MenuItem[] {
+function getMenuItems(user: SerializedUser): MenuItem[] {
   const hasRole = (role: Role) => user.roles?.includes(role) ?? false;
   const isAdmin = hasRole('admin');
   const isDev = hasRole('dev');

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/session';
 import { UserRepository } from '@/models/User';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { GameUploadForm } from '@/features/games/components/GameUploadForm';
 
 interface Props {
@@ -67,9 +68,8 @@ export default async function UploadPage({ searchParams }: Props) {
 
   // Check if metadata is ready for upload
   const metaReady =
-    Boolean(meta.lop && meta.mon && meta.quyenSach && meta.lesson && meta.game && meta.level && meta.github) &&
-    meta.skills.length > 0 &&
-    meta.themes.length > 0;
+    Boolean(meta.lop && meta.mon && meta.quyenSach && meta.lesson && meta.game && meta.level && meta.github);
+    // Removed skills and themes requirement to make them optional
 
   const gameMeta = {
     grade: meta.lop,
@@ -93,15 +93,7 @@ export default async function UploadPage({ searchParams }: Props) {
       {/* Header */}
       <header className="flex items-center gap-2 mb-4">
         <Breadcrumb items={breadcrumbItems} />
-        <button
-          onClick={() => (window.location.href = '/console')}
-          className="ml-auto w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
-          title="Đóng"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <CloseButton href="/console" title="Đóng" />
       </header>
 
       {metaReady ? (

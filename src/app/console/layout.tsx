@@ -5,6 +5,22 @@ import { UserRepository, type User } from '@/models/User';
 import { Sidebar } from '@/components/console/Sidebar';
 import { TopBar } from '@/components/console/TopBar';
 
+// Serialize user for client components (convert ObjectId to string)
+function serializeUser(user: User) {
+  return {
+    _id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    roles: user.roles,
+    isActive: user.isActive,
+    avatar: user.avatar,
+    teamIds: user.teamIds?.map(id => id.toString()),
+    createdBy: user.createdBy?.toString(),
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  };
+}
+
 export default async function ConsoleLayout({
   children,
 }: {
@@ -31,9 +47,12 @@ export default async function ConsoleLayout({
     redirect('/login');
   }
 
+  // Serialize user for client components
+  const serializedUser = serializeUser(user);
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar user={user} />
+      <Sidebar user={serializedUser} />
       <div className="flex-1 ml-[260px] transition-[margin] duration-300">
         <TopBar />
         <main className="p-6">

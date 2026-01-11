@@ -199,6 +199,56 @@ export function compareSemVer(v1: string, v2: string): number {
 }
 
 /**
+ * Serialize a GameVersion to JSON-safe object
+ */
+export function serializeGameVersion(version: GameVersion): Record<string, unknown> {
+  return {
+    _id: version._id.toString(),
+    gameId: version.gameId.toString(),
+    version: version.version,
+    storagePath: version.storagePath,
+    entryFile: version.entryFile,
+    buildSize: version.buildSize,
+    status: version.status,
+    isDeleted: version.isDeleted,
+    selfQAChecklist: version.selfQAChecklist,
+    releaseNote: version.releaseNote,
+    qaSummary: version.qaSummary,
+    submittedBy: version.submittedBy.toString(),
+    submittedAt: version.submittedAt?.toISOString(),
+    lastCodeUpdateAt: version.lastCodeUpdateAt?.toISOString(),
+    lastCodeUpdateBy: version.lastCodeUpdateBy?.toString(),
+    createdAt: version.createdAt.toISOString(),
+    updatedAt: version.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * Deserialize a JSON object back to a GameVersion
+ */
+export function deserializeGameVersion(data: Record<string, unknown>): GameVersion {
+  return {
+    _id: new ObjectId(data._id as string),
+    gameId: new ObjectId(data.gameId as string),
+    version: data.version as string,
+    storagePath: data.storagePath as string,
+    entryFile: data.entryFile as string,
+    buildSize: data.buildSize as number | undefined,
+    status: data.status as VersionStatus,
+    isDeleted: (data.isDeleted as boolean) ?? false,
+    selfQAChecklist: data.selfQAChecklist as SelfQAChecklist | undefined,
+    releaseNote: data.releaseNote as string | undefined,
+    qaSummary: data.qaSummary as QASummary | undefined,
+    submittedBy: new ObjectId(data.submittedBy as string),
+    submittedAt: data.submittedAt ? new Date(data.submittedAt as string) : undefined,
+    lastCodeUpdateAt: data.lastCodeUpdateAt ? new Date(data.lastCodeUpdateAt as string) : undefined,
+    lastCodeUpdateBy: data.lastCodeUpdateBy ? new ObjectId(data.lastCodeUpdateBy as string) : undefined,
+    createdAt: new Date(data.createdAt as string),
+    updatedAt: new Date(data.updatedAt as string),
+  };
+}
+
+/**
  * GameVersion Repository for CRUD operations
  */
 export class GameVersionRepository {

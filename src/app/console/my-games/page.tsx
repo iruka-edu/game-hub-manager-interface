@@ -10,10 +10,127 @@ import { GameTable } from '@/components/tables/GameTable';
 import { GameFilters } from '@/components/filters/GameFilters';
 import Link from 'next/link';
 
-export interface GameWithVersion {
+// Serialized types for client components (ObjectId converted to string)
+interface SerializedGame {
+  _id: string;
+  gameId: string;
+  title: string;
+  description?: string;
+  thumbnailDesktop?: string;
+  thumbnailMobile?: string;
+  ownerId: string;
+  teamId?: string;
+  latestVersionId?: string;
+  liveVersionId?: string;
+  subject?: string;
+  grade?: string;
+  unit?: string;
+  gameType?: string;
+  priority?: string;
+  tags?: string[];
+  disabled: boolean;
+  rolloutPercentage: number;
+  publishedAt?: string;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SerializedGameVersion {
+  _id: string;
+  gameId: string;
+  version: string;
+  storagePath: string;
+  entryFile: string;
+  buildSize?: number;
+  status: string;
+  isDeleted: boolean;
+  selfQAChecklist?: {
+    testedDevices: boolean;
+    testedAudio: boolean;
+    gameplayComplete: boolean;
+    contentVerified: boolean;
+    note?: string;
+  };
+  releaseNote?: string;
+  submittedBy: string;
+  submittedAt?: string;
+  lastCodeUpdateAt?: string;
+  lastCodeUpdateBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SerializedGameWithVersion {
+  game: SerializedGame;
+  latestVersion: SerializedGameVersion | null;
+  liveVersion: SerializedGameVersion | null;
+}
+
+// Internal type for database operations
+interface GameWithVersion {
   game: Game;
   latestVersion: GameVersion | null;
   liveVersion: GameVersion | null;
+}
+
+// Serialize Game for client components
+function serializeGame(game: Game): SerializedGame {
+  return {
+    _id: game._id.toString(),
+    gameId: game.gameId,
+    title: game.title,
+    description: game.description,
+    thumbnailDesktop: game.thumbnailDesktop,
+    thumbnailMobile: game.thumbnailMobile,
+    ownerId: game.ownerId,
+    teamId: game.teamId,
+    latestVersionId: game.latestVersionId?.toString(),
+    liveVersionId: game.liveVersionId?.toString(),
+    subject: game.subject,
+    grade: game.grade,
+    unit: game.unit,
+    gameType: game.gameType,
+    priority: game.priority,
+    tags: game.tags,
+    disabled: game.disabled,
+    rolloutPercentage: game.rolloutPercentage,
+    publishedAt: game.publishedAt?.toISOString(),
+    isDeleted: game.isDeleted,
+    createdAt: game.createdAt.toISOString(),
+    updatedAt: game.updatedAt.toISOString(),
+  };
+}
+
+// Serialize GameVersion for client components
+function serializeGameVersion(version: GameVersion): SerializedGameVersion {
+  return {
+    _id: version._id.toString(),
+    gameId: version.gameId.toString(),
+    version: version.version,
+    storagePath: version.storagePath,
+    entryFile: version.entryFile,
+    buildSize: version.buildSize,
+    status: version.status,
+    isDeleted: version.isDeleted,
+    selfQAChecklist: version.selfQAChecklist,
+    releaseNote: version.releaseNote,
+    submittedBy: version.submittedBy.toString(),
+    submittedAt: version.submittedAt?.toISOString(),
+    lastCodeUpdateAt: version.lastCodeUpdateAt?.toISOString(),
+    lastCodeUpdateBy: version.lastCodeUpdateBy?.toString(),
+    createdAt: version.createdAt.toISOString(),
+    updatedAt: version.updatedAt.toISOString(),
+  };
+}
+
+// Serialize GameWithVersion for client components
+function serializeGameWithVersion(gwv: GameWithVersion): SerializedGameWithVersion {
+  return {
+    game: serializeGame(gwv.game),
+    latestVersion: gwv.latestVersion ? serializeGameVersion(gwv.latestVersion) : null,
+    liveVersion: gwv.liveVersion ? serializeGameVersion(gwv.liveVersion) : null,
+  };
 }
 
 interface Props {
@@ -40,7 +157,7 @@ async function getGamesWithVersions(userId: string): Promise<GameWithVersion[]> 
   return gamesWithVersions;
 }
 
-function groupGamesByStatus(games: GameWithVersion[]): Record<string, GameWithVersion[]> {
+function groupGamesByStatus(games: SerializedGameWithVersion[]): Record<string, SerializedGameWithVersion[]> {
   return {
     draft: games.filter(g => g.latestVersion?.status === 'draft'),
     qc_failed: games.filter(g => g.latestVersion?.status === 'qc_failed'),
@@ -83,12 +200,15 @@ export default async function MyGamesPage({ searchParams }: Props) {
   const currentTab = params.tab || 'games';
 
   const gamesWithVersions = await getGamesWithVersions(session.userId);
-  const groupedGames = groupGamesByStatus(gamesWithVersions);
+  
+  // Serialize for client components (convert ObjectId to string)
+  const serializedGames = gamesWithVersions.map(serializeGameWithVersion);
+  const groupedGames = groupGamesByStatus(serializedGames);
 
   // Apply status filter
   const filteredGames = statusFilter
-    ? gamesWithVersions.filter(g => g.latestVersion?.status === statusFilter)
-    : gamesWithVersions;
+    ? serializedGames.filter(g => g.latestVersion?.status === statusFilter)
+    : serializedGames;
 
   const statusLabels: Record<string, string> = {
     draft: 'Nháp',
@@ -166,7 +286,7 @@ export default async function MyGamesPage({ searchParams }: Props) {
           <GameFilters
             statusFilter={statusFilter}
             groupedGames={groupedGames}
-            totalCount={gamesWithVersions.length}
+            totalCount={serializedGames.length}
           />
 
           {filteredGames.length > 0 ? (
