@@ -8,7 +8,7 @@ import {
   getUserPermissions 
 } from './page-permissions';
 import type { User, Role } from '../models/User';
-import { ROLE_PERMISSIONS, type Permission } from '../auth/auth-rbac';
+import { ROLE_PERMISSIONS, type Permission } from './auth-rbac';
 
 // Generators
 const roleArb = fc.constantFrom<Role>('dev', 'qc', 'cto', 'ceo', 'admin');

@@ -93,8 +93,8 @@ export const RegistryManager = {
         entryUrl: `${CDN_BASE}/games/${gameId}/${version}/index.html`,
         manifest: manifest,
         updatedAt: now,
-        capabilities: manifest.capabilities || [],
-        minHubVersion: manifest.minHubVersion,
+        capabilities: (manifest as any).capabilities || [],
+        minHubVersion: (manifest as any).minHubVersion,
       };
       registry.games.push(newGame);
     } else {
@@ -120,8 +120,8 @@ export const RegistryManager = {
         existingGame.activeVersion = version;
         existingGame.entryUrl = `${CDN_BASE}/games/${gameId}/${version}/index.html`;
         existingGame.manifest = manifest;
-        existingGame.capabilities = manifest.capabilities || [];
-        existingGame.minHubVersion = manifest.minHubVersion;
+        existingGame.capabilities = (manifest as any).capabilities || [];
+        existingGame.minHubVersion = (manifest as any).minHubVersion;
       }
       
       existingGame.updatedAt = now;

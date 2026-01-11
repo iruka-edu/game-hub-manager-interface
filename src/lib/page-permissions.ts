@@ -3,7 +3,7 @@ import {
   type Permission,
   hasPermissionString,
   getUserPermissions,
-} from "../auth/auth-rbac";
+} from "./auth-rbac";
 
 /**
  * Configuration for page-level permission requirements

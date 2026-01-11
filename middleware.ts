@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySession } from '@/src/lib/session';
-import { getRequiredPermission } from '@/src/lib/page-permissions';
-import { ROLE_PERMISSIONS, type Permission } from '@/src/auth/auth-rbac';
-import type { Role } from '@/src/types/user-types';
+import { verifySession } from '@/lib/session';
+import { getRequiredPermission } from '@/lib/page-permissions';
+import { ROLE_PERMISSIONS, type Permission } from '@/lib/auth-rbac';
+import type { Role } from '@/types/user-types';
 
 /**
  * Protected route patterns - matching original Astro middleware

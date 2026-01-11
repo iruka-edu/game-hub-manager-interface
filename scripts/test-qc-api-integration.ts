@@ -17,8 +17,8 @@ async function testQCAPIIntegration() {
     console.log('[Test] Testing API endpoint imports...');
     
     // Import the API endpoints to check for compilation errors
-    const runApi = await import('../src/pages/api/qc/run.js');
-    const decisionApi = await import('../src/pages/api/qc/decision.js');
+    const runApi = await import('../src/app/api/qc/run/route');
+    const decisionApi = await import('../src/app/api/qc/decision/route');
     
     console.log('  ✓ /api/qc/run.ts imports successfully');
     console.log('  ✓ /api/qc/decision.ts imports successfully');

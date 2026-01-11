@@ -6,7 +6,7 @@
  *   npx tsx scripts/test-runner-validation.ts
  */
 
-import { TestRunnerService, createIframeBridge, createSessionController } from '../src/services/TestRunnerService';
+import { TestRunnerService, createIframeBridge, createSessionController } from '../src/lib/TestRunnerService';
 import type { LaunchContext, QATestResults } from '../src/types/qc-types';
 
 async function testTestRunnerService() {

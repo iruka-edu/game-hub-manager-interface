@@ -92,13 +92,14 @@ export class UploadManager {
 
       return validation;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.setState({ 
         stage: 'error',
-        error: error.message 
+        error: errorMessage 
       });
       return {
         valid: false,
-        errors: [error.message],
+        errors: [errorMessage],
         warnings: [],
       };
     }
@@ -184,7 +185,7 @@ export class UploadManager {
         progress: 80,
       });
 
-      const updateResult = await this.updateMetadata(uploadResult.gameId);
+      const updateResult = await this.updateMetadata(uploadResult.gameId!);
       if (!updateResult.success) {
         throw new Error(updateResult.error);
       }
@@ -201,7 +202,7 @@ export class UploadManager {
     } catch (error) {
       this.setState({
         stage: 'error',
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         isUploading: false,
       });
       return false;
@@ -284,7 +285,7 @@ export class UploadManager {
     } catch (error) {
       return { 
         success: false, 
-        error: error.message 
+        error: error instanceof Error ? error.message : String(error) 
       };
     }
   }
@@ -323,7 +324,7 @@ export class UploadManager {
     } catch (error) {
       return { 
         success: false, 
-        error: error.message 
+        error: error instanceof Error ? error.message : String(error) 
       };
     }
   }

@@ -3,7 +3,7 @@ import * as fc from 'fast-check';
 import { ObjectId } from 'mongodb';
 import { createClientAuth, canDo } from './client-auth';
 import type { User, Role } from '../models/User';
-import type { Permission } from '../auth/auth-rbac';
+import type { Permission } from './auth-rbac';
 
 // Generators
 const roleArb = fc.constantFrom<Role>('dev', 'qc', 'cto', 'ceo', 'admin');

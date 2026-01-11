@@ -1,4 +1,4 @@
-import type { Permission } from '../auth/auth-rbac';
+import type { Permission } from './auth-rbac';
 import type { User } from '../models/User';
 
 /**

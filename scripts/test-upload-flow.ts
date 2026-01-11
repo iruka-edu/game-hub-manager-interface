@@ -162,7 +162,7 @@ class UploadFlowTester {
       
       // Create FormData
       const formData = new FormData();
-      const blob = new Blob([zipBuffer], { type: 'application/zip' });
+      const blob = new Blob([new Uint8Array(zipBuffer)], { type: 'application/zip' });
       formData.append('file', blob, 'test-game.zip');
       formData.append('gameId', 'test-upload-game-' + Date.now());
       formData.append('version', '1.0.0');
