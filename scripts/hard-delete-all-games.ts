@@ -73,7 +73,7 @@ class HardDeleteService {
       });
       gcsFileCount = files.length;
     } catch (error) {
-      console.warn('⚠️  Could not access GCS bucket:', error.message);
+      console.warn('⚠️  Could not access GCS bucket:', error instanceof Error ? error.message : String(error));
     }
 
     const stats: DeletionStats = {
@@ -152,7 +152,7 @@ class HardDeleteService {
           console.log('   ✓ No GCS files to delete');
         }
       } catch (error) {
-        console.error('   ❌ Error deleting GCS files:', error.message);
+        console.error('   ❌ Error deleting GCS files:', error instanceof Error ? error.message : String(error));
       }
 
       // 3. Clear registry
@@ -162,7 +162,7 @@ class HardDeleteService {
         stats.registryCleared = true;
         console.log('   ✓ Registry cleared');
       } catch (error) {
-        console.error('   ❌ Error clearing registry:', error.message);
+        console.error('   ❌ Error clearing registry:', error instanceof Error ? error.message : String(error));
       }
 
       console.log('\n✅ Hard deletion completed successfully!');

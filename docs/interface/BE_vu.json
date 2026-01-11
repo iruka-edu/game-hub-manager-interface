@@ -1,0 +1,1055 @@
+{
+  "/api/v1/game-lessons/subjects": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Subjects",
+      "operationId": "get_subjects_api_v1_game_lessons_subjects_get",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/SubjectBase"
+                },
+                "type": "array",
+                "title": "Response Get Subjects Api V1 Game Lessons Subjects Get"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/age-bands": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Age Bands",
+      "operationId": "get_age_bands_api_v1_game_lessons_age_bands_get",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/AgeBandOut"
+                },
+                "type": "array",
+                "title": "Response Get Age Bands Api V1 Game Lessons Age Bands Get"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/courses/{subject_id}/{age_band_id}": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Courses",
+      "operationId": "get_courses_api_v1_game_lessons_courses**subject*id***age_band_id**get",
+      "parameters": [
+        {
+          "name": "subject_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Subject Id"
+          }
+        },
+        {
+          "name": "age_band_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Age Band Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CourseOut"
+                },
+                "title": "Response Get Courses Api V1 Game Lessons Courses  Subject Id   Age Band Id  Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/tracks": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Tracks By Subject And Age Band",
+      "operationId": "get_tracks_by_subject_and_age_band_api_v1_game_lessons_tracks_get",
+      "parameters": [
+        {
+          "name": "subject_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Subject Id"
+          }
+        },
+        {
+          "name": "age_band_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Age Band Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/app**schemas**learning_path**track**TrackOut"
+                },
+                "title": "Response Get Tracks By Subject And Age Band Api V1 Game Lessons Tracks Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/tracks/{course_id}": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Tracks",
+      "operationId": "get_tracks_api_v1_game_lessons_tracks**course_id**get",
+      "parameters": [
+        {
+          "name": "course_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Course Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/app**schemas**learning_path**track**TrackOut"
+                },
+                "title": "Response Get Tracks Api V1 Game Lessons Tracks Course Id Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/units/{track_id}": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Units",
+      "operationId": "get_units_api_v1_game_lessons_units**track_id**get",
+      "parameters": [
+        {
+          "name": "track_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Track Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/UnitOut"
+                },
+                "title": "Response Get Units Api V1 Game Lessons Units  Track Id  Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/lessons": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Lessons By Track",
+      "operationId": "get_lessons_by_track_api_v1_game_lessons_lessons_get",
+      "parameters": [
+        {
+          "name": "track_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Track Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LessonTrackOut"
+                },
+                "title": "Response Get Lessons By Track Api V1 Game Lessons Lessons Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/lessons/{unit_id}": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Lessons",
+      "operationId": "get_lessons_api_v1_game_lessons_lessons**unit_id**get",
+      "parameters": [
+        {
+          "name": "unit_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Unit Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LessonTrackOut"
+                },
+                "title": "Response Get Lessons Api V1 Game Lessons Lessons  Unit Id  Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/skills": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Skills",
+      "operationId": "get_skills_api_v1_game_lessons_skills_get",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/SkillOut"
+                },
+                "type": "array",
+                "title": "Response Get Skills Api V1 Game Lessons Skills Get"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/skills/filter": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Skills By Age Band And Subject",
+      "operationId": "get_skills_by_age_band_and_subject_api_v1_game_lessons_skills_filter_get",
+      "parameters": [
+        {
+          "name": "age_band_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Age Band Id"
+          }
+        },
+        {
+          "name": "subject_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Subject Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SkillOut"
+                },
+                "title": "Response Get Skills By Age Band And Subject Api V1 Game Lessons Skills Filter Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/levels": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Levels",
+      "operationId": "get_levels_api_v1_game_lessons_levels_get",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/LevelOut"
+                },
+                "type": "array",
+                "title": "Response Get Levels Api V1 Game Lessons Levels Get"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/game-lessons/themes": {
+    "get": {
+      "tags": ["Game Lessons"],
+      "summary": "Get Themes",
+      "operationId": "get_themes_api_v1_game_lessons_themes_get",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/ThemeOut"
+                },
+                "type": "array",
+                "title": "Response Get Themes Api V1 Game Lessons Themes Get"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/": {
+    "get": {
+      "tags": ["Games"],
+      "summary": "List Games",
+      "operationId": "list_games_api_v1_games**get",
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/GameResponse"
+                },
+                "type": "array",
+                "title": "Response List Games Api V1 Games  Get"
+              }
+            }
+          }
+        }
+      }
+    },
+    "post": {
+      "tags": ["Games"],
+      "summary": "Create Game",
+      "operationId": "create_game_api_v1_games__post",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GameCreate"
+            }
+          }
+        },
+        "required": true
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/{game_id}": {
+    "put": {
+      "tags": ["Games"],
+      "summary": "Update Game",
+      "operationId": "update_game_api_v1_games**game_id**put",
+      "parameters": [
+        {
+          "name": "game_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GameUpdate"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "tags": ["Games"],
+      "summary": "Delete Game",
+      "operationId": "delete_game_api_v1_games__game_id__delete",
+      "parameters": [
+        {
+          "name": "game_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Id"
+          }
+        },
+        {
+          "name": "deleted_by",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted By"
+          }
+        },
+        {
+          "name": "reason",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    },
+    "get": {
+      "tags": ["Games"],
+      "summary": "Get Game",
+      "operationId": "get_game_api_v1_games__game_id__get",
+      "parameters": [
+        {
+          "name": "game_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/by_lesson/{lesson_id}": {
+    "get": {
+      "tags": ["Games"],
+      "summary": "List Games",
+      "operationId": "list_games_api_v1_games_by_lesson__lesson_id__get",
+      "parameters": [
+        {
+          "name": "lesson_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Lesson Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GameResponse"
+                },
+                "title": "Response List Games Api V1 Games By Lesson Lesson Id Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/{game_id}/versions": {
+    "post": {
+      "tags": ["Games"],
+      "summary": "Create Game Version",
+      "operationId": "create_game_version_api_v1_games__game_id__versions_post",
+      "parameters": [
+        {
+          "name": "game_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Id"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GameVersionCreate"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameVersionResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/{game_id}/versions/{version}": {
+    "put": {
+      "tags": ["Games"],
+      "summary": "Update Game Version",
+      "operationId": "update_game_version_api_v1_games**game_id**versions**version**put",
+      "parameters": [
+        {
+          "name": "game_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Id"
+          }
+        },
+        {
+          "name": "version",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Version"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GameVersionUpdate"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameVersionResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "tags": ["Games"],
+      "summary": "Delete Game Version",
+      "operationId": "delete_game_version_api_v1_games__game_id__versions__version__delete",
+      "parameters": [
+        {
+          "name": "game_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Id"
+          }
+        },
+        {
+          "name": "version",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Version"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameVersionResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/session/assign": {
+    "post": {
+      "tags": ["Games"],
+      "summary": "Assign Session",
+      "operationId": "assign_session_api_v1_games_session_assign_post",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GameSessionAssignRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameSessionAssignResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/session/open": {
+    "get": {
+      "tags": ["Games"],
+      "summary": "Get Open Session",
+      "operationId": "get_open_session_api_v1_games_session_open_get",
+      "parameters": [
+        {
+          "name": "child_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Child Id"
+          }
+        },
+        {
+          "name": "lesson_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Lesson Id"
+          }
+        },
+        {
+          "name": "game_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Id"
+          }
+        },
+        {
+          "name": "game_version",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Game Version"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameSessionAssignResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/session/submit": {
+    "post": {
+      "tags": ["Games"],
+      "summary": "Submit Session",
+      "operationId": "submit_session_api_v1_games_session_submit_post",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GameSessionSubmitRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameSessionResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/games/session/{session_id}": {
+    "get": {
+      "tags": ["Games"],
+      "summary": "Get Session",
+      "operationId": "get_session_api_v1_games_session__session_id__get",
+      "parameters": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "Session Id"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameSessionResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

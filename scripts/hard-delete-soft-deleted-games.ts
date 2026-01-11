@@ -99,7 +99,7 @@ class HardDeleteSoftDeletedGames {
   private async processSoftDeletedGames(db: any, stats: DeleteStats): Promise<void> {
     console.log('\n📋 Finding soft-deleted games...');
     
-    const gamesCollection = db.collection<Game>('games');
+    const gamesCollection = db.collection('games');
     const versionsCollection = db.collection('game_versions');
     
     // Find only soft-deleted games
@@ -115,7 +115,7 @@ class HardDeleteSoftDeletedGames {
 
     // Show details
     console.log('\n📋 Soft-deleted games:');
-    softDeletedGames.forEach(game => {
+    softDeletedGames.forEach((game: any) => {
       const deletedDate = game.deletedAt ? game.deletedAt.toISOString().split('T')[0] : 'unknown';
       console.log(`  - ${game.gameId}: "${game.title}" (deleted: ${deletedDate})`);
     });

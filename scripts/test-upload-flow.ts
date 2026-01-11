@@ -64,7 +64,7 @@ class UploadFlowTester {
       }
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('Authentication', false, `Login error: ${error.message}`, duration);
+      this.addResult('Authentication', false, `Login error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
@@ -107,7 +107,7 @@ class UploadFlowTester {
       }
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('Game Creation', false, `Creation error: ${error.message}`, duration);
+      this.addResult('Game Creation', false, `Creation error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return null;
     }
   }
@@ -188,7 +188,7 @@ class UploadFlowTester {
       }
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('File Upload', false, `Upload error: ${error.message}`, duration);
+      this.addResult('File Upload', false, `Upload error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
@@ -233,7 +233,7 @@ class UploadFlowTester {
       }
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('Metadata Update', false, `Update error: ${error.message}`, duration);
+      this.addResult('Metadata Update', false, `Update error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
