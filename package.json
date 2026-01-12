@@ -6,6 +6,7 @@
     "preinstall": "npm config set @iruka-edu:registry https://npm.pkg.github.com/",
     "dev": "next dev",
     "build": "next build",
+    "build:next": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
