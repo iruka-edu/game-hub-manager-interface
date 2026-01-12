@@ -1,5 +1,6 @@
 import { ObjectId, type Collection, type Db } from "mongodb";
 import { getMongoClient } from "../lib/mongodb";
+import type { GameMetadata } from "../lib/metadata-types";
 
 /**
  * @deprecated Game status is now in GameVersion model. Use VersionStatus instead.
@@ -80,11 +81,12 @@ export interface Game {
   gameType?: string; // Loại game
   priority?: GamePriority;
   tags?: string[];
-  lesson?: string;
+  lesson?: string[];
   level?: string;
   skills?: string[];
   themes?: string[];
   linkGithub?: string;
+  quyenSach?: string; // Quyển sách
 
   // Publishing fields
   disabled: boolean; // Kill-switch: if true, game is hidden from Public Registry
@@ -93,6 +95,11 @@ export interface Game {
 
   // Storage path for GCS cleanup
   gcsPath?: string; // e.g., "games/com.iruka.math/"
+
+  // Extensible metadata object (for new metadata system)
+  metadata?: GameMetadata;
+  metadataCompleteness?: number;
+  lastMetadataUpdate?: Date;
 
   // Deletion metadata (3-level deletion system)
   isDeleted: boolean; // Soft delete flag

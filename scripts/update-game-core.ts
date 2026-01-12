@@ -51,7 +51,7 @@ class GameCoreUpdater {
       // Remove ^ or ~ prefix if present
       return version.replace(/^[\^~]/, '');
     } catch (error) {
-      console.error('❌ Error reading package.json:', error.message);
+      console.error('❌ Error reading package.json:', error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -124,7 +124,7 @@ class GameCoreUpdater {
       console.log('✅ Successfully updated @iruka-edu/game-core');
       return true;
     } catch (error) {
-      console.error('❌ Failed to update package:', error.message);
+      console.error('❌ Failed to update package:', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -143,7 +143,7 @@ class GameCoreUpdater {
         console.log('✅ Updated package.json to use "latest" tag');
       }
     } catch (error) {
-      console.error('❌ Failed to update package.json:', error.message);
+      console.error('❌ Failed to update package.json:', error instanceof Error ? error.message : String(error));
     }
   }
 

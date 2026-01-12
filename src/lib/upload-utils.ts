@@ -83,7 +83,7 @@ export async function validateGameZip(file: File): Promise<GameFileValidation> {
           result.warnings.push('Manifest nên có trường title');
         }
       } catch (error) {
-        result.errors.push('Manifest.json không hợp lệ: ' + error.message);
+        result.errors.push('Manifest.json không hợp lệ: ' + (error instanceof Error ? error.message : String(error)));
       }
     }
 
@@ -91,7 +91,7 @@ export async function validateGameZip(file: File): Promise<GameFileValidation> {
     const maxFileSize = 10 * 1024 * 1024; // 10MB per file
     for (const fileName of files) {
       const fileObj = zipContent.files[fileName];
-      if (!fileObj.dir && fileObj._data && fileObj._data.uncompressedSize > maxFileSize) {
+      if (!fileObj.dir && (fileObj as any)._data && (fileObj as any)._data.uncompressedSize > maxFileSize) {
         result.warnings.push(`File ${fileName} lớn hơn 10MB`);
       }
     }
@@ -111,7 +111,7 @@ export async function validateGameZip(file: File): Promise<GameFileValidation> {
     return result;
 
   } catch (error) {
-    result.errors.push('Không thể đọc file ZIP: ' + error.message);
+    result.errors.push('Không thể đọc file ZIP: ' + (error instanceof Error ? error.message : String(error)));
     return result;
   }
 }

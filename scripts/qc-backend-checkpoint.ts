@@ -17,7 +17,7 @@ import {
   QCReportRepository,
   type CreateQCReportInput,
 } from "../src/models/QcReport";
-import { TestRunnerService } from "../src/services/TestRunnerService";
+import { TestRunnerService } from "../src/lib/TestRunnerService";
 import { closeConnection } from "../src/lib/mongodb";
 import type { LaunchContext, QATestResults } from "../src/types/qc-types";
 
@@ -285,8 +285,8 @@ async function runBackendCheckpoint() {
 
     try {
       // Import API endpoints to check for compilation errors
-      const runApi = await import("../src/pages/api/qc/run.js");
-      const decisionApi = await import("../src/pages/api/qc/decision.js");
+      const runApi = await import("../src/app/api/qc/run/route");
+      const decisionApi = await import("../src/app/api/qc/decision/route");
 
       if (
         typeof runApi.POST === "function" &&

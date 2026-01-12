@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
-import type { Role, User } from '../models/User';
-import { UserRepository } from '../models/User';
+import type { Role } from '../types/user-types';
 
 /**
  * Session payload stored in JWT
@@ -20,8 +19,9 @@ const COOKIE_NAME = 'iruka_session';
 
 /**
  * Create a session token for a user
+ * Note: User type is inlined to avoid mongodb import
  */
-export function createSession(user: User): string {
+export function createSession(user: { _id: { toString(): string }; email: string; roles: Role[] }): string {
   const payload = {
     userId: user._id.toString(),
     email: user.email,
@@ -41,24 +41,6 @@ export function verifySession(token: string): SessionPayload | null {
   } catch {
     return null;
   }
-}
-
-/**
- * Get user from request by extracting and verifying session cookie
- */
-export async function getUserFromRequest(request: Request): Promise<User | null> {
-  const cookieHeader = request.headers.get('cookie');
-  if (!cookieHeader) return null;
-
-  const token = parseCookie(cookieHeader, COOKIE_NAME);
-  if (!token) return null;
-
-  const session = verifySession(token);
-  if (!session) return null;
-
-  // Fetch fresh user data from database
-  const userRepo = await UserRepository.getInstance();
-  return userRepo.findById(session.userId);
 }
 
 

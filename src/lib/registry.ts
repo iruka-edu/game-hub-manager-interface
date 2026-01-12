@@ -1,4 +1,5 @@
 import { getFileContent, saveFileContent, CDN_BASE } from './gcs';
+import { constructFileUrl } from './storage-path';
 import type { GameManifest } from '@iruka-edu/game-core';
 
 const REGISTRY_PATH = 'registry/index.json';
@@ -90,11 +91,11 @@ export const RegistryManager = {
         title: manifest.title || gameId,
         activeVersion: version,  // Auto-activate first version
         versions: [newVersionInfo],
-        entryUrl: `${CDN_BASE}/games/${gameId}/${version}/index.html`,
+        entryUrl: constructFileUrl(`games/${gameId}/${version}`, 'index.html', CDN_BASE),
         manifest: manifest,
         updatedAt: now,
-        capabilities: manifest.capabilities || [],
-        minHubVersion: manifest.minHubVersion,
+        capabilities: (manifest as any).capabilities || [],
+        minHubVersion: (manifest as any).minHubVersion,
       };
       registry.games.push(newGame);
     } else {
@@ -118,10 +119,10 @@ export const RegistryManager = {
       const latestVersion = existingGame.versions[existingGame.versions.length - 1].version;
       if (version === latestVersion) {
         existingGame.activeVersion = version;
-        existingGame.entryUrl = `${CDN_BASE}/games/${gameId}/${version}/index.html`;
+        existingGame.entryUrl = constructFileUrl(`games/${gameId}/${version}`, 'index.html', CDN_BASE);
         existingGame.manifest = manifest;
-        existingGame.capabilities = manifest.capabilities || [];
-        existingGame.minHubVersion = manifest.minHubVersion;
+        existingGame.capabilities = (manifest as any).capabilities || [];
+        existingGame.minHubVersion = (manifest as any).minHubVersion;
       }
       
       existingGame.updatedAt = now;
@@ -150,7 +151,7 @@ export const RegistryManager = {
 
     // Update active version
     game.activeVersion = targetVersion;
-    game.entryUrl = `${CDN_BASE}/games/${gameId}/${targetVersion}/index.html`;
+    game.entryUrl = constructFileUrl(`games/${gameId}/${targetVersion}`, 'index.html', CDN_BASE);
     game.updatedAt = new Date().toISOString();
 
     registry.generatedAt = new Date().toISOString();

@@ -64,10 +64,10 @@ export const validateManifestWithCore = (content: string): ValidationResult => {
     const coreResult = validateManifestCore(manifest);
     
     return {
-      valid: coreResult.issues.length === 0,
-      errors: coreResult.issues.filter(issue => issue.severity === 'error').map(issue => issue.message),
-      warnings: coreResult.issues.filter(issue => issue.severity === 'warning').map(issue => issue.message),
-      manifest: coreResult.issues.length === 0 ? manifest : undefined,
+      valid: coreResult.ok,
+      errors: coreResult.errors.map(issue => issue.message),
+      warnings: coreResult.warnings.map(issue => issue.message),
+      manifest: coreResult.ok ? manifest : undefined,
     };
   } catch (e) {
     return {

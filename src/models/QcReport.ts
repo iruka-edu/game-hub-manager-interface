@@ -5,6 +5,7 @@ import type {
   QA02Result,
   QA03Result,
   QA04Result,
+  QASummary,
 } from "./GameVersion";
 
 /**
@@ -40,24 +41,29 @@ export interface QCReport {
   gameId: ObjectId; // Reference to Game
   versionId: ObjectId; // Reference to GameVersion
   qcUserId: ObjectId; // Reference to QC User
+  reviewerName?: string; // Snapshot of reviewer name
 
-  // Individual QA Test Results
-  qa01: QA01Result;
-  qa02: QA02Result;
-  qa03: QA03Result;
-  qa04: QA04Result;
+  // Individual QA Test Results (Legacy)
+  qa01?: QA01Result;
+  qa02?: QA02Result;
+  qa03?: QA03Result;
+  qa04?: QA04Result;
+
+  // New Structure: Full QA Summary with categories
+  qaSummary?: QASummary;
 
   // Comprehensive Test Data
-  rawResult: object; // Raw results from game testing
-  eventsTimeline: GameEvent[]; // Complete event timeline
+  rawResult?: object; // Raw results from game testing
+  eventsTimeline?: GameEvent[]; // Complete event timeline
 
   // QC Decision
   decision: QCDecision;
-  note: string;
+  notes?: string; // Renamed from note to match generic usage, but keeping mapping if needed
 
   // Metadata
-  testStartedAt: Date;
-  testCompletedAt: Date;
+  reviewedAt?: Date; // Explicit review timestamp
+  testStartedAt?: Date;
+  testCompletedAt?: Date;
   createdAt: Date;
 }
 
@@ -95,8 +101,9 @@ export class QCReportRepository {
     if (!input.versionId) {
       throw new Error("versionId is required");
     }
-    if (!input.qcUserId) {
-      throw new Error("qcUserId is required");
+    if (!input.qcUserId && !input.reviewerName) {
+      // Allow either ID or Name for now if we want flexibility, but ID is best
+      if (!input.qcUserId) throw new Error("qcUserId is required");
     }
     if (!input.decision) {
       throw new Error("decision is required");
@@ -107,24 +114,22 @@ export class QCReportRepository {
       throw new Error('decision must be "pass" or "fail"');
     }
 
-    // Validate QA results structure
-    if (!input.qa01 || typeof input.qa01.pass !== "boolean") {
-      throw new Error("qa01 result with pass boolean is required");
-    }
-    if (!input.qa02 || typeof input.qa02.pass !== "boolean") {
-      throw new Error("qa02 result with pass boolean is required");
-    }
-    if (!input.qa03) {
-      throw new Error("qa03 result is required");
-    }
-    if (!input.qa04 || typeof input.qa04.pass !== "boolean") {
-      throw new Error("qa04 result with pass boolean is required");
+    // Validate that we have EITHER legacy results OR new qaSummary
+    const hasLegacyResults =
+      input.qa01 && input.qa02 && input.qa03 && input.qa04;
+    const hasNewSummary = !!input.qaSummary;
+
+    if (!hasLegacyResults && !hasNewSummary) {
+      throw new Error(
+        "QC Report must contain either legacy QA results (qa01-04) or a qaSummary"
+      );
     }
 
     const now = new Date();
     const report: Omit<QCReport, "_id"> = {
       ...input,
       createdAt: now,
+      reviewedAt: input.reviewedAt || now,
     };
 
     const result = await this.collection.insertOne(report as QCReport);

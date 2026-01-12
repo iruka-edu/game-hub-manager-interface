@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Storage, type StorageOptions } from '@google-cloud/storage';
+import { constructFileUrl } from './storage-path';
 
 /**
  * Initialize GCS client with support for multiple credential methods:
@@ -168,6 +169,7 @@ export const listFiles = async (prefix: string): Promise<string[]> => {
 /**
  * Upload game files (ZIP) to GCS
  * Extracts ZIP and uploads all files to the specified storage path
+ * Automatically finds the root directory containing index.html
  * @param buffer - ZIP file buffer
  * @param storagePath - Base path in GCS (e.g., "games/my-game/1.0.0")
  * @param fileName - Original file name for logging
@@ -186,10 +188,42 @@ export const uploadGameFiles = async (
     const uploadedFiles: string[] = [];
     const uploadItems: UploadItem[] = [];
 
-    // Iterate through all files in ZIP
+    // Find the root directory containing index.html
+    let rootPath = '';
+    const allFiles = Object.keys(zip.files);
+    
+    // Look for index.html in all possible paths
+    const indexHtmlPaths = allFiles.filter(path => 
+      path.toLowerCase().endsWith('index.html') && !zip.files[path].dir
+    );
+    
+    if (indexHtmlPaths.length === 0) {
+      throw new Error('Không tìm thấy file index.html trong ZIP');
+    }
+    
+    // Use the first index.html found and determine its root directory
+    const indexPath = indexHtmlPaths[0];
+    const pathParts = indexPath.split('/');
+    
+    if (pathParts.length > 1) {
+      // index.html is in a subdirectory, use that as root
+      rootPath = pathParts.slice(0, -1).join('/') + '/';
+      console.log(`[GCS] Tìm thấy index.html tại: ${indexPath}, sử dụng root: ${rootPath}`);
+    } else {
+      // index.html is at ZIP root
+      rootPath = '';
+      console.log(`[GCS] index.html ở root của ZIP`);
+    }
+
+    // Iterate through all files in ZIP and filter by root path
     for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
       // Skip directories
       if (zipEntry.dir) continue;
+
+      // Skip files not in the root path
+      if (rootPath && !relativePath.startsWith(rootPath)) {
+        continue;
+      }
 
       // Get file content
       const content = await zipEntry.async('nodebuffer');
@@ -198,8 +232,11 @@ export const uploadGameFiles = async (
       const contentType = getContentType(relativePath);
       const isHtml = relativePath.endsWith('.html') || relativePath.endsWith('.htm');
       
+      // Calculate relative path from root (remove root prefix)
+      const fileRelativePath = rootPath ? relativePath.substring(rootPath.length) : relativePath;
+      
       // Build destination path
-      const destination = `${storagePath}/${relativePath}`;
+      const destination = `${storagePath}/${fileRelativePath}`;
       
       uploadItems.push({
         destination,
@@ -208,11 +245,15 @@ export const uploadGameFiles = async (
         isHtml,
       });
       
-      uploadedFiles.push(relativePath);
+      uploadedFiles.push(fileRelativePath);
+    }
+
+    if (uploadItems.length === 0) {
+      throw new Error('Không có file nào để upload sau khi xác định root directory');
     }
 
     // Upload all files in parallel
-    console.log(`[GCS] Đang tải lên ${uploadItems.length} file từ ${fileName}...`);
+    console.log(`[GCS] Đang tải lên ${uploadItems.length} file từ ${fileName} (root: ${rootPath || 'ZIP root'})...`);
     
     const results = await uploadBufferBatch(uploadItems, 5, (completed, total, currentFile) => {
       console.log(`[GCS] Tiến độ: ${completed}/${total} - ${currentFile}`);
@@ -228,7 +269,7 @@ export const uploadGameFiles = async (
     console.log(`[GCS] Tải lên thành công ${uploadedFiles.length} file`);
 
     // Return the entry URL (index.html)
-    const entryUrl = `${CDN_BASE}/${storagePath}/index.html`;
+    const entryUrl = constructFileUrl(storagePath, 'index.html', CDN_BASE);
     
     return {
       url: entryUrl,

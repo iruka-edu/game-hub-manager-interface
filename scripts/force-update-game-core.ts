@@ -73,7 +73,7 @@ async function forceUpdateGameCore() {
     console.log('   npm test');
 
   } catch (error) {
-    console.error('❌ Force update failed:', error.message);
+    console.error('❌ Force update failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

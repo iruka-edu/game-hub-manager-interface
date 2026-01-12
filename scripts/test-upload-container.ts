@@ -46,7 +46,7 @@ class UploadContainerTester {
       return true;
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('TypeScript Compilation', false, `Type errors: ${error.message}`, duration);
+      this.addResult('TypeScript Compilation', false, `Type errors: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
@@ -105,7 +105,7 @@ class UploadContainerTester {
       return true;
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('File Structure', false, `File read error: ${error.message}`, duration);
+      this.addResult('File Structure', false, `File read error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
@@ -142,7 +142,7 @@ class UploadContainerTester {
       return true;
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('Type Definitions', false, `Types file error: ${error.message}`, duration);
+      this.addResult('Type Definitions', false, `Types file error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
@@ -186,7 +186,7 @@ class UploadContainerTester {
       return true;
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('UploadManager', false, `UploadManager error: ${error.message}`, duration);
+      this.addResult('UploadManager', false, `UploadManager error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
@@ -223,7 +223,7 @@ class UploadContainerTester {
       return true;
     } catch (error) {
       const duration = Date.now() - start;
-      this.addResult('HTML Structure', false, `HTML structure error: ${error.message}`, duration);
+      this.addResult('HTML Structure', false, `HTML structure error: ${error instanceof Error ? error.message : String(error)}`, duration);
       return false;
     }
   }
