@@ -23,6 +23,11 @@ export type ActionType =
   | "GAME_HARD_DELETE_REQUEST" // Request hard deletion
   | "GAME_HARD_DELETE_EXECUTED" // Hard deletion completed
   | "GAME_RESTORE" // Restore from trash
+  | "GAME_APPROVE"
+  | "GAME_REJECT"
+  | "GAME_PUBLISH"
+  | "GAME_QC_PASS"
+  | "GAME_QC_FAIL"
   | "USER_LOGIN"
   | "USER_LOGOUT";
 
