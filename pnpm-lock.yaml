@@ -12,8 +12,8 @@ importers:
         specifier: ^7.18.0
         version: 7.18.0
       '@iruka-edu/game-core':
-        specifier: ^0.1.1
-        version: 0.1.1(phaser@3.90.0)
+        specifier: ^0.2.0
+        version: 0.2.0(phaser@3.90.0)
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
@@ -721,8 +721,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@iruka-edu/game-core@0.1.1':
-    resolution: {integrity: sha512-Y6vkcIPodE1i1GUfLDAN4jfFgs9jbIsnqJoYKKhrBtq6u6r2Dg32hehnUddHaPK/05Z8ZyFwATU0fVF+O4173g==, tarball: https://npm.pkg.github.com/download/@iruka-edu/game-core/0.1.1/179dc449b62d2bcf8c72c25ebe6c445bfd02c72a}
+  '@iruka-edu/game-core@0.2.0':
+    resolution: {integrity: sha512-y+kl2CZxmVLFqODgXiUsK7zohSmbvOElGFjzzWKpuhozDfjaw0WeyRt+qA8mHI4/KvrBijxJe1amE/DWhXgb3w==, tarball: https://npm.pkg.github.com/download/@iruka-edu/game-core/0.2.0/c3ba6f09c3366876cfb0dcf0a344f2cbb6bcee26}
     engines: {node: '>=18'}
     peerDependencies:
       phaser: ^3.80.0
@@ -3964,7 +3964,7 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
-  '@iruka-edu/game-core@0.1.1(phaser@3.90.0)':
+  '@iruka-edu/game-core@0.2.0(phaser@3.90.0)':
     dependencies:
       phaser: 3.90.0
 
