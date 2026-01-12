@@ -7,15 +7,16 @@ const nextConfig = {
   experimental: {
     // Enable server actions
     serverActions: {
-      bodySizeLimit: '50mb', // Match upload size limit
+      bodySizeLimit: "50mb", // Match upload size limit
     },
-    // Turbopack configuration
-    turbo: {
-      resolveAlias: {
-        // Alias for server-only packages
-        'mongodb': 'mongodb',
-        '@google-cloud/storage': '@google-cloud/storage',
-      },
+  },
+
+  // Turbopack configuration
+  turbopack: {
+    resolveAlias: {
+      // Alias for server-only packages
+      mongodb: "mongodb",
+      "@google-cloud/storage": "@google-cloud/storage",
     },
   },
 
@@ -23,8 +24,8 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'storage.googleapis.com',
+        protocol: "https",
+        hostname: "storage.googleapis.com",
       },
     ],
   },
@@ -50,20 +51,27 @@ const nextConfig = {
     }
     return config;
   },
-  
+
   // Mark server-only packages as external
-  serverExternalPackages: ['mongodb', '@google-cloud/storage'],
+  serverExternalPackages: ["mongodb", "@google-cloud/storage"],
 
   // Configure headers for security
   async headers() {
     return [
       {
-        source: '/api/:path*',
+        source: "/api/:path*",
         headers: [
-          { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+          { key: "Access-Control-Allow-Credentials", value: "true" },
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          {
+            key: "Access-Control-Allow-Methods",
+            value: "GET,DELETE,PATCH,POST,PUT",
+          },
+          {
+            key: "Access-Control-Allow-Headers",
+            value:
+              "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+          },
         ],
       },
     ];

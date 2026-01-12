@@ -26,7 +26,7 @@ export default async function UsersPage() {
         </p>
       </div>
 
-      <UserManagement isAdmin={user.roles.includes("admin")} />
+      <UserManagement canManageUsers={canManageUsers} />
     </div>
   );
 }
