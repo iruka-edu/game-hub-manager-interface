@@ -137,12 +137,16 @@ export async function middleware(request: NextRequest) {
   }
 
   // Attach user info to headers for downstream handlers
-  const response = NextResponse.next();
-  
-  // Set user info in request headers for route handlers to access
-  response.headers.set('x-user-id', session.userId);
-  response.headers.set('x-user-email', session.email);
-  response.headers.set('x-user-roles', JSON.stringify(session.roles));
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-user-id', session.userId);
+  requestHeaders.set('x-user-email', session.email);
+  requestHeaders.set('x-user-roles', JSON.stringify(session.roles));
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   return response;
 }

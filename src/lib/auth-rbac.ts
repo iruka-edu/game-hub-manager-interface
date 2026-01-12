@@ -11,6 +11,7 @@ export type Permission =
   | "games:review"
   | "games:approve"
   | "games:publish"
+  | "games:play"                // All users can play games
   | "games:delete_own_draft"    // Dev can delete own draft games
   | "games:archive"             // CTO/Admin can archive games
   | "games:delete_soft"         // Admin can soft delete games
@@ -30,6 +31,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "games:review",
   "games:approve",
   "games:publish",
+  "games:play",
   "games:delete_own_draft",
   "games:archive",
   "games:delete_soft",
@@ -43,10 +45,10 @@ export const ALL_PERMISSIONS: Permission[] = [
  * Role to permissions mapping
  */
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  dev: ["games:view", "games:create", "games:update", "games:submit", "games:delete_own_draft"],
-  qc: ["games:view", "games:review"],
-  cto: ["games:view", "games:approve", "games:archive", "system:audit_view"],
-  ceo: ["games:view", "games:approve"],
+  dev: ["games:view", "games:create", "games:update", "games:submit", "games:play", "games:delete_own_draft"],
+  qc: ["games:view", "games:review", "games:play"],
+  cto: ["games:view", "games:approve", "games:archive", "games:play", "system:audit_view"],
+  ceo: ["games:view", "games:approve", "games:play"],
   admin: [
     "games:view",
     "games:create",
@@ -55,6 +57,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "games:review",
     "games:approve",
     "games:publish",
+    "games:play",
     "games:delete_own_draft",
     "games:archive",
     "games:delete_soft",

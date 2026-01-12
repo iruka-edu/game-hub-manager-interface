@@ -7,7 +7,15 @@ const nextConfig = {
   experimental: {
     // Enable server actions
     serverActions: {
-      bodySizeLimit: '50mb', // Match Astro's upload size limit
+      bodySizeLimit: '50mb', // Match upload size limit
+    },
+    // Turbopack configuration
+    turbo: {
+      resolveAlias: {
+        // Alias for server-only packages
+        'mongodb': 'mongodb',
+        '@google-cloud/storage': '@google-cloud/storage',
+      },
     },
   },
 

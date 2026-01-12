@@ -81,11 +81,12 @@ export interface Game {
   gameType?: string; // Loại game
   priority?: GamePriority;
   tags?: string[];
-  lesson?: string;
+  lesson?: string[];
   level?: string;
   skills?: string[];
   themes?: string[];
   linkGithub?: string;
+  quyenSach?: string; // Quyển sách
 
   // Publishing fields
   disabled: boolean; // Kill-switch: if true, game is hidden from Public Registry

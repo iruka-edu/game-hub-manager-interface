@@ -8,6 +8,7 @@
 import { getFileContent, saveFileContent, CDN_BASE } from './gcs';
 import { GameRepository } from '../models/Game';
 import { GameVersionRepository } from '../models/GameVersion';
+import { constructFileUrl } from './storage-path';
 import type { Game } from '../models/Game';
 import type { GameVersion } from '../models/GameVersion';
 import {
@@ -140,7 +141,7 @@ export const PublicRegistryManager = {
     const entry: PublicGameEntry = {
       id: game.gameId,
       title: game.title,
-      entryUrl: `${CDN_BASE}/${version.storagePath}${version.entryFile}`,
+      entryUrl: constructFileUrl(version.storagePath, version.entryFile, CDN_BASE),
       runtime: 'iframe-html',
       capabilities: game.tags || [],
       rolloutPercentage: game.rolloutPercentage ?? 100,

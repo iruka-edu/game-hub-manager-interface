@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import { getUserFromHeaders } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import { verifySession } from '@/lib/session';
+import { UserRepository } from '@/models/User';
 import { hasPermissionString } from '@/lib/auth-rbac';
 import { GameRepository } from '@/models/Game';
 import { GameVersionRepository } from '@/models/GameVersion';
@@ -16,9 +18,24 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getUserFromHeaders(request.headers);
-    if (!user) {
+    // Auth check using cookies
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('iruka_session');
+    
+    if (!sessionCookie?.value) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = verifySession(sessionCookie.value);
+    if (!session) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
+    const userRepo = await UserRepository.getInstance();
+    const user = await userRepo.findById(session.userId);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     const { id: gameId } = await params;
@@ -76,40 +93,69 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getUserFromHeaders(request.headers);
-    if (!user) {
+    const { id: gameId } = await params;
+    console.log('[Game Update] Starting update for game:', gameId);
+    
+    // Auth check using cookies
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('iruka_session');
+    
+    if (!sessionCookie?.value) {
+      console.log('[Game Update] No session cookie');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id: gameId } = await params;
+    const session = verifySession(sessionCookie.value);
+    if (!session) {
+      console.log('[Game Update] Invalid session');
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
+    const userRepo = await UserRepository.getInstance();
+    const user = await userRepo.findById(session.userId);
+    
+    if (!user) {
+      console.log('[Game Update] User not found:', session.userId);
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
     if (!gameId || !ObjectId.isValid(gameId)) {
+      console.log('[Game Update] Invalid game ID:', gameId);
       return NextResponse.json({ error: 'Invalid game ID' }, { status: 400 });
     }
 
     const body = await request.json();
+    console.log('[Game Update] Request body:', body);
+    
     const { 
       title, 
       description, 
       subject, 
       grade, 
+      unit,
       gameType, 
-      priority,
-      metadata,
-      thumbnailDesktop,
-      thumbnailMobile,
+      lesson,
+      level,
+      skills,
+      themes,
+      linkGithub,
+      quyenSach,
     } = body;
 
     const gameRepo = await GameRepository.getInstance();
     const game = await gameRepo.findById(gameId);
     if (!game) {
+      console.log('[Game Update] Game not found:', gameId);
       return NextResponse.json({ error: 'Game not found' }, { status: 404 });
     }
+
+    console.log('[Game Update] Found game:', game.gameId);
 
     const isOwner = game.ownerId === user._id.toString();
     const isAdmin = user.roles.includes('admin');
     const canEdit = isOwner || isAdmin || hasPermissionString(user, 'games:update');
 
     if (!canEdit) {
+      console.log('[Game Update] Permission denied:', { isOwner, isAdmin, userId: user._id.toString(), gameOwner: game.ownerId });
       return NextResponse.json({ error: 'You can only edit your own games' }, { status: 403 });
     }
 
@@ -121,20 +167,14 @@ export async function PUT(
     if (description !== undefined) updateData.description = description;
     if (subject !== undefined) updateData.subject = subject;
     if (grade !== undefined) updateData.grade = grade;
+    if (unit !== undefined) updateData.unit = unit;
     if (gameType !== undefined) updateData.gameType = gameType;
-    if (priority !== undefined) updateData.priority = priority;
-    if (thumbnailDesktop !== undefined) updateData.thumbnailDesktop = thumbnailDesktop;
-    if (thumbnailMobile !== undefined) updateData.thumbnailMobile = thumbnailMobile;
-
-    if (metadata) {
-      const existingMetadata = (game as any).metadata || {};
-      updateData.metadata = {
-        ...existingMetadata,
-        ...metadata,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user._id.toString(),
-      };
-    }
+    if (lesson !== undefined) updateData.lesson = lesson;
+    if (level !== undefined) updateData.level = level;
+    if (skills !== undefined) updateData.skills = skills;
+    if (themes !== undefined) updateData.themes = themes;
+    if (linkGithub !== undefined) updateData.linkGithub = linkGithub;
+    if (quyenSach !== undefined) updateData.quyenSach = quyenSach;
 
     const changes: Record<string, any> = {};
     const previousValues: Record<string, any> = {};
@@ -207,9 +247,24 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getUserFromHeaders(request.headers);
-    if (!user) {
+    // Auth check using cookies
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('iruka_session');
+    
+    if (!sessionCookie?.value) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = verifySession(sessionCookie.value);
+    if (!session) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
+    const userRepo = await UserRepository.getInstance();
+    const user = await userRepo.findById(session.userId);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     const { id: gameId } = await params;

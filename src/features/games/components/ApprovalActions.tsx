@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 interface ApprovalActionsProps {
   gameId: string;
@@ -10,24 +10,24 @@ interface ApprovalActionsProps {
 export function ApprovalActions({ gameId, gameTitle }: ApprovalActionsProps) {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectNote, setRejectNote] = useState('');
+  const [rejectNote, setRejectNote] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleApprove = async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/games/${gameId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: "approve" }),
       });
       if (response.ok) {
         window.location.reload();
       } else {
-        alert('Có lỗi xảy ra');
+        alert("Có lỗi xảy ra");
       }
     } catch {
-      alert('Có lỗi xảy ra');
+      alert("Có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
@@ -36,18 +36,18 @@ export function ApprovalActions({ gameId, gameTitle }: ApprovalActionsProps) {
   const handleReject = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/games/${gameId}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: rejectNote }),
+      const response = await fetch(`/api/games/${gameId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: "reject", notes: rejectNote }),
       });
       if (response.ok) {
         window.location.reload();
       } else {
-        alert('Có lỗi xảy ra');
+        alert("Có lỗi xảy ra");
       }
     } catch {
-      alert('Có lỗi xảy ra');
+      alert("Có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
@@ -74,13 +74,18 @@ export function ApprovalActions({ gameId, gameTitle }: ApprovalActionsProps) {
       {showApproveModal && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
-          onClick={(e) => e.target === e.currentTarget && setShowApproveModal(false)}
+          onClick={(e) =>
+            e.target === e.currentTarget && setShowApproveModal(false)
+          }
         >
           <div className="bg-white rounded-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Xác nhận duyệt game</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Xác nhận duyệt game
+            </h3>
             <p className="text-slate-600 mb-6">
-              Bạn có chắc muốn duyệt game "<span className="font-medium">{gameTitle}</span>"? Game sẽ
-              được chuyển sang trạng thái chờ xuất bản.
+              Bạn có chắc muốn duyệt game "
+              <span className="font-medium">{gameTitle}</span>"? Game sẽ được
+              chuyển sang trạng thái chờ xuất bản.
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
@@ -95,7 +100,7 @@ export function ApprovalActions({ gameId, gameTitle }: ApprovalActionsProps) {
                 disabled={loading}
                 className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Đang xử lý...' : 'Xác nhận duyệt'}
+                {loading ? "Đang xử lý..." : "Xác nhận duyệt"}
               </button>
             </div>
           </div>
@@ -106,16 +111,22 @@ export function ApprovalActions({ gameId, gameTitle }: ApprovalActionsProps) {
       {showRejectModal && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
-          onClick={(e) => e.target === e.currentTarget && setShowRejectModal(false)}
+          onClick={(e) =>
+            e.target === e.currentTarget && setShowRejectModal(false)
+          }
         >
           <div className="bg-white rounded-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Yêu cầu chỉnh sửa</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Yêu cầu chỉnh sửa
+            </h3>
             <p className="text-slate-600 mb-4">
-              Game "<span className="font-medium">{gameTitle}</span>" sẽ được trả về cho Dev để chỉnh
-              sửa.
+              Game "<span className="font-medium">{gameTitle}</span>" sẽ được
+              trả về cho Dev để chỉnh sửa.
             </p>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">Lý do / Ghi chú:</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Lý do / Ghi chú:
+              </label>
               <textarea
                 value={rejectNote}
                 onChange={(e) => setRejectNote(e.target.value)}
@@ -137,7 +148,7 @@ export function ApprovalActions({ gameId, gameTitle }: ApprovalActionsProps) {
                 disabled={loading}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Đang xử lý...' : 'Yêu cầu sửa'}
+                {loading ? "Đang xử lý..." : "Yêu cầu sửa"}
               </button>
             </div>
           </div>

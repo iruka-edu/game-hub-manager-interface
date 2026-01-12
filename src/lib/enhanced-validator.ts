@@ -1,6 +1,7 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import manifestSchema from '../../schema/manifest.schema.json';
+import { constructFileUrl } from './storage-path';
 
 interface ValidationResult {
   valid: boolean;
@@ -296,8 +297,8 @@ export class EnhancedValidator {
       title: gameTitle,
       version,
       runtime: 'iframe-html',
-      entryUrl: `https://storage.googleapis.com/iruka-edu-mini-game/games/${id}/${version}/index.html`,
-      iconUrl: `https://storage.googleapis.com/iruka-edu-mini-game/games/${id}/icon.png`,
+      entryUrl: constructFileUrl(`games/${id}/${version}`, 'index.html', 'https://storage.googleapis.com/iruka-edu-mini-game'),
+      iconUrl: constructFileUrl(`games/${id}`, 'icon.png', 'https://storage.googleapis.com/iruka-edu-mini-game'),
       capabilities: ['score', 'audio'],
       minHubVersion: '1.0.0',
       disabled: false

@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { UserRepository } from '@/models/User';
-import { getUserFromHeaders } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { verifySession } from "@/lib/session";
+import { UserRepository } from "@/models/User";
 
 /**
  * GET /api/users
@@ -8,20 +9,37 @@ import { getUserFromHeaders } from '@/lib/auth';
  */
 export async function GET(request: NextRequest) {
   try {
-    const currentUser = await getUserFromHeaders(request.headers);
+    // Auth check using cookies
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("iruka_session");
 
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!sessionCookie?.value) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!currentUser.roles.includes('admin') && !currentUser.roles.includes('cto')) {
+    const session = verifySession(sessionCookie.value);
+    if (!session) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
+    const userRepo = await UserRepository.getInstance();
+    const currentUser = await userRepo.findById(session.userId);
+
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 401 });
+    }
+
+    if (
+      !currentUser.roles.includes("admin") &&
+      !currentUser.roles.includes("cto") &&
+      !currentUser.roles.includes("ceo")
+    ) {
       return NextResponse.json(
-        { error: 'Forbidden. Only Admin and CTO can view users.' },
+        { error: "Forbidden. Only Admin, CTO, and CEO can view users." },
         { status: 403 }
       );
     }
 
-    const userRepo = await UserRepository.getInstance();
     const users = await userRepo.findAll();
 
     const sanitizedUsers = users.map((user) => ({
@@ -36,8 +54,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ users: sanitizedUsers });
   } catch (error) {
-    console.error('[Users] List error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("[Users] List error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -47,15 +68,33 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const currentUser = await getUserFromHeaders(request.headers);
+    // Auth check using cookies
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("iruka_session");
 
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!sessionCookie?.value) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!currentUser.roles.includes('admin') && !currentUser.roles.includes('cto')) {
+    const session = verifySession(sessionCookie.value);
+    if (!session) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
+    const userRepo = await UserRepository.getInstance();
+    const currentUser = await userRepo.findById(session.userId);
+
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 401 });
+    }
+
+    if (
+      !currentUser.roles.includes("admin") &&
+      !currentUser.roles.includes("cto") &&
+      !currentUser.roles.includes("ceo")
+    ) {
       return NextResponse.json(
-        { error: 'Forbidden. Only Admin and CTO can create users.' },
+        { error: "Forbidden. Only Admin, CTO, and CEO can create users." },
         { status: 403 }
       );
     }
@@ -65,12 +104,11 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password || !name || !roles) {
       return NextResponse.json(
-        { error: 'Email, password, name, and roles are required' },
+        { error: "Email, password, name, and roles are required" },
         { status: 400 }
       );
     }
 
-    const userRepo = await UserRepository.getInstance();
     const newUser = await userRepo.create({
       email,
       password,
@@ -94,8 +132,9 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('[Users] Create error:', error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
+    console.error("[Users] Create error:", error);
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

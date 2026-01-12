@@ -83,14 +83,36 @@ export interface QA04Result {
 }
 
 /**
+ * QA Test Result item
+ */
+export interface QATestResultItem {
+  id: string;
+  name: string;
+  passed: boolean | null;
+  notes: string;
+  isAutoTest?: boolean;
+}
+
+/**
+ * QA Category Result
+ */
+export interface QACategoryResult {
+  name: string;
+  tests: QATestResultItem[];
+}
+
+/**
  * QA Summary structure for quick overview
  */
 export interface QASummary {
-  qa01: QA01Result;
-  qa02: QA02Result;
-  qa03: QA03Result;
-  qa04: QA04Result;
   overall: "pass" | "fail";
+  categories?: Record<string, QACategoryResult>;
+
+  // Legacy fields for backward compatibility
+  qa01?: QA01Result;
+  qa02?: QA02Result;
+  qa03?: QA03Result;
+  qa04?: QA04Result;
 }
 
 /**
@@ -201,7 +223,9 @@ export function compareSemVer(v1: string, v2: string): number {
 /**
  * Serialize a GameVersion to JSON-safe object
  */
-export function serializeGameVersion(version: GameVersion): Record<string, unknown> {
+export function serializeGameVersion(
+  version: GameVersion
+): Record<string, unknown> {
   return {
     _id: version._id.toString(),
     gameId: version.gameId.toString(),
@@ -226,7 +250,9 @@ export function serializeGameVersion(version: GameVersion): Record<string, unkno
 /**
  * Deserialize a JSON object back to a GameVersion
  */
-export function deserializeGameVersion(data: Record<string, unknown>): GameVersion {
+export function deserializeGameVersion(
+  data: Record<string, unknown>
+): GameVersion {
   return {
     _id: new ObjectId(data._id as string),
     gameId: new ObjectId(data.gameId as string),
@@ -240,9 +266,15 @@ export function deserializeGameVersion(data: Record<string, unknown>): GameVersi
     releaseNote: data.releaseNote as string | undefined,
     qaSummary: data.qaSummary as QASummary | undefined,
     submittedBy: new ObjectId(data.submittedBy as string),
-    submittedAt: data.submittedAt ? new Date(data.submittedAt as string) : undefined,
-    lastCodeUpdateAt: data.lastCodeUpdateAt ? new Date(data.lastCodeUpdateAt as string) : undefined,
-    lastCodeUpdateBy: data.lastCodeUpdateBy ? new ObjectId(data.lastCodeUpdateBy as string) : undefined,
+    submittedAt: data.submittedAt
+      ? new Date(data.submittedAt as string)
+      : undefined,
+    lastCodeUpdateAt: data.lastCodeUpdateAt
+      ? new Date(data.lastCodeUpdateAt as string)
+      : undefined,
+    lastCodeUpdateBy: data.lastCodeUpdateBy
+      ? new ObjectId(data.lastCodeUpdateBy as string)
+      : undefined,
     createdAt: new Date(data.createdAt as string),
     updatedAt: new Date(data.updatedAt as string),
   };
@@ -474,8 +506,8 @@ export class GameVersionRepository {
    * Always clears Self-QA checklist and records update timestamp
    */
   async patchBuild(
-    id: string, 
-    buildSize: number, 
+    id: string,
+    buildSize: number,
     updatedBy: ObjectId
   ): Promise<GameVersion | null> {
     try {
@@ -487,7 +519,7 @@ export class GameVersionRepository {
 
       // Determine new status based on current status
       let newStatus = currentVersion.status;
-      
+
       // If version was published, reset to draft (must re-test)
       if (currentVersion.status === "published") {
         newStatus = "draft";
@@ -506,15 +538,48 @@ export class GameVersionRepository {
               testedAudio: false,
               gameplayComplete: false,
               contentVerified: false,
-              note: currentVersion.status === "published" 
-                ? "Bản build đã được cập nhật. Game đã publish nên phải test lại từ đầu."
-                : "Bản build đã được cập nhật (Patch)",
+              note:
+                currentVersion.status === "published"
+                  ? "Bản build đã được cập nhật. Game đã publish nên phải test lại từ đầu."
+                  : "Bản build đã được cập nhật (Patch)",
             },
             lastCodeUpdateAt: now,
             lastCodeUpdateBy: updatedBy,
             updatedAt: now,
           },
         },
+        { returnDocument: "after" }
+      );
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Generic update method for updating multiple fields at once
+   */
+  async update(
+    id: string,
+    updates: Partial<Omit<GameVersion, "_id" | "gameId" | "createdAt">>
+  ): Promise<GameVersion | null> {
+    try {
+      // Validate status if it's being updated
+      if (updates.status && !isValidVersionStatus(updates.status)) {
+        throw new Error(
+          `Invalid status. Must be one of: ${VALID_VERSION_STATUSES.join(", ")}`
+        );
+      }
+
+      // Ensure updatedAt is always set
+      const updateData = {
+        ...updates,
+        updatedAt: new Date(),
+      };
+
+      const result = await this.collection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: updateData },
         { returnDocument: "after" }
       );
       return result;

@@ -282,6 +282,23 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             </div>
           )}
         </div>
+
+        {/* ZIP Structure Info */}
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <h4 className="text-sm font-medium text-blue-900 mb-1">Tự động phát hiện cấu trúc ZIP</h4>
+              <p className="text-sm text-blue-700">
+                Hệ thống sẽ tự động tìm thư mục chứa <code className="bg-blue-100 px-1 rounded">index.html</code> và coi đó là root của game. 
+                Các thư mục như <code className="bg-blue-100 px-1 rounded">build/</code>, <code className="bg-blue-100 px-1 rounded">dist/</code>, 
+                <code className="bg-blue-100 px-1 rounded">src/</code> sẽ được xử lý tự động.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Thumbnails Upload */}

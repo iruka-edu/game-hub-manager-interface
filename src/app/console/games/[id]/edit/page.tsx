@@ -72,7 +72,14 @@ export default async function GameEditPage({ params }: Props) {
     grade: game.grade || '',
     unit: game.unit || '',
     gameType: game.gameType || '',
-    priority: game.priority || 'medium',
+    lesson: Array.isArray(game.lesson) ? game.lesson : (game.lesson ? [game.lesson] : []),
+    level: game.level || '',
+    skills: game.skills || [],
+    themes: game.themes || [],
+    linkGithub: game.linkGithub || '',
+    quyenSach: game.quyenSach || '',
+    thumbnailDesktop: game.thumbnailDesktop || '',
+    thumbnailMobile: game.thumbnailMobile || '',
   };
 
   return (

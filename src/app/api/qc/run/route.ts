@@ -7,6 +7,7 @@ import { getUserFromHeaders } from '@/lib/auth';
 import { hasPermissionString } from '@/lib/auth-rbac';
 import { AuditLogger } from '@/lib/audit';
 import { TestRunnerService } from '@/lib/TestRunnerService';
+import { constructFileUrl } from '@/lib/storage-path';
 import type { LaunchContext, QATestResults } from '@/types/qc-types';
 
 /**
@@ -75,9 +76,8 @@ export async function POST(request: NextRequest) {
       timestamp: new Date(),
     };
 
-    const entryUrl = `${
-      process.env.GAME_STORAGE_BASE_URL || 'https://storage.googleapis.com/iruka-games'
-    }/${version.storagePath}${version.entryFile}`;
+    const baseUrl = process.env.GAME_STORAGE_BASE_URL || 'https://storage.googleapis.com/iruka-games';
+    const entryUrl = constructFileUrl(version.storagePath, version.entryFile, baseUrl);
 
     try {
       const mockIframe = {
