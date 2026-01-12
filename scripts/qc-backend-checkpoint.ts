@@ -172,7 +172,7 @@ async function runBackendCheckpoint() {
           },
         ],
         decision: "pass",
-        note: "Checkpoint test - all automated tests passed",
+        notes: "Checkpoint test - all automated tests passed",
         testStartedAt: new Date(),
         testCompletedAt: new Date(Date.now() + 20000),
       };
