@@ -94,9 +94,9 @@ async function runBackendCheckpoint() {
 
       // Validate structure
       if (
-        mockQASummary.qa01.pass &&
-        mockQASummary.qa02.pass &&
-        mockQASummary.qa04.pass
+        mockQASummary.qa01?.pass &&
+        mockQASummary.qa02?.pass &&
+        mockQASummary.qa04?.pass
       ) {
         testResults.push({ test: "QA Summary Structure", status: "PASS" });
         console.log("  ✅ QA Summary structure is valid");
