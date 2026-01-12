@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ObjectId } from 'mongodb';
-import { GameRepository } from '@/models/Game';
-import { GameVersionRepository } from '@/models/GameVersion';
-import { QCReportRepository } from '@/models/QcReport';
-import { getUserFromHeaders } from '@/lib/auth';
-import { hasPermissionString } from '@/lib/auth-rbac';
-import { AuditLogger } from '@/lib/audit';
-import { TestRunnerService } from '@/lib/TestRunnerService';
-import { constructFileUrl } from '@/lib/storage-path';
-import type { LaunchContext, QATestResults } from '@/types/qc-types';
+import { NextRequest, NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
+import { GameRepository } from "@/models/Game";
+import { GameVersionRepository } from "@/models/GameVersion";
+import { QCReportRepository } from "@/models/QcReport";
+import { getUserFromHeaders } from "@/lib/auth";
+import { hasPermissionString } from "@/lib/auth-rbac";
+import { AuditLogger } from "@/lib/audit";
+import { TestRunnerService } from "@/lib/TestRunnerService";
+import { constructFileUrl } from "@/lib/storage-path";
+import type { LaunchContext, QATestResults } from "@/types/qc-types";
 
 /**
  * POST /api/qc/run
@@ -18,12 +18,12 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getUserFromHeaders(request.headers);
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!hasPermissionString(user, 'games:review')) {
+    if (!hasPermissionString(user, "games:review")) {
       return NextResponse.json(
-        { error: 'Forbidden - QC permission required' },
+        { error: "Forbidden - QC permission required" },
         { status: 403 }
       );
     }
@@ -32,11 +32,17 @@ export async function POST(request: NextRequest) {
     const { versionId, sessionId } = body;
 
     if (!versionId) {
-      return NextResponse.json({ error: 'versionId is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "versionId is required" },
+        { status: 400 }
+      );
     }
 
     if (!ObjectId.isValid(versionId)) {
-      return NextResponse.json({ error: 'Invalid versionId format' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid versionId format" },
+        { status: 400 }
+      );
     }
 
     const gameRepo = await GameRepository.getInstance();
@@ -45,45 +51,53 @@ export async function POST(request: NextRequest) {
 
     const version = await versionRepo.findById(versionId);
     if (!version) {
-      return NextResponse.json({ error: 'Version not found' }, { status: 404 });
+      return NextResponse.json({ error: "Version not found" }, { status: 404 });
     }
 
     const game = await gameRepo.findById(version.gameId.toString());
     if (!game) {
-      return NextResponse.json({ error: 'Game not found' }, { status: 404 });
+      return NextResponse.json({ error: "Game not found" }, { status: 404 });
     }
 
-    if (!['uploaded', 'qc_processing'].includes(version.status)) {
+    if (!["uploaded", "qc_processing"].includes(version.status)) {
       return NextResponse.json(
         {
-          error: 'Version is not available for QC testing',
+          error: "Version is not available for QC testing",
           currentStatus: version.status,
-          allowedStatuses: ['uploaded', 'qc_processing'],
+          allowedStatuses: ["uploaded", "qc_processing"],
         },
         { status: 400 }
       );
     }
 
-    if (version.status === 'uploaded') {
-      await versionRepo.updateStatus(versionId, 'qc_processing');
+    if (version.status === "uploaded") {
+      await versionRepo.updateStatus(versionId, "qc_processing");
     }
 
     const launchContext: LaunchContext = {
       gameId: game._id.toString(),
       versionId: version._id.toString(),
       userId: user._id.toString(),
-      sessionId: sessionId || `qc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      sessionId:
+        sessionId ||
+        `qc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
     };
 
-    const baseUrl = process.env.GAME_STORAGE_BASE_URL || 'https://storage.googleapis.com/iruka-games';
-    const entryUrl = constructFileUrl(version.storagePath, version.entryFile, baseUrl);
+    const baseUrl =
+      process.env.GAME_STORAGE_BASE_URL ||
+      "https://storage.googleapis.com/iruka-games";
+    const entryUrl = constructFileUrl(
+      version.storagePath,
+      version.entryFile,
+      baseUrl
+    );
 
     try {
       const mockIframe = {
-        src: '',
+        src: "",
         contentWindow: null,
-        sandbox: 'allow-scripts allow-same-origin',
+        sandbox: "allow-scripts allow-same-origin",
       } as unknown as HTMLIFrameElement;
 
       const qaResults: QATestResults = await TestRunnerService.runAutoQA({
@@ -106,8 +120,8 @@ export async function POST(request: NextRequest) {
           timestamp: event.timestamp,
           data: event.data,
         })),
-        decision: 'pass',
-        note: 'Automated QA testing completed',
+        decision: "pass",
+        notes: "Automated QA testing completed",
         testStartedAt: launchContext.timestamp,
         testCompletedAt: new Date(),
       });
@@ -131,17 +145,19 @@ export async function POST(request: NextRequest) {
           backendRecordCount: qaResults.qa04.backendRecordCount,
         },
         overall:
-          qaResults.qa01.pass && qaResults.qa02.pass && qaResults.qa04.pass ? 'pass' : 'fail',
+          qaResults.qa01.pass && qaResults.qa02.pass && qaResults.qa04.pass
+            ? "pass"
+            : "fail",
       });
 
       AuditLogger.log({
         actor: {
           user,
-          ip: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent') || undefined,
+          ip: request.headers.get("x-forwarded-for") || "unknown",
+          userAgent: request.headers.get("user-agent") || undefined,
         },
-        action: 'QC_TEST_RUN',
-        target: { entity: 'GAME_VERSION', id: versionId },
+        action: "QC_TEST_RUN",
+        target: { entity: "GAME_VERSION", id: versionId },
         metadata: {
           gameId: game.gameId,
           version: version.version,
@@ -151,7 +167,9 @@ export async function POST(request: NextRequest) {
           qa02Pass: qaResults.qa02.pass,
           qa04Pass: qaResults.qa04.pass,
           overall:
-            qaResults.qa01.pass && qaResults.qa02.pass && qaResults.qa04.pass ? 'pass' : 'fail',
+            qaResults.qa01.pass && qaResults.qa02.pass && qaResults.qa04.pass
+              ? "pass"
+              : "fail",
         },
       });
 
@@ -177,47 +195,51 @@ export async function POST(request: NextRequest) {
             backendRecordCount: qaResults.qa04.backendRecordCount,
           },
           overall:
-            qaResults.qa01.pass && qaResults.qa02.pass && qaResults.qa04.pass ? 'pass' : 'fail',
+            qaResults.qa01.pass && qaResults.qa02.pass && qaResults.qa04.pass
+              ? "pass"
+              : "fail",
           testDuration: qaResults.testDuration,
           eventsCount: qaResults.eventsTimeline.length,
         },
       });
     } catch (testError) {
-      console.error('QA testing failed:', testError);
+      console.error("QA testing failed:", testError);
 
-      await versionRepo.updateStatus(versionId, 'uploaded');
+      await versionRepo.updateStatus(versionId, "uploaded");
 
       AuditLogger.log({
         actor: {
           user,
-          ip: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent') || undefined,
+          ip: request.headers.get("x-forwarded-for") || "unknown",
+          userAgent: request.headers.get("user-agent") || undefined,
         },
-        action: 'QC_TEST_FAILED',
-        target: { entity: 'GAME_VERSION', id: versionId },
+        action: "QC_TEST_FAILED",
+        target: { entity: "GAME_VERSION", id: versionId },
         metadata: {
           gameId: game.gameId,
           version: version.version,
           sessionId: launchContext.sessionId,
-          error: testError instanceof Error ? testError.message : 'Unknown error',
+          error:
+            testError instanceof Error ? testError.message : "Unknown error",
         },
       });
 
       return NextResponse.json(
         {
-          error: 'QA testing failed',
-          details: testError instanceof Error ? testError.message : 'Unknown error',
+          error: "QA testing failed",
+          details:
+            testError instanceof Error ? testError.message : "Unknown error",
           sessionId: launchContext.sessionId,
         },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('QC run API error:', error);
+    console.error("QC run API error:", error);
     return NextResponse.json(
       {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

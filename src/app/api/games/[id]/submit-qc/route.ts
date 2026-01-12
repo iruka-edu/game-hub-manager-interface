@@ -133,6 +133,13 @@ export async function POST(
       updatedAt: new Date(),
     });
 
+    if (!updatedVersion) {
+      return NextResponse.json(
+        { error: "Failed to update version status" },
+        { status: 500 }
+      );
+    }
+
     console.log("[Submit QC] Version updated to uploaded status");
 
     // Log audit event
@@ -160,11 +167,12 @@ export async function POST(
       gameId,
       `Gửi QC - Version ${version.version}`,
       user,
-      version._id.toString(),
+      version.status,
       "uploaded",
       {
         action: "submit_qc",
         version: version.version,
+        versionId: version._id.toString(),
         submittedBy: user.name,
       }
     );
