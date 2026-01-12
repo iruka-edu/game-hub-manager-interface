@@ -28,6 +28,7 @@ export type ActionType =
   | "GAME_PUBLISH"
   | "GAME_QC_PASS"
   | "GAME_QC_FAIL"
+  | "GAME_UPDATE_SELF_QA"
   | "USER_LOGIN"
   | "USER_LOGOUT";
 
