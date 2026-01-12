@@ -134,10 +134,10 @@ paths:
         400: { description: Validation error or Game ID exists }
         403: { description: Forbidden }
 
-  /upload-zip:
+  /games/upload:
     post:
       tags: [Games]
-      summary: Upload game as ZIP
+      summary: Upload game ZIP
       description: Uploads a ZIP file containing the game build, validates the manifest, and creates/updates game and version records.
       requestBody:
         required: true
@@ -146,14 +146,13 @@ paths:
             schema:
               type: object
               properties:
-                zipFile: { type: string, format: binary }
-                thumbnailDesktop: { type: string, format: binary }
-                thumbnailMobile: { type: string, format: binary }
-                manifest: { type: string, description: "JSON string of manifest" }
-                meta: { type: string, description: "Additional metadata (subject, grade, etc.)" }
+                file: { type: string, format: binary, description: "ZIP file containing game build" }
+                gameId: { type: string, description: "Game slug (e.g., com.iruka.math)" }
+                version: { type: string, description: "SemVer version (e.g., 1.0.0)" }
+                mongoGameId: { type: string, description: "Optional MongoDB ID for updates" }
       responses:
         200: { description: OK }
-        400: { description: Missing fields or invalid manifest/ZIP }
+        400: { description: Missing fields or invalid ZIP }
         403: { description: Forbidden }
 
   /games/ids:
@@ -282,42 +281,49 @@ paths:
     post:
       tags: [Games]
       summary: Publish game version
-      description: Changes version status from approved to published and optionally sets as live.
+      description: Changes version status from approved to published and sets as live (Admin only).
+      responses:
+        200: { description: OK }
+        400: { description: Error }
+        403: { description: Forbidden }
+
+  /games/{id}/approve:
+    post:
+      tags: [Games]
+      summary: Approve or Reject game version
+      description: CTO/CEO/Admin approves or rejects a version after QC passed.
       requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                notes: { type: string }
+      responses:
+        200: { description: OK }
+        400: { description: Invalid decision or status }
+
+  /games/{id}/qc-review:
+    post:
+      tags: [Games]
+      summary: Submit QC Review
+      description: QC submits review result (Pass/Fail) with report.
+      requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
                 versionId: { type: string }
-                setAsLive: { type: boolean, default: false }
-                rolloutPercentage: { type: number, minimum: 0, maximum: 100 }
+                decision: { type: string, enum: [pass, fail] }
+                qaSummary: { type: object }
+                notes: { type: string }
+                reviewerName: { type: string }
       responses:
         200: { description: OK }
-        400: { description: Error }
-
-  /games/{id}/approve:
-    post:
-      tags: [Games]
-      summary: Approve game version
-      description: CTO/CEO approves a version after QC passed.
-      responses:
-        200: { description: OK }
-
-  /games/{id}/reject:
-    post:
-      tags: [Games]
-      summary: Reject game version
-      description: Reject a version during QC or approval.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason: { type: string }
-      responses:
-        200: { description: OK }
+        400: { description: Invalid data or status }
 
   /games/{id}/set-live:
     post:
