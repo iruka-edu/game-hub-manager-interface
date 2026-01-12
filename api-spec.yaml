@@ -484,6 +484,76 @@ paths:
       responses:
         200: { description: OK }
 
+  # --- PUBLIC ---
+  /public/games:
+    get:
+      tags: [Public]
+      summary: List all published games
+      description: Get a list of all games that are currently published and ready for players. No authentication required.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  games:
+                    type: array
+                    items: { $ref: '#/components/schemas/PublicGame' }
+                  total: { type: integer }
+
+  /public/games/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: MongoDB ObjectId or gameId slug
+        schema: { type: string }
+    get:
+      tags: [Public]
+      summary: Get published game details
+      description: Returns details of a specific published game. No authentication required.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  game: { $ref: '#/components/schemas/PublicGameFull' }
+        404: { description: Game not found or not published }
+
+  /public/games/{id}/play:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: MongoDB ObjectId or gameId slug
+        schema: { type: string }
+    get:
+      tags: [Public]
+      summary: Get game play URL
+      description: Returns the GCS URL to the game's index.html and version info. Used when a player clicks "Play". No authentication required.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  game: { type: object }
+                  version: { type: object }
+                  gameUrl: { type: string, description: "Full URL to index.html on GCS" }
+                  basePath: { type: string, description: "Base GCS folder URL" }
+                  entryFile: { type: string }
+        404: { description: Game not found or not published }
+
 components:
   schemas:
     User:
@@ -576,3 +646,30 @@ components:
         unit: { type: string }
         gameType: { type: string }
         priority: { type: string }
+    
+    PublicGame:
+      type: object
+      properties:
+        id: { type: string }
+        gameId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        thumbnailDesktop: { type: string }
+        thumbnailMobile: { type: string }
+        version: { type: string }
+        publishedAt: { type: string, format: date-time }
+
+    PublicGameFull:
+      allOf:
+        - $ref: '#/components/schemas/PublicGame'
+        - type: object
+          properties:
+            subject: { type: string }
+            grade: { type: string }
+            unit: { type: string }
+            gameType: { type: string }
+            lesson: { type: array, items: { type: string } }
+            skills: { type: array, items: { type: string } }
+            themes: { type: array, items: { type: string } }
+            tags: { type: array, items: { type: string } }
+            releaseNote: { type: string }
