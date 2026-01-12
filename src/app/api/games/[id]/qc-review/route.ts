@@ -198,7 +198,8 @@ export async function POST(
           report: {
             _id: qcReport._id.toString(),
             decision: qcReport.decision,
-            reviewedAt: qcReport.reviewedAt.toISOString(),
+            reviewedAt:
+              qcReport.reviewedAt?.toISOString() || new Date().toISOString(),
           },
         },
       },
