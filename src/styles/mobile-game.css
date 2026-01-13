@@ -1,0 +1,250 @@
+/* Mobile Game Viewport Optimizations */
+
+/* Base game container using new viewport units */
+.game-container {
+  height: 100vh; /* Fallback for older browsers */
+  height: 100svh; /* Small viewport height - excludes mobile UI */
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Fullscreen game container */
+.game-container-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100svh !important;
+  z-index: 9999 !important;
+  background: #000 !important;
+}
+
+/* Game iframe optimizations */
+.game-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.game-iframe-fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100svh !important;
+}
+
+/* iOS Safari specific optimizations */
+@supports (-webkit-touch-callout: none) {
+  .game-container {
+    /* Use safe area insets for notched devices */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  .game-container-fullscreen {
+    /* Remove safe area padding in fullscreen */
+    padding: 0 !important;
+  }
+  
+  /* Hide Safari UI elements */
+  .ios-fullscreen {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-height: 500px) and (orientation: landscape) {
+  .game-toolbar {
+    position: relative !important;
+    height: 2.5rem; /* Reduce toolbar height in landscape */
+  }
+  
+  .game-container {
+    height: calc(100vh - 2.5rem) !important;
+    height: calc(100svh - 2.5rem) !important;
+  }
+  
+  .game-container-fullscreen {
+    height: 100vh !important;
+    height: 100svh !important;
+  }
+}
+
+/* Portrait mobile optimization */
+@media (max-width: 640px) and (orientation: portrait) {
+  .game-container {
+    /* Ensure full height on mobile portrait */
+    min-height: 100vh;
+    min-height: 100svh;
+  }
+}
+
+/* Tablet optimization */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .game-container {
+    /* Tablet-specific adjustments */
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  
+  .game-container-fullscreen {
+    border-radius: 0 !important;
+  }
+}
+
+/* Prevent zoom on double tap (mobile) */
+.no-zoom {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Hide scrollbars in game container */
+.game-container::-webkit-scrollbar {
+  display: none;
+}
+
+.game-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Fullscreen button positioning */
+.fullscreen-button {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fullscreen-button:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.05);
+}
+
+/* Mobile floating action button */
+@media (max-width: 640px) {
+  .fullscreen-button {
+    bottom: 1rem;
+    top: auto;
+    right: 1rem;
+    border-radius: 50%;
+    width: 3.5rem;
+    height: 3.5rem;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Loading overlay */
+.game-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+/* Error overlay */
+.game-error {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fef2f2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: 2rem;
+  text-align: center;
+}
+
+/* Toolbar animations */
+.game-toolbar {
+  transition: transform 0.3s ease;
+}
+
+.game-toolbar-hidden {
+  transform: translateY(-100%);
+}
+
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  .game-container {
+    /* Remove any top padding when in PWA mode */
+    padding-top: 0;
+  }
+  
+  .pwa-indicator {
+    display: none;
+  }
+}
+
+/* Orientation lock hint */
+.orientation-hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  text-align: center;
+  z-index: 10000;
+  display: none;
+}
+
+@media (max-width: 640px) and (orientation: portrait) {
+  .landscape-only .orientation-hint {
+    display: block;
+  }
+  
+  .landscape-only .game-container {
+    filter: blur(4px);
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .game-container {
+    /* Optimize for retina displays */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .game-toolbar,
+  .fullscreen-button {
+    transition: none;
+  }
+}

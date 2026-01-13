@@ -2,8 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/session';
 import { UserRepository, type User } from '@/models/User';
-import { Sidebar } from '@/components/console/Sidebar';
-import { TopBar } from '@/components/console/TopBar';
+import { ConsoleLayoutClient } from '@/components/console/ConsoleLayoutClient';
 
 // Serialize user for client components (convert ObjectId to string)
 function serializeUser(user: User) {
@@ -50,15 +49,5 @@ export default async function ConsoleLayout({
   // Serialize user for client components
   const serializedUser = serializeUser(user);
 
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar user={serializedUser} />
-      <div className="flex-1 ml-[260px] transition-[margin] duration-300">
-        <TopBar />
-        <main className="p-6">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  return <ConsoleLayoutClient user={serializedUser}>{children}</ConsoleLayoutClient>;
 }

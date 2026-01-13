@@ -503,7 +503,7 @@ export function QCReviewForm({
 
       {/* Category Tabs */}
       <div className="mb-6 border-b border-slate-200">
-        <div className="flex gap-1 overflow-x-auto">
+        <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
           {testCategories.map((category) => {
             const progress = getCategoryProgress(category.id);
             const isActive = activeCategory === category.id;
@@ -513,22 +513,23 @@ export function QCReviewForm({
               <button
                 key={category.id}
                 onClick={() => setActiveCategory(category.id)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                   isActive
                     ? "border-indigo-600 text-indigo-600"
                     : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <span>{category.icon}</span>
-                  {category.name}
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <span className="text-sm sm:text-base">{category.icon}</span>
+                  <span className="hidden sm:inline">{category.name}</span>
+                  <span className="sm:hidden">{category.name.split(' ')[0]}</span>
                   {!hasAutoTestsOnly && (
-                    <span className="text-xs bg-slate-100 px-1.5 py-0.5 rounded-full text-slate-600">
+                    <span className="text-[10px] sm:text-xs bg-slate-100 px-1 sm:px-1.5 py-0.5 rounded-full text-slate-600">
                       {progress.completed}/{progress.total}
                     </span>
                   )}
                   {hasAutoTestsOnly && (
-                    <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">
+                    <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-600 px-1 sm:px-1.5 py-0.5 rounded-full">
                       Auto
                     </span>
                   )}
@@ -544,14 +545,14 @@ export function QCReviewForm({
         {activeTests.map((test) => (
           <div
             key={test.id}
-            className="border border-slate-200 rounded-lg p-5 hover:border-slate-300 transition-colors"
+            className="border border-slate-200 rounded-lg p-4 sm:p-5 hover:border-slate-300 transition-colors"
           >
             <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-slate-900">{test.name}</h3>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{test.name}</h3>
                   {test.isAutoTest && (
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded flex items-center gap-1">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded flex items-center gap-1 shrink-0">
                       <svg
                         className="w-3 h-3"
                         fill="none"
@@ -569,20 +570,20 @@ export function QCReviewForm({
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-slate-600">{test.description}</p>
+                <p className="text-xs sm:text-sm text-slate-600">{test.description}</p>
               </div>
             </div>
 
             {/* Pass/Fail Toggle - Only for Manual Tests */}
             {!test.isAutoTest ? (
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm text-slate-700 font-medium">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
+                <span className="text-xs sm:text-sm text-slate-700 font-medium shrink-0">
                   Kết quả:
                 </span>
                 <button
                   type="button"
                   onClick={() => updateTest(test.id, "passed", true)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                     test.passed === true
                       ? "bg-green-600 text-white shadow-sm"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -593,7 +594,7 @@ export function QCReviewForm({
                 <button
                   type="button"
                   onClick={() => updateTest(test.id, "passed", false)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                     test.passed === false
                       ? "bg-red-600 text-white shadow-sm"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -608,7 +609,7 @@ export function QCReviewForm({
                 {test.passed === true && (
                   <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <svg
-                      className="w-5 h-5 text-green-600"
+                      className="w-4 sm:w-5 sm:h-5 h-4 text-green-600 shrink-0"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -618,7 +619,7 @@ export function QCReviewForm({
                         clipRule="evenodd"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-green-800">
+                    <span className="text-xs sm:text-sm font-medium text-green-800">
                       Hệ thống đánh giá: Đạt
                     </span>
                   </div>
@@ -626,7 +627,7 @@ export function QCReviewForm({
                 {test.passed === false && (
                   <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <svg
-                      className="w-5 h-5 text-red-600"
+                      className="w-4 sm:w-5 h-4 sm:h-5 text-red-600 shrink-0"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -636,16 +637,16 @@ export function QCReviewForm({
                         clipRule="evenodd"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-red-800">
+                    <span className="text-xs sm:text-sm font-medium text-red-800">
                       Hệ thống đánh giá: Không đạt
                     </span>
                   </div>
                 )}
                 {test.passed === null && (
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                    <div className="text-sm text-slate-500 italic flex items-center gap-2">
+                    <div className="text-xs sm:text-sm text-slate-500 italic flex items-center gap-2">
                       <svg
-                        className="w-4 h-4 animate-spin"
+                        className="w-3 sm:w-4 h-3 sm:h-4 animate-spin"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -667,7 +668,7 @@ export function QCReviewForm({
             {/* Notes - Only show for manual tests or if auto test failed */}
             {(!test.isAutoTest || test.passed === false) && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
                   Ghi chú{" "}
                   {test.passed === false && (
                     <span className="text-red-500">*</span>
@@ -681,7 +682,7 @@ export function QCReviewForm({
                       ? "Giải thích lý do test không đạt..."
                       : "Ghi chú thêm (không bắt buộc)..."
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                   rows={2}
                 />
               </div>
@@ -791,12 +792,12 @@ export function QCReviewForm({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <button
           type="button"
           onClick={() => handleSubmit("pass")}
           disabled={!manualTestsCompleted || !manualTestsPassed || isSubmitting}
-          className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+          className="flex-1 px-4 sm:px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm text-sm sm:text-base"
         >
           {isSubmitting ? "Đang gửi..." : "✓ Duyệt (Pass QC)"}
         </button>
@@ -804,7 +805,7 @@ export function QCReviewForm({
           type="button"
           onClick={() => handleSubmit("fail")}
           disabled={!manualTestsCompleted || isSubmitting}
-          className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+          className="flex-1 px-4 sm:px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm text-sm sm:text-base"
         >
           {isSubmitting ? "Đang gửi..." : "✗ Từ chối (Fail QC)"}
         </button>
@@ -817,6 +818,17 @@ export function QCReviewForm({
               manualTests.filter((t) => t.passed === null).length
             } mục kiểm tra thủ công (Manual Tests) còn lại.`}
       </p>
+
+      {/* Add scrollbar hide utility */}
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }

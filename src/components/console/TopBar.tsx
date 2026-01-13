@@ -11,7 +11,12 @@ interface Notification {
   createdAt: string;
 }
 
-export function TopBar() {
+interface TopBarProps {
+  onToggleMinimize?: () => void;
+  isMinimized?: boolean;
+}
+
+export function TopBar({ onToggleMinimize, isMinimized }: TopBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -75,8 +80,27 @@ export function TopBar() {
   }
 
   return (
-    <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-8 py-3 flex items-center justify-end">
-      {/* Notification Bell */}
+    <div className="sticky top-0 z-40 bg-white border-b border-slate-200 px-8 py-3 flex items-center justify-between">
+      {/* Left side - Minimize button */}
+      <div className="flex items-center gap-3">
+        {onToggleMinimize && (
+          <button
+            onClick={onToggleMinimize}
+            className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            title={isMinimized ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {isMinimized ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M19 19l-7-7 7-7" />
+              )}
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Right side - Notifications */}
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => {
@@ -103,7 +127,7 @@ export function TopBar() {
 
         {/* Notification Dropdown */}
         {isOpen && (
-          <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
             <div className="p-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-semibold text-slate-900">Thông báo</h3>
               <button

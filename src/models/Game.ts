@@ -281,6 +281,11 @@ export class GameRepository {
       skills: input.skills,
       themes: input.themes,
       linkGithub: input.linkGithub,
+      quyenSach: input.quyenSach,
+      // Extensible metadata object
+      metadata: input.metadata,
+      metadataCompleteness: input.metadataCompleteness,
+      lastMetadataUpdate: input.lastMetadataUpdate,
       disabled: input.disabled ?? false,
       rolloutPercentage: input.rolloutPercentage ?? 100,
       publishedAt: input.publishedAt,

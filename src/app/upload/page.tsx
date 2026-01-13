@@ -74,10 +74,9 @@ export default async function UploadPage({ searchParams }: Props) {
     github: params.github || '',
   };
 
-  // Check if metadata is ready for upload - only require essential fields
+  // Check if metadata is ready for upload - require essential fields including difficulty
   const metaReady =
-    Boolean(meta.lop && meta.mon && meta.game && meta.github);
-    // Only require: grade, subject, gameId, github. Others are optional.
+    Boolean(meta.lop && meta.mon && meta.game && meta.github && meta.level);
 
   const gameMeta = {
     grade: meta.lop,
@@ -207,11 +206,18 @@ function UploadMetaForm({ values }: { values: any }) {
               required
             >
               <option value="">Chọn lớp</option>
-              <option value="1">Lớp 1</option>
-              <option value="2">Lớp 2</option>
-              <option value="3">Lớp 3</option>
-              <option value="4">Lớp 4</option>
-              <option value="5">Lớp 5</option>
+              <option value="1">Lớp 1 (6-7 tuổi)</option>
+              <option value="2">Lớp 2 (7-8 tuổi)</option>
+              <option value="3">Lớp 3 (8-9 tuổi)</option>
+              <option value="4">Lớp 4 (9-10 tuổi)</option>
+              <option value="5">Lớp 5 (10-11 tuổi)</option>
+              <option value="6">Lớp 6 (11-12 tuổi)</option>
+              <option value="7">Lớp 7 (12-13 tuổi)</option>
+              <option value="8">Lớp 8 (13-14 tuổi)</option>
+              <option value="9">Lớp 9 (14-15 tuổi)</option>
+              <option value="10">Lớp 10 (15-16 tuổi)</option>
+              <option value="11">Lớp 11 (16-17 tuổi)</option>
+              <option value="12">Lớp 12 (17-18 tuổi)</option>
             </select>
           </div>
           <div>
@@ -297,8 +303,7 @@ function UploadMetaForm({ values }: { values: any }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Độ khó
-              <span className="text-slate-400 text-xs ml-1">(tùy chọn)</span>
+              Độ khó <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-4">
               <label className="flex items-center">
@@ -308,6 +313,7 @@ function UploadMetaForm({ values }: { values: any }) {
                   value="1"
                   defaultChecked={values.level === "1"}
                   className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                  required
                 />
                 <span className="ml-2 text-sm text-slate-700">Làm quen</span>
               </label>

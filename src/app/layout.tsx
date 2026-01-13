@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/global.css";
 import { QueryProvider } from "@/lib/query-client";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 export const metadata: Metadata = {
   title: {
@@ -11,12 +12,34 @@ export const metadata: Metadata = {
     "Internal management console for educational mini-games at Iruka Education",
   icons: {
     icon: "/favicon.svg",
+    apple: "/icons/icon-192x192.png",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Game Hub Manager",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "Game Hub Manager",
+    "application-name": "Game Hub Manager",
+    "msapplication-TileColor": "#4F46E5",
+    "theme-color": "#4F46E5",
   },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -40,6 +63,10 @@ export default function RootLayout({
       </head>
       <body className="bg-slate-50 text-slate-900 min-h-screen font-sans antialiased">
         <QueryProvider>{children}</QueryProvider>
+        
+        {/* PWA Install Prompt */}
+        <PWAInstallPrompt />
+        
         {/* Toast Container */}
         <div
           id="toast-container"

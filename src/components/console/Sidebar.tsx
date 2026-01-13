@@ -20,6 +20,7 @@ interface SerializedUser {
 
 interface SidebarProps {
   user: SerializedUser;
+  isMinimized?: boolean;
 }
 
 interface MenuItem {
@@ -250,7 +251,7 @@ function MenuIcon({ name }: { name: string }) {
   }
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, isMinimized = false }: SidebarProps) {
   const pathname = usePathname();
   const menuItems = getMenuItems(user);
   const userRoleDisplay =
@@ -267,7 +268,9 @@ export function Sidebar({ user }: SidebarProps) {
   const activeMenu = getActiveMenu();
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[260px] bg-slate-900 text-white z-40 flex flex-col">
+    <aside className={`fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex flex-col transition-all duration-300 ${
+      isMinimized ? 'w-[80px]' : 'w-[260px]'
+    }`}>
       {/* Logo */}
       <div className="p-5 border-b border-slate-700 flex items-center gap-3">
         <Link href="/console" className="flex items-center gap-3">
@@ -292,9 +295,11 @@ export function Sidebar({ user }: SidebarProps) {
               />
             </svg>
           </div>
-          <span className="font-bold text-lg whitespace-nowrap">
-            Game Console
-          </span>
+          {!isMinimized && (
+            <span className="font-bold text-lg whitespace-nowrap">
+              Game Console
+            </span>
+          )}
         </Link>
       </div>
 
@@ -309,15 +314,25 @@ export function Sidebar({ user }: SidebarProps) {
                   activeMenu === item.id
                     ? "bg-indigo-600 text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`}
+                } ${isMinimized ? 'justify-center' : ''}`}
+                title={isMinimized ? item.label : undefined}
               >
                 <MenuIcon name={item.icon} />
-                <span className="font-medium whitespace-nowrap">
-                  {item.label}
-                </span>
-                {item.badge && item.badge > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {item.badge}
+                {!isMinimized && (
+                  <>
+                    <span className="font-medium whitespace-nowrap">
+                      {item.label}
+                    </span>
+                    {item.badge && item.badge > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+                {isMinimized && item.badge && item.badge > 0 && (
+                  <span className="absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                    {item.badge > 9 ? '9+' : item.badge}
                   </span>
                 )}
               </Link>
@@ -328,36 +343,63 @@ export function Sidebar({ user }: SidebarProps) {
 
       {/* User Info */}
       <div className="p-4 border-t border-slate-700">
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center gap-3 ${isMinimized ? 'justify-center' : ''}`}>
           <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-semibold">
             {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">
-              {user.name || user.email}
-            </p>
-            <p className="text-xs text-slate-400 truncate">{userRoleDisplay}</p>
-          </div>
-          <a
-            href="/api/auth/logout"
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-            title="Đăng xuất"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-          </a>
+          {!isMinimized && (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">
+                  {user.name || user.email}
+                </p>
+                <p className="text-xs text-slate-400 truncate">{userRoleDisplay}</p>
+              </div>
+              <a
+                href="/api/auth/logout"
+                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                title="Đăng xuất"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+              </a>
+            </>
+          )}
         </div>
+        {isMinimized && (
+          <div className="mt-2 flex justify-center">
+            <a
+              href="/api/auth/logout"
+              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              title="Đăng xuất"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+            </a>
+          </div>
+        )}
       </div>
     </aside>
   );

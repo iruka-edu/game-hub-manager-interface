@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserRepository } from '@/models/User';
 import { createSession, createSessionCookie } from '@/lib/session';
+import { forceReconnect } from '@/lib/mongodb';
 
 /**
  * POST /api/auth/login
@@ -26,9 +27,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user credentials
-    const userRepo = await UserRepository.getInstance();
-    const user = await userRepo.verifyPassword(email.trim(), password);
+    // Verify user credentials with retry logic for MongoDB connection issues
+    let userRepo: UserRepository;
+    let user: any;
+    
+    try {
+      userRepo = await UserRepository.getInstance();
+      user = await userRepo.verifyPassword(email.trim(), password);
+    } catch (dbError) {
+      // If it's a MongoDB connection error, try to reconnect once
+      if (dbError instanceof Error && 
+          (dbError.message.includes('Server selection timed out') || 
+           dbError.message.includes('MongoServerSelectionError') ||
+           dbError.message.includes('connection'))) {
+        
+        console.warn('[Auth] MongoDB connection issue detected, attempting reconnect...');
+        
+        try {
+          await forceReconnect();
+          userRepo = await UserRepository.getInstance();
+          user = await userRepo.verifyPassword(email.trim(), password);
+        } catch (retryError) {
+          console.error('[Auth] MongoDB reconnection failed:', retryError);
+          return NextResponse.json(
+            { error: 'Database connection error. Please try again later.' },
+            { status: 503 }
+          );
+        }
+      } else {
+        throw dbError; // Re-throw if it's not a connection error
+      }
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -66,6 +95,18 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('[Auth] Login error:', error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('Server selection timed out') || 
+          error.message.includes('MongoServerSelectionError')) {
+        return NextResponse.json(
+          { error: 'Database connection timeout. Please try again.' },
+          { status: 503 }
+        );
+      }
+    }
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
