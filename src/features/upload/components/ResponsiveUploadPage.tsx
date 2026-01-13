@@ -1,23 +1,26 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { ResponsiveLayout, ResponsiveContainer } from '@/components/layout/ResponsiveLayout';
-import { AdaptiveActionBar } from '@/components/actions/AdaptiveActionBar';
+import React, { useState } from "react";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+import {
+  ResponsiveLayout,
+  ResponsiveContainer,
+} from "@/components/layout/ResponsiveLayout";
+import { AdaptiveActionBar } from "@/components/actions/AdaptiveActionBar";
 
-interface UploadFormData {
+export interface UploadFormData {
   gameId: string;
   title: string;
   description: string;
   version: string;
   files: FileList | null;
-  
+
   // Required metadata fields
   subject: string;
   grade: string;
   gameType: string;
-  lessonNo: number | '';
-  
+  lessonNo: number | "";
+
   // Optional metadata fields
   unit?: string;
   textbook?: string;
@@ -27,7 +30,7 @@ interface UploadFormData {
   difficulty_levels?: string[];
   thumbnailDesktop?: string;
   thumbnailMobile?: string;
-  priority?: 'low' | 'medium' | 'high';
+  priority?: "low" | "medium" | "high";
   tags?: string[];
   skills?: string[];
   themes?: string[];
@@ -50,85 +53,106 @@ interface ResponsiveUploadPageProps {
 
 /**
  * ResponsiveUploadPage Component
- * 
+ *
  * Implements responsive upload page patterns:
  * - Desktop: Three-column layout (Upload - Manifest - Preview)
  * - Tablet: Single-column accordion layout with live checklist
  * - Mobile: Desktop-only message with basic info view
- * 
+ *
  * Validates Requirements: 6.1, 6.2, 6.3, 6.4, 6.5
  */
 export function ResponsiveUploadPage({
   onUpload,
   onPublish,
-  onNavigate
+  onNavigate,
 }: ResponsiveUploadPageProps) {
-  const { breakpoint, isMobile, isTablet, isDesktop } = useBreakpoint();
+  const { isMobile, isTablet, isDesktop } = useBreakpoint();
   const [formData, setFormData] = useState<UploadFormData>({
-    gameId: '',
-    title: '',
-    description: '',
-    version: '1.0.0',
+    gameId: "",
+    title: "",
+    description: "",
+    version: "1.0.0",
     files: null,
-    
+
     // Required metadata fields
-    subject: '',
-    grade: '',
-    gameType: '',
-    lessonNo: '',
-    
+    subject: "",
+    grade: "",
+    gameType: "",
+    lessonNo: "",
+
     // Optional metadata fields
-    unit: '',
-    textbook: '',
-    theme_primary: '',
+    unit: "",
+    textbook: "",
+    theme_primary: "",
     theme_secondary: [],
     context_tags: [],
     difficulty_levels: [],
-    thumbnailDesktop: '',
-    thumbnailMobile: '',
-    priority: 'medium',
+    thumbnailDesktop: "",
+    thumbnailMobile: "",
+    priority: "medium",
     tags: [],
     skills: [],
     themes: [],
-    linkGithub: ''
+    linkGithub: "",
   });
   const [selfQA, setSelfQA] = useState<SelfQAChecklist>({
     testedDevices: false,
     testedAudio: false,
     gameplayComplete: false,
     contentVerified: false,
-    note: ''
+    note: "",
   });
   const [isUploading, setIsUploading] = useState(false);
 
+  const isFormValid = () => {
+    return (
+      formData.title &&
+      formData.gameId &&
+      formData.files &&
+      formData.subject &&
+      formData.grade &&
+      formData.gameType &&
+      formData.lessonNo !== ""
+    );
+  };
+
+  const isSelfQAComplete = () => {
+    return (
+      selfQA.testedDevices &&
+      selfQA.testedAudio &&
+      selfQA.gameplayComplete &&
+      selfQA.contentVerified
+    );
+  };
+
   const uploadActions = [
     {
-      key: 'save-draft',
-      label: 'Save Draft',
-      icon: '💾',
-      variant: 'secondary' as const,
+      key: "save-draft",
+      label: "Save Draft",
+      icon: "💾",
+      variant: "secondary" as const,
       onClick: () => handleSaveDraft(),
-      isDisabled: !formData.title || isUploading
+      isDisabled: !formData.title || isUploading,
     },
     {
-      key: 'upload',
-      label: 'Upload & Submit',
-      icon: '📤',
-      variant: 'primary' as const,
+      key: "upload",
+      label: "Upload & Submit",
+      icon: "📤",
+      variant: "primary" as const,
       onClick: () => handleUpload(),
-      isDisabled: !isFormValid() || !isSelfQAComplete() || isUploading
-    }
+      isDisabled: !isFormValid() || !isSelfQAComplete() || isUploading,
+    },
   ];
 
   const handleUpload = async () => {
     if (!isFormValid() || !isSelfQAComplete()) return;
-    
+
     setIsUploading(true);
     try {
       await onUpload(formData);
-      onNavigate('/console/games');
+      onNavigate("/console/games");
     } catch (error) {
-      console.error('Upload failed:', error);
+      console.error("Upload failed:", error);
     } finally {
       setIsUploading(false);
     }
@@ -136,26 +160,7 @@ export function ResponsiveUploadPage({
 
   const handleSaveDraft = async () => {
     // Save as draft logic
-    console.log('Saving draft...', formData);
-  };
-
-  const isFormValid = () => {
-    return (
-      formData.title && 
-      formData.gameId && 
-      formData.files &&
-      formData.subject &&
-      formData.grade &&
-      formData.gameType &&
-      formData.lessonNo !== ''
-    );
-  };
-
-  const isSelfQAComplete = () => {
-    return selfQA.testedDevices && 
-           selfQA.testedAudio && 
-           selfQA.gameplayComplete && 
-           selfQA.contentVerified;
+    console.log("Saving draft...", formData);
   };
 
   // Mobile: Desktop-only message
@@ -176,8 +181,12 @@ export function ResponsiveUploadPage({
         className="gh-upload-desktop"
         actionBar={
           <AdaptiveActionBar
-            primaryActions={uploadActions.filter(a => a.variant === 'primary')}
-            secondaryActions={uploadActions.filter(a => a.variant === 'secondary')}
+            primaryActions={uploadActions.filter(
+              (a) => a.variant === "primary"
+            )}
+            secondaryActions={uploadActions.filter(
+              (a) => a.variant === "secondary"
+            )}
             position="sticky-bottom"
           />
         }
@@ -194,10 +203,7 @@ export function ResponsiveUploadPage({
 
           {/* Manifest Column */}
           <div className="gh-manifest-column">
-            <ManifestEditor
-              formData={formData}
-              onFormChange={setFormData}
-            />
+            <ManifestEditor formData={formData} onFormChange={setFormData} />
           </div>
 
           {/* Preview Column */}
@@ -220,8 +226,10 @@ export function ResponsiveUploadPage({
       className="gh-upload-tablet"
       actionBar={
         <AdaptiveActionBar
-          primaryActions={uploadActions.filter(a => a.variant === 'primary')}
-          secondaryActions={uploadActions.filter(a => a.variant === 'secondary')}
+          primaryActions={uploadActions.filter((a) => a.variant === "primary")}
+          secondaryActions={uploadActions.filter(
+            (a) => a.variant === "secondary"
+          )}
           position="sticky-bottom"
         />
       }
@@ -237,10 +245,7 @@ export function ResponsiveUploadPage({
           </AccordionSection>
 
           <AccordionSection title="Game Manifest">
-            <ManifestEditor
-              formData={formData}
-              onFormChange={setFormData}
-            />
+            <ManifestEditor formData={formData} onFormChange={setFormData} />
           </AccordionSection>
 
           <AccordionSection title="Preview & QA">
@@ -260,28 +265,34 @@ export function ResponsiveUploadPage({
 /**
  * Mobile Upload Message Component
  */
-function MobileUploadMessage({ onNavigate }: { onNavigate: (path: string) => void }) {
+function MobileUploadMessage({
+  onNavigate,
+}: {
+  onNavigate: (path: string) => void;
+}) {
   return (
     <div className="gh-mobile-upload-message">
       <div className="gh-desktop-only-icon">🖥️</div>
-      <h2 className="gh-responsive-heading gh-font-semibold">Desktop Required</h2>
+      <h2 className="gh-responsive-heading gh-font-semibold">
+        Desktop Required
+      </h2>
       <p className="gh-responsive-body gh-text-muted">
-        Game upload and configuration requires a desktop computer for the best experience. 
-        Please use a desktop or laptop to upload games.
+        Game upload and configuration requires a desktop computer for the best
+        experience. Please use a desktop or laptop to upload games.
       </p>
-      
+
       <div className="gh-mobile-alternatives">
-        <h3 className="gh-responsive-body gh-font-medium">What you can do on mobile:</h3>
+        <h3 className="gh-responsive-body gh-font-medium">
+          What you can do on mobile:
+        </h3>
         <ul className="gh-mobile-feature-list">
-          <li onClick={() => onNavigate('/console/games')}>
+          <li onClick={() => onNavigate("/console/games")}>
             📱 View your games
           </li>
-          <li onClick={() => onNavigate('/console/qc-inbox')}>
+          <li onClick={() => onNavigate("/console/qc-inbox")}>
             🔍 Check QC status
           </li>
-          <li onClick={() => onNavigate('/console')}>
-            📊 Monitor dashboard
-          </li>
+          <li onClick={() => onNavigate("/console")}>📊 Monitor dashboard</li>
         </ul>
       </div>
     </div>
@@ -294,7 +305,7 @@ function MobileUploadMessage({ onNavigate }: { onNavigate: (path: string) => voi
 function UploadForm({
   formData,
   onFormChange,
-  isUploading
+  isUploading,
 }: {
   formData: UploadFormData;
   onFormChange: (data: UploadFormData) => void;
@@ -306,15 +317,19 @@ function UploadForm({
 
   return (
     <div className="gh-upload-form">
-      <h3 className="gh-responsive-heading gh-font-medium">Upload Game Files</h3>
-      
+      <h3 className="gh-responsive-heading gh-font-medium">
+        Upload Game Files
+      </h3>
+
       <div className="gh-form-field">
         <label className="gh-form-label">Game ID</label>
         <input
           type="text"
           className="gh-input-responsive"
           value={formData.gameId}
-          onChange={(e) => onFormChange({ ...formData, gameId: e.target.value })}
+          onChange={(e) =>
+            onFormChange({ ...formData, gameId: e.target.value })
+          }
           placeholder="com.iruka.math-adventure"
           disabled={isUploading}
         />
@@ -338,7 +353,9 @@ function UploadForm({
           type="text"
           className="gh-input-responsive"
           value={formData.version}
-          onChange={(e) => onFormChange({ ...formData, version: e.target.value })}
+          onChange={(e) =>
+            onFormChange({ ...formData, version: e.target.value })
+          }
           placeholder="1.0.0"
           disabled={isUploading}
         />
@@ -366,32 +383,37 @@ function UploadForm({
  */
 function ManifestEditor({
   formData,
-  onFormChange
+  onFormChange,
 }: {
   formData: UploadFormData;
   onFormChange: (data: UploadFormData) => void;
 }) {
   const handleArrayChange = (field: keyof UploadFormData, value: string) => {
     const currentArray = (formData[field] as string[]) || [];
-    const newArray = value.split(',').map(item => item.trim()).filter(item => item);
+    const newArray = value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item);
     onFormChange({ ...formData, [field]: newArray });
   };
 
   return (
     <div className="gh-manifest-editor">
       <h3 className="gh-responsive-heading gh-font-medium">Game Manifest</h3>
-      
+
       {/* Basic Information */}
       <div className="gh-form-section">
         <h4 className="gh-form-section-title">Basic Information</h4>
-        
+
         <div className="gh-form-field">
           <label className="gh-form-label">Description</label>
           <textarea
             className="gh-input-responsive"
             rows={4}
             value={formData.description}
-            onChange={(e) => onFormChange({ ...formData, description: e.target.value })}
+            onChange={(e) =>
+              onFormChange({ ...formData, description: e.target.value })
+            }
             placeholder="Describe your game..."
           />
         </div>
@@ -400,14 +422,16 @@ function ManifestEditor({
       {/* Required Metadata */}
       <div className="gh-form-section">
         <h4 className="gh-form-section-title">Required Metadata</h4>
-        
+
         <div className="gh-form-row">
           <div className="gh-form-field">
             <label className="gh-form-label">Subject *</label>
-            <select 
+            <select
               className="gh-input-responsive"
               value={formData.subject}
-              onChange={(e) => onFormChange({ ...formData, subject: e.target.value })}
+              onChange={(e) =>
+                onFormChange({ ...formData, subject: e.target.value })
+              }
               required
             >
               <option value="">Select Subject</option>
@@ -424,10 +448,12 @@ function ManifestEditor({
 
           <div className="gh-form-field">
             <label className="gh-form-label">Grade Level *</label>
-            <select 
+            <select
               className="gh-input-responsive"
               value={formData.grade}
-              onChange={(e) => onFormChange({ ...formData, grade: e.target.value })}
+              onChange={(e) =>
+                onFormChange({ ...formData, grade: e.target.value })
+              }
               required
             >
               <option value="">Select Grade</option>
@@ -452,10 +478,12 @@ function ManifestEditor({
         <div className="gh-form-row">
           <div className="gh-form-field">
             <label className="gh-form-label">Game Type *</label>
-            <select 
+            <select
               className="gh-input-responsive"
               value={formData.gameType}
-              onChange={(e) => onFormChange({ ...formData, gameType: e.target.value })}
+              onChange={(e) =>
+                onFormChange({ ...formData, gameType: e.target.value })
+              }
               required
             >
               <option value="">Select Game Type</option>
@@ -474,7 +502,12 @@ function ManifestEditor({
               type="number"
               className="gh-input-responsive"
               value={formData.lessonNo}
-              onChange={(e) => onFormChange({ ...formData, lessonNo: e.target.value ? parseInt(e.target.value) : '' })}
+              onChange={(e) =>
+                onFormChange({
+                  ...formData,
+                  lessonNo: e.target.value ? parseInt(e.target.value) : "",
+                })
+              }
               placeholder="1"
               min="1"
               required
@@ -486,25 +519,29 @@ function ManifestEditor({
       {/* Optional Metadata */}
       <div className="gh-form-section">
         <h4 className="gh-form-section-title">Optional Metadata</h4>
-        
+
         <div className="gh-form-row">
           <div className="gh-form-field">
             <label className="gh-form-label">Unit</label>
             <input
               type="text"
               className="gh-input-responsive"
-              value={formData.unit || ''}
-              onChange={(e) => onFormChange({ ...formData, unit: e.target.value })}
+              value={formData.unit || ""}
+              onChange={(e) =>
+                onFormChange({ ...formData, unit: e.target.value })
+              }
               placeholder="Unit 1: Numbers"
             />
           </div>
 
           <div className="gh-form-field">
             <label className="gh-form-label">Textbook</label>
-            <select 
+            <select
               className="gh-input-responsive"
-              value={formData.textbook || ''}
-              onChange={(e) => onFormChange({ ...formData, textbook: e.target.value })}
+              value={formData.textbook || ""}
+              onChange={(e) =>
+                onFormChange({ ...formData, textbook: e.target.value })
+              }
             >
               <option value="">Select Textbook</option>
               <option value="Canh Dieu">Cánh Diều</option>
@@ -519,18 +556,25 @@ function ManifestEditor({
           <input
             type="text"
             className="gh-input-responsive"
-            value={formData.theme_primary || ''}
-            onChange={(e) => onFormChange({ ...formData, theme_primary: e.target.value })}
+            value={formData.theme_primary || ""}
+            onChange={(e) =>
+              onFormChange({ ...formData, theme_primary: e.target.value })
+            }
             placeholder="Addition and Subtraction"
           />
         </div>
 
         <div className="gh-form-field">
           <label className="gh-form-label">Priority</label>
-          <select 
+          <select
             className="gh-input-responsive"
-            value={formData.priority || 'medium'}
-            onChange={(e) => onFormChange({ ...formData, priority: e.target.value as 'low' | 'medium' | 'high' })}
+            value={formData.priority || "medium"}
+            onChange={(e) =>
+              onFormChange({
+                ...formData,
+                priority: e.target.value as "low" | "medium" | "high",
+              })
+            }
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -543,8 +587,10 @@ function ManifestEditor({
           <input
             type="url"
             className="gh-input-responsive"
-            value={formData.linkGithub || ''}
-            onChange={(e) => onFormChange({ ...formData, linkGithub: e.target.value })}
+            value={formData.linkGithub || ""}
+            onChange={(e) =>
+              onFormChange({ ...formData, linkGithub: e.target.value })
+            }
             placeholder="https://github.com/username/repo"
           />
         </div>
@@ -553,14 +599,16 @@ function ManifestEditor({
       {/* Tags and Categories */}
       <div className="gh-form-section">
         <h4 className="gh-form-section-title">Tags & Categories</h4>
-        
+
         <div className="gh-form-field">
           <label className="gh-form-label">Secondary Themes</label>
           <input
             type="text"
             className="gh-input-responsive"
-            value={(formData.theme_secondary || []).join(', ')}
-            onChange={(e) => handleArrayChange('theme_secondary', e.target.value)}
+            value={(formData.theme_secondary || []).join(", ")}
+            onChange={(e) =>
+              handleArrayChange("theme_secondary", e.target.value)
+            }
             placeholder="Geometry, Problem Solving (comma separated)"
           />
         </div>
@@ -570,8 +618,8 @@ function ManifestEditor({
           <input
             type="text"
             className="gh-input-responsive"
-            value={(formData.context_tags || []).join(', ')}
-            onChange={(e) => handleArrayChange('context_tags', e.target.value)}
+            value={(formData.context_tags || []).join(", ")}
+            onChange={(e) => handleArrayChange("context_tags", e.target.value)}
             placeholder="k12, exam-prep, interactive (comma separated)"
           />
         </div>
@@ -581,20 +629,25 @@ function ManifestEditor({
           <input
             type="text"
             className="gh-input-responsive"
-            value={(formData.difficulty_levels || []).join(', ')}
-            onChange={(e) => handleArrayChange('difficulty_levels', e.target.value)}
+            value={(formData.difficulty_levels || []).join(", ")}
+            onChange={(e) =>
+              handleArrayChange("difficulty_levels", e.target.value)
+            }
             placeholder="easy, medium, hard (comma separated)"
           />
         </div>
 
         <div className="gh-form-field">
           <label className="gh-form-label">Skills</label>
-          <select 
+          <select
             className="gh-input-responsive"
             multiple
             value={formData.skills || []}
             onChange={(e) => {
-              const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+              const selectedOptions = Array.from(
+                e.target.selectedOptions,
+                (option) => option.value
+              );
               onFormChange({ ...formData, skills: selectedOptions });
             }}
           >
@@ -615,20 +668,23 @@ function ManifestEditor({
           <input
             type="text"
             className="gh-input-responsive"
-            value={(formData.tags || []).join(', ')}
-            onChange={(e) => handleArrayChange('tags', e.target.value)}
+            value={(formData.tags || []).join(", ")}
+            onChange={(e) => handleArrayChange("tags", e.target.value)}
             placeholder="educational, fun, interactive (comma separated)"
           />
         </div>
 
         <div className="gh-form-field">
           <label className="gh-form-label">Themes</label>
-          <select 
+          <select
             className="gh-input-responsive"
             multiple
             value={formData.themes || []}
             onChange={(e) => {
-              const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+              const selectedOptions = Array.from(
+                e.target.selectedOptions,
+                (option) => option.value
+              );
               onFormChange({ ...formData, themes: selectedOptions });
             }}
           >
@@ -650,15 +706,17 @@ function ManifestEditor({
       {/* Thumbnails */}
       <div className="gh-form-section">
         <h4 className="gh-form-section-title">Thumbnails</h4>
-        
+
         <div className="gh-form-row">
           <div className="gh-form-field">
             <label className="gh-form-label">Desktop Thumbnail (308x211)</label>
             <input
               type="url"
               className="gh-input-responsive"
-              value={formData.thumbnailDesktop || ''}
-              onChange={(e) => onFormChange({ ...formData, thumbnailDesktop: e.target.value })}
+              value={formData.thumbnailDesktop || ""}
+              onChange={(e) =>
+                onFormChange({ ...formData, thumbnailDesktop: e.target.value })
+              }
               placeholder="https://example.com/thumbnail-desktop.png"
             />
           </div>
@@ -668,8 +726,10 @@ function ManifestEditor({
             <input
               type="url"
               className="gh-input-responsive"
-              value={formData.thumbnailMobile || ''}
-              onChange={(e) => onFormChange({ ...formData, thumbnailMobile: e.target.value })}
+              value={formData.thumbnailMobile || ""}
+              onChange={(e) =>
+                onFormChange({ ...formData, thumbnailMobile: e.target.value })
+              }
               placeholder="https://example.com/thumbnail-mobile.png"
             />
           </div>
@@ -684,44 +744,44 @@ function ManifestEditor({
  */
 function GamePreview({ formData }: { formData: UploadFormData }) {
   const getMetadataCompleteness = () => {
-    const requiredFields = ['subject', 'grade', 'gameType', 'lessonNo'];
-    const completedFields = requiredFields.filter(field => {
+    const requiredFields = ["subject", "grade", "gameType", "lessonNo"];
+    const completedFields = requiredFields.filter((field) => {
       const value = formData[field as keyof UploadFormData];
-      return value !== undefined && value !== null && value !== '';
+      return value !== undefined && value !== null && value !== "";
     });
     return Math.round((completedFields.length / requiredFields.length) * 100);
   };
 
   const getSkillText = (skills?: string[]) => {
-    if (!skills || skills.length === 0) return 'Not set';
-    
+    if (!skills || skills.length === 0) return "Not set";
+
     const skillMap: Record<string, string> = {
-      '1': 'Tô màu cơ bản',
-      '2': 'Tô theo mẫu - Theo gợi ý',
-      '3': 'Nhận diện hình & Chi tiết qua tô',
-      '4': 'Điều khiển nét & tay',
-      '5': 'Hoàn thiện hình/ Bổ sung nhẹ',
-      '6': 'Tạo hình theo chủ đề'
+      "1": "Tô màu cơ bản",
+      "2": "Tô theo mẫu - Theo gợi ý",
+      "3": "Nhận diện hình & Chi tiết qua tô",
+      "4": "Điều khiển nét & tay",
+      "5": "Hoàn thiện hình/ Bổ sung nhẹ",
+      "6": "Tạo hình theo chủ đề",
     };
-    
-    return skills.map(skill => skillMap[skill] || skill).join(', ');
+
+    return skills.map((skill) => skillMap[skill] || skill).join(", ");
   };
 
   const getThemeText = (themes?: string[]) => {
-    if (!themes || themes.length === 0) return 'Not set';
-    
+    if (!themes || themes.length === 0) return "Not set";
+
     const themeMap: Record<string, string> = {
-      '1': 'Động vật',
-      '2': 'Xe cộ',
-      '3': 'Đồ chơi',
-      '4': 'Âm nhạc',
-      '5': 'Trái cây',
-      '6': 'Rau củ',
-      '7': 'Thiên nhiên – hoa lá',
-      '8': 'Ngữ cảnh đời sống gần gũi'
+      "1": "Động vật",
+      "2": "Xe cộ",
+      "3": "Đồ chơi",
+      "4": "Âm nhạc",
+      "5": "Trái cây",
+      "6": "Rau củ",
+      "7": "Thiên nhiên – hoa lá",
+      "8": "Ngữ cảnh đời sống gần gũi",
     };
-    
-    return themes.map(theme => themeMap[theme] || theme).join(', ');
+
+    return themes.map((theme) => themeMap[theme] || theme).join(", ");
   };
 
   const completeness = getMetadataCompleteness();
@@ -729,14 +789,14 @@ function GamePreview({ formData }: { formData: UploadFormData }) {
   return (
     <div className="gh-game-preview">
       <h3 className="gh-responsive-heading gh-font-medium">Preview</h3>
-      
+
       {formData.files ? (
         <div className="gh-preview-content">
           <div className="gh-preview-card">
             <div className="gh-preview-thumbnail">
               {formData.thumbnailDesktop ? (
-                <img 
-                  src={formData.thumbnailDesktop} 
+                <img
+                  src={formData.thumbnailDesktop}
                   alt="Game thumbnail"
                   className="gh-preview-image"
                 />
@@ -746,50 +806,68 @@ function GamePreview({ formData }: { formData: UploadFormData }) {
                 </div>
               )}
             </div>
-            
+
             <div className="gh-preview-info">
               <h4 className="gh-responsive-body gh-font-medium">
-                {formData.title || 'Untitled Game'}
+                {formData.title || "Untitled Game"}
               </h4>
               <p className="gh-responsive-meta">Version: {formData.version}</p>
-              <p className="gh-responsive-meta">Files: {formData.files.length} file(s)</p>
-              
+              <p className="gh-responsive-meta">
+                Files: {formData.files.length} file(s)
+              </p>
+
               {/* Metadata Summary */}
               <div className="gh-metadata-summary">
                 <div className="gh-metadata-row">
                   <span className="gh-metadata-label">Subject:</span>
-                  <span className="gh-metadata-value">{formData.subject || 'Not set'}</span>
+                  <span className="gh-metadata-value">
+                    {formData.subject || "Not set"}
+                  </span>
                 </div>
                 <div className="gh-metadata-row">
                   <span className="gh-metadata-label">Grade:</span>
-                  <span className="gh-metadata-value">{formData.grade || 'Not set'}</span>
+                  <span className="gh-metadata-value">
+                    {formData.grade || "Not set"}
+                  </span>
                 </div>
                 <div className="gh-metadata-row">
                   <span className="gh-metadata-label">Game Type:</span>
-                  <span className="gh-metadata-value">{formData.gameType || 'Not set'}</span>
+                  <span className="gh-metadata-value">
+                    {formData.gameType || "Not set"}
+                  </span>
                 </div>
                 <div className="gh-metadata-row">
                   <span className="gh-metadata-label">Lesson:</span>
-                  <span className="gh-metadata-value">{formData.lessonNo || 'Not set'}</span>
+                  <span className="gh-metadata-value">
+                    {formData.lessonNo || "Not set"}
+                  </span>
                 </div>
                 <div className="gh-metadata-row">
                   <span className="gh-metadata-label">Skills:</span>
-                  <span className="gh-metadata-value">{getSkillText(formData.skills)}</span>
+                  <span className="gh-metadata-value">
+                    {getSkillText(formData.skills)}
+                  </span>
                 </div>
                 <div className="gh-metadata-row">
                   <span className="gh-metadata-label">Themes:</span>
-                  <span className="gh-metadata-value">{getThemeText(formData.themes)}</span>
+                  <span className="gh-metadata-value">
+                    {getThemeText(formData.themes)}
+                  </span>
                 </div>
               </div>
 
               {/* Completeness Indicator */}
               <div className="gh-completeness-indicator">
                 <div className="gh-completeness-header">
-                  <span className="gh-completeness-label">Metadata Completeness</span>
-                  <span className="gh-completeness-percentage">{completeness}%</span>
+                  <span className="gh-completeness-label">
+                    Metadata Completeness
+                  </span>
+                  <span className="gh-completeness-percentage">
+                    {completeness}%
+                  </span>
                 </div>
                 <div className="gh-completeness-bar">
-                  <div 
+                  <div
                     className="gh-completeness-fill"
                     style={{ width: `${completeness}%` }}
                   />
@@ -815,17 +893,17 @@ function GamePreview({ formData }: { formData: UploadFormData }) {
 function SelfQAChecklist({
   checklist,
   onChecklistChange,
-  isComplete
+  isComplete,
 }: {
   checklist: SelfQAChecklist;
   onChecklistChange: (checklist: SelfQAChecklist) => void;
   isComplete: boolean;
 }) {
   const checklistItems = [
-    { key: 'testedDevices', label: 'Tested on target devices' },
-    { key: 'testedAudio', label: 'Audio works correctly' },
-    { key: 'gameplayComplete', label: 'Full gameplay tested' },
-    { key: 'contentVerified', label: 'Content accuracy verified' }
+    { key: "testedDevices", label: "Tested on target devices" },
+    { key: "testedAudio", label: "Audio works correctly" },
+    { key: "gameplayComplete", label: "Full gameplay tested" },
+    { key: "contentVerified", label: "Content accuracy verified" },
   ];
 
   return (
@@ -834,17 +912,19 @@ function SelfQAChecklist({
         Self-QA Checklist
         {isComplete && <span className="gh-checklist-complete">✅</span>}
       </h3>
-      
+
       <div className="gh-checklist-items">
         {checklistItems.map((item) => (
           <label key={item.key} className="gh-checklist-item">
             <input
               type="checkbox"
               checked={checklist[item.key as keyof SelfQAChecklist] as boolean}
-              onChange={(e) => onChecklistChange({
-                ...checklist,
-                [item.key]: e.target.checked
-              })}
+              onChange={(e) =>
+                onChecklistChange({
+                  ...checklist,
+                  [item.key]: e.target.checked,
+                })
+              }
             />
             <span className="gh-checklist-label">{item.label}</span>
           </label>
@@ -856,8 +936,10 @@ function SelfQAChecklist({
         <textarea
           className="gh-input-responsive"
           rows={3}
-          value={checklist.note || ''}
-          onChange={(e) => onChecklistChange({ ...checklist, note: e.target.value })}
+          value={checklist.note || ""}
+          onChange={(e) =>
+            onChecklistChange({ ...checklist, note: e.target.value })
+          }
           placeholder="Any additional notes about testing..."
         />
       </div>
@@ -879,7 +961,7 @@ function SelfQAChecklist({
 function AccordionSection({
   title,
   children,
-  defaultOpen = false
+  defaultOpen = false,
 }: {
   title: string;
   children: React.ReactNode;
@@ -895,14 +977,10 @@ function AccordionSection({
         aria-expanded={isOpen}
       >
         <span className="gh-accordion-title">{title}</span>
-        <span className="gh-accordion-icon">{isOpen ? '▼' : '▶'}</span>
+        <span className="gh-accordion-icon">{isOpen ? "▼" : "▶"}</span>
       </button>
-      
-      {isOpen && (
-        <div className="gh-accordion-content">
-          {children}
-        </div>
-      )}
+
+      {isOpen && <div className="gh-accordion-content">{children}</div>}
     </div>
   );
 }

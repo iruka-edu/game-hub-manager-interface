@@ -1,16 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { ObjectId } from 'mongodb';
-import { GameRepository } from '@/models/Game';
-import { GameVersionRepository } from '@/models/GameVersion';
-import { verifySession } from '@/lib/session';
-import { UserRepository } from '@/models/User';
-import { hasPermissionString } from '@/lib/auth-rbac';
-import { AuditLogger } from '@/lib/audit';
-import { GameHistoryService } from '@/lib/game-history';
-import { generateStoragePath } from '@/lib/storage-path';
-import { calculateCompleteness, DEFAULT_MANDATORY_FIELDS } from '@/lib/metadata-types';
-import { uploadGameFiles, deleteFiles } from '@/lib/gcs';
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { ObjectId } from "mongodb";
+import { GameRepository } from "@/models/Game";
+import { GameVersionRepository } from "@/models/GameVersion";
+import { verifySession } from "@/lib/session";
+import { UserRepository } from "@/models/User";
+import { hasPermissionString } from "@/lib/auth-rbac";
+import { AuditLogger } from "@/lib/audit";
+import { GameHistoryService } from "@/lib/game-history";
+import { generateStoragePath } from "@/lib/storage-path";
+import {
+  calculateCompleteness,
+  DEFAULT_MANDATORY_FIELDS,
+} from "@/lib/metadata-types";
+import { uploadGameFiles, deleteFiles } from "@/lib/gcs";
 
 /**
  * POST /api/games/upload-with-metadata
@@ -20,35 +23,35 @@ export async function POST(request: NextRequest) {
   try {
     // Auth check
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('iruka_session');
-    
+    const sessionCookie = cookieStore.get("iruka_session");
+
     if (!sessionCookie?.value) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const session = verifySession(sessionCookie.value);
     if (!session) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const userRepo = await UserRepository.getInstance();
     const user = await userRepo.findById(session.userId);
-    
+
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+      return NextResponse.json({ error: "User not found" }, { status: 401 });
     }
 
-    if (!hasPermissionString(user, 'games:create')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!hasPermissionString(user, "games:create")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Parse form data
     const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const gameData = JSON.parse(formData.get('gameData') as string);
+    const file = formData.get("file") as File;
+    const gameData = JSON.parse(formData.get("gameData") as string);
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Validate required fields
@@ -74,14 +77,25 @@ export async function POST(request: NextRequest) {
       tags,
       skills,
       themes,
-      linkGithub
+      linkGithub,
     } = gameData;
 
     // Validation
-    if (!gameId || !title || !subject || !grade || !gameType || lessonNo === undefined) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: gameId, title, subject, grade, gameType, lessonNo' 
-      }, { status: 400 });
+    if (
+      !gameId ||
+      !title ||
+      !subject ||
+      !grade ||
+      !gameType ||
+      lessonNo === undefined
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing required fields: gameId, title, subject, grade, gameType, lessonNo",
+        },
+        { status: 400 }
+      );
     }
 
     const gameRepo = await GameRepository.getInstance();
@@ -94,7 +108,7 @@ export async function POST(request: NextRequest) {
     if (!game) {
       // Create new game
       isNewGame = true;
-      
+
       // Build metadata object
       const metadata = {
         gameType,
@@ -103,14 +117,23 @@ export async function POST(request: NextRequest) {
         textbook: textbook || undefined,
         lessonNo: typeof lessonNo === "number" ? lessonNo : parseInt(lessonNo),
         theme_primary: theme_primary || undefined,
-        theme_secondary: Array.isArray(theme_secondary) ? theme_secondary.filter(Boolean) : undefined,
-        context_tags: Array.isArray(context_tags) ? context_tags.filter(Boolean) : undefined,
-        difficulty_levels: Array.isArray(difficulty_levels) ? difficulty_levels.filter(Boolean) : undefined,
+        theme_secondary: Array.isArray(theme_secondary)
+          ? theme_secondary.filter(Boolean)
+          : undefined,
+        context_tags: Array.isArray(context_tags)
+          ? context_tags.filter(Boolean)
+          : undefined,
+        difficulty_levels: Array.isArray(difficulty_levels)
+          ? difficulty_levels.filter(Boolean)
+          : undefined,
         thumbnailUrl: thumbnailDesktop || undefined,
       };
 
       // Calculate metadata completeness
-      const completeness = calculateCompleteness(metadata, DEFAULT_MANDATORY_FIELDS);
+      const completeness = calculateCompleteness(
+        metadata,
+        DEFAULT_MANDATORY_FIELDS
+      );
 
       game = await gameRepo.create({
         gameId: gameId.trim(),
@@ -121,7 +144,7 @@ export async function POST(request: NextRequest) {
         grade,
         unit,
         gameType,
-        priority: priority || 'medium',
+        priority: priority || "medium",
         tags: Array.isArray(tags) ? tags.filter(Boolean) : undefined,
         skills: Array.isArray(skills) ? skills.filter(Boolean) : undefined,
         themes: Array.isArray(themes) ? themes.filter(Boolean) : undefined,
@@ -136,10 +159,16 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Check ownership for existing game
-      if (!hasPermissionString(user, 'games:edit_all') && game.ownerId !== session.userId) {
-        return NextResponse.json({ 
-          error: 'You can only upload to your own games' 
-        }, { status: 403 });
+      if (
+        !hasPermissionString(user, "games:edit_all") &&
+        game.ownerId !== session.userId
+      ) {
+        return NextResponse.json(
+          {
+            error: "You can only upload to your own games",
+          },
+          { status: 403 }
+        );
       }
     }
 
@@ -150,7 +179,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Upload] Uploading ${file.name} to ${storagePath}...`);
 
     // Check if version exists
-    const existingVersion = await versionRepo.findByGameIdAndVersion(
+    const existingVersion = await versionRepo.findByVersion(
       game._id.toString(),
       version
     );
@@ -171,13 +200,14 @@ export async function POST(request: NextRequest) {
 
     // Create or update version record
     if (existingVersion) {
-      await versionRepo.updateUploadInfo(
-        existingVersion._id.toString(),
-        uploadResult.url,
-        file.size,
-        uploadResult.files.length,
-        new ObjectId(session.userId)
-      );
+      await versionRepo.update(existingVersion._id.toString(), {
+        entryUrl: uploadResult.url,
+        buildSize: file.size,
+        filesCount: uploadResult.files.length,
+        submittedBy: new ObjectId(session.userId),
+        submittedAt: new Date(),
+        status: "draft", // Reset to draft on re-upload
+      });
       console.log(`[Upload] Updated existing version ${version}`);
     } else {
       // Create new version
@@ -185,11 +215,11 @@ export async function POST(request: NextRequest) {
         gameId: game._id,
         version,
         storagePath,
-        entryFile: 'index.html',
+        entryFile: "index.html",
         entryUrl: uploadResult.url,
         buildSize: file.size,
         filesCount: uploadResult.files.length,
-        status: 'draft',
+        status: "draft",
         submittedBy: new ObjectId(session.userId),
       });
 
@@ -201,16 +231,16 @@ export async function POST(request: NextRequest) {
     AuditLogger.log({
       actor: {
         user,
-        ip: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent') || undefined,
+        ip: request.headers.get("x-forwarded-for") || "unknown",
+        userAgent: request.headers.get("user-agent") || undefined,
       },
-      action: 'GAME_UPLOAD',
+      action: "GAME_UPLOAD",
       target: {
-        entity: 'GAME',
+        entity: "GAME",
         id: game.gameId,
       },
       metadata: {
-        method: isNewGame ? 'CREATE_NEW' : 'UPDATE_EXISTING',
+        method: isNewGame ? "CREATE_NEW" : "UPDATE_EXISTING",
         title: game.title,
         version,
         storagePath,
@@ -241,7 +271,6 @@ export async function POST(request: NextRequest) {
         extractedFiles: uploadResult.files,
       },
     });
-
   } catch (error: any) {
     console.error("[Upload with Metadata] Error:", error);
     return NextResponse.json(

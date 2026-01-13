@@ -1,59 +1,61 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { 
-  SpacingProps, 
-  spacingPropsToClasses, 
+import React from "react";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+import {
+  SpacingProps,
+  spacingPropsToClasses,
   spacingPropsToStyles,
-  SPACING_CONSTANTS 
-} from '@/lib/responsive/spacing-utils';
+  SPACING_CONSTANTS,
+  type SpacingSize,
+} from "@/lib/responsive/spacing-utils";
 
-interface ResponsiveSpacingProps extends SpacingProps {
+interface ResponsiveSpacingProps
+  extends SpacingProps,
+    React.HTMLAttributes<HTMLElement> {
   children: React.ReactNode;
-  as?: keyof JSX.IntrinsicElements;
+  as?: React.ElementType;
   className?: string;
   style?: React.CSSProperties;
 }
 
 /**
  * ResponsiveSpacing Component
- * 
+ *
  * Applies responsive spacing utilities to any element.
  * Spacing adapts automatically across breakpoints following
  * the Progressive Disclosure architecture.
- * 
+ *
  * Validates Requirements: 7.4
  */
 export function ResponsiveSpacing({
   children,
-  as: Component = 'div',
-  className = '',
+  as: Component = "div",
+  className = "",
   style = {},
   ...spacingProps
 }: ResponsiveSpacingProps) {
   const { breakpoint } = useBreakpoint();
-  
+
   const spacingClasses = spacingPropsToClasses(spacingProps);
   const spacingStyles = spacingPropsToStyles(spacingProps);
-  
+
   const combinedClassName = [
-    'gh-responsive-spacing',
+    "gh-responsive-spacing",
     `gh-responsive-spacing-${breakpoint}`,
     ...spacingClasses,
-    className
-  ].filter(Boolean).join(' ');
-  
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const combinedStyle = {
     ...spacingStyles,
-    ...style
+    ...style,
   };
-  
+
   return (
-    <Component 
-      className={combinedClassName}
-      style={combinedStyle}
-    >
+    <Component className={combinedClassName} style={combinedStyle}>
       {children}
     </Component>
   );
@@ -63,47 +65,75 @@ export function ResponsiveSpacing({
  * Responsive Stack Component
  * Vertical layout with responsive spacing
  */
-interface ResponsiveStackProps extends Omit<ResponsiveSpacingProps, 'gap'> {
-  gap?: keyof typeof SPACING_CONSTANTS | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
-  align?: 'start' | 'center' | 'end' | 'stretch';
-  justify?: 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
+interface ResponsiveStackProps extends Omit<ResponsiveSpacingProps, "gap"> {
+  gap?:
+    | keyof typeof SPACING_CONSTANTS
+    | "xs"
+    | "sm"
+    | "md"
+    | "lg"
+    | "xl"
+    | "2xl"
+    | "3xl"
+    | "4xl";
+  align?: "start" | "center" | "end" | "stretch";
+  justify?: "start" | "center" | "end" | "between" | "around" | "evenly";
 }
 
 export function ResponsiveStack({
   children,
-  gap = 'COMPONENT_GAP',
-  align = 'stretch',
-  justify = 'start',
-  className = '',
+  gap = "COMPONENT_GAP",
+  align = "stretch",
+  justify = "start",
+  className = "",
   ...props
 }: ResponsiveStackProps) {
-  const gapValue = gap in SPACING_CONSTANTS ? SPACING_CONSTANTS[gap as keyof typeof SPACING_CONSTANTS] : gap;
-  
+  const gapValue = (
+    gap in SPACING_CONSTANTS
+      ? SPACING_CONSTANTS[gap as keyof typeof SPACING_CONSTANTS]
+      : gap
+  ) as SpacingSize;
+
   const stackClass = [
-    'gh-responsive-stack',
+    "gh-responsive-stack",
     `gh-responsive-stack-align-${align}`,
     `gh-responsive-stack-justify-${justify}`,
-    className
-  ].filter(Boolean).join(' ');
-  
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <ResponsiveSpacing
       {...props}
       gap={gapValue}
       className={stackClass}
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: align === 'start' ? 'flex-start' : 
-                   align === 'end' ? 'flex-end' : 
-                   align === 'center' ? 'center' : 'stretch',
-        justifyContent: justify === 'start' ? 'flex-start' :
-                       justify === 'end' ? 'flex-end' :
-                       justify === 'center' ? 'center' :
-                       justify === 'between' ? 'space-between' :
-                       justify === 'around' ? 'space-around' :
-                       justify === 'evenly' ? 'space-evenly' : 'flex-start',
-        ...props.style
+        display: "flex",
+        flexDirection: "column",
+        alignItems:
+          align === "start"
+            ? "flex-start"
+            : align === "end"
+            ? "flex-end"
+            : align === "center"
+            ? "center"
+            : "stretch",
+        justifyContent:
+          justify === "start"
+            ? "flex-start"
+            : justify === "end"
+            ? "flex-end"
+            : justify === "center"
+            ? "center"
+            : justify === "between"
+            ? "space-between"
+            : justify === "around"
+            ? "space-around"
+            : justify === "evenly"
+            ? "space-evenly"
+            : "flex-start",
+        ...props.style,
       }}
     >
       {children}
@@ -115,52 +145,81 @@ export function ResponsiveStack({
  * Responsive Inline Component
  * Horizontal layout with responsive spacing
  */
-interface ResponsiveInlineProps extends Omit<ResponsiveSpacingProps, 'gap'> {
-  gap?: keyof typeof SPACING_CONSTANTS | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
-  align?: 'start' | 'center' | 'end' | 'baseline' | 'stretch';
-  justify?: 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
+interface ResponsiveInlineProps extends Omit<ResponsiveSpacingProps, "gap"> {
+  gap?:
+    | keyof typeof SPACING_CONSTANTS
+    | "xs"
+    | "sm"
+    | "md"
+    | "lg"
+    | "xl"
+    | "2xl"
+    | "3xl"
+    | "4xl";
+  align?: "start" | "center" | "end" | "baseline" | "stretch";
+  justify?: "start" | "center" | "end" | "between" | "around" | "evenly";
   wrap?: boolean;
 }
 
 export function ResponsiveInline({
   children,
-  gap = 'ACTION_BUTTON_GAP',
-  align = 'center',
-  justify = 'start',
+  gap = "ACTION_BUTTON_GAP",
+  align = "center",
+  justify = "start",
   wrap = false,
-  className = '',
+  className = "",
   ...props
 }: ResponsiveInlineProps) {
-  const gapValue = gap in SPACING_CONSTANTS ? SPACING_CONSTANTS[gap as keyof typeof SPACING_CONSTANTS] : gap;
-  
+  const gapValue = (
+    gap in SPACING_CONSTANTS
+      ? SPACING_CONSTANTS[gap as keyof typeof SPACING_CONSTANTS]
+      : gap
+  ) as SpacingSize;
+
   const inlineClass = [
-    'gh-responsive-inline',
+    "gh-responsive-inline",
     `gh-responsive-inline-align-${align}`,
     `gh-responsive-inline-justify-${justify}`,
-    wrap && 'gh-responsive-inline-wrap',
-    className
-  ].filter(Boolean).join(' ');
-  
+    wrap && "gh-responsive-inline-wrap",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <ResponsiveSpacing
       {...props}
       gap={gapValue}
       className={inlineClass}
       style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: align === 'start' ? 'flex-start' : 
-                   align === 'end' ? 'flex-end' : 
-                   align === 'center' ? 'center' :
-                   align === 'baseline' ? 'baseline' : 'stretch',
-        justifyContent: justify === 'start' ? 'flex-start' :
-                       justify === 'end' ? 'flex-end' :
-                       justify === 'center' ? 'center' :
-                       justify === 'between' ? 'space-between' :
-                       justify === 'around' ? 'space-around' :
-                       justify === 'evenly' ? 'space-evenly' : 'flex-start',
-        flexWrap: wrap ? 'wrap' : 'nowrap',
-        ...props.style
+        display: "flex",
+        flexDirection: "row",
+        alignItems:
+          align === "start"
+            ? "flex-start"
+            : align === "end"
+            ? "flex-end"
+            : align === "center"
+            ? "center"
+            : align === "baseline"
+            ? "baseline"
+            : "stretch",
+        justifyContent:
+          justify === "start"
+            ? "flex-start"
+            : justify === "end"
+            ? "flex-end"
+            : justify === "center"
+            ? "center"
+            : justify === "between"
+            ? "space-between"
+            : justify === "around"
+            ? "space-around"
+            : justify === "evenly"
+            ? "space-evenly"
+            : "flex-start",
+        flexWrap: wrap ? "wrap" : "nowrap",
+        ...props.style,
       }}
     >
       {children}
@@ -172,68 +231,93 @@ export function ResponsiveInline({
  * Responsive Grid Component
  * Grid layout with responsive spacing
  */
-interface ResponsiveGridProps extends Omit<ResponsiveSpacingProps, 'gap'> {
-  gap?: keyof typeof SPACING_CONSTANTS | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
-  columns?: number | 'auto' | 'responsive';
-  rows?: number | 'auto';
-  align?: 'start' | 'center' | 'end' | 'stretch';
-  justify?: 'start' | 'center' | 'end' | 'stretch';
+interface ResponsiveGridProps extends Omit<ResponsiveSpacingProps, "gap"> {
+  gap?:
+    | keyof typeof SPACING_CONSTANTS
+    | "xs"
+    | "sm"
+    | "md"
+    | "lg"
+    | "xl"
+    | "2xl"
+    | "3xl"
+    | "4xl";
+  columns?: number | "auto" | "responsive";
+  rows?: number | "auto";
+  align?: "start" | "center" | "end" | "stretch";
+  justify?: "start" | "center" | "end" | "stretch";
 }
 
 export function ResponsiveGrid({
   children,
-  gap = 'COMPONENT_GAP',
-  columns = 'responsive',
-  rows = 'auto',
-  align = 'stretch',
-  justify = 'stretch',
-  className = '',
+  gap = "COMPONENT_GAP",
+  columns = "responsive",
+  rows = "auto",
+  align = "stretch",
+  justify = "stretch",
+  className = "",
   ...props
 }: ResponsiveGridProps) {
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
-  const gapValue = gap in SPACING_CONSTANTS ? SPACING_CONSTANTS[gap as keyof typeof SPACING_CONSTANTS] : gap;
-  
+  const gapValue = (
+    gap in SPACING_CONSTANTS
+      ? SPACING_CONSTANTS[gap as keyof typeof SPACING_CONSTANTS]
+      : gap
+  ) as SpacingSize;
+
   // Responsive column calculation
   let gridColumns: string;
-  if (columns === 'responsive') {
+  if (columns === "responsive") {
     if (isMobile) {
-      gridColumns = '1fr';
+      gridColumns = "1fr";
     } else if (isTablet) {
-      gridColumns = 'repeat(2, 1fr)';
+      gridColumns = "repeat(2, 1fr)";
     } else {
-      gridColumns = 'repeat(3, 1fr)';
+      gridColumns = "repeat(3, 1fr)";
     }
-  } else if (columns === 'auto') {
-    gridColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+  } else if (columns === "auto") {
+    gridColumns = "repeat(auto-fit, minmax(200px, 1fr))";
   } else {
     gridColumns = `repeat(${columns}, 1fr)`;
   }
-  
-  const gridRows = rows === 'auto' ? 'auto' : `repeat(${rows}, 1fr)`;
-  
+
+  const gridRows = rows === "auto" ? "auto" : `repeat(${rows}, 1fr)`;
+
   const gridClass = [
-    'gh-responsive-grid',
+    "gh-responsive-grid",
     `gh-responsive-grid-align-${align}`,
     `gh-responsive-grid-justify-${justify}`,
-    className
-  ].filter(Boolean).join(' ');
-  
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <ResponsiveSpacing
       {...props}
       gap={gapValue}
       className={gridClass}
       style={{
-        display: 'grid',
+        display: "grid",
         gridTemplateColumns: gridColumns,
         gridTemplateRows: gridRows,
-        alignItems: align === 'start' ? 'start' : 
-                   align === 'end' ? 'end' : 
-                   align === 'center' ? 'center' : 'stretch',
-        justifyItems: justify === 'start' ? 'start' :
-                     justify === 'end' ? 'end' :
-                     justify === 'center' ? 'center' : 'stretch',
-        ...props.style
+        alignItems:
+          align === "start"
+            ? "start"
+            : align === "end"
+            ? "end"
+            : align === "center"
+            ? "center"
+            : "stretch",
+        justifyItems:
+          justify === "start"
+            ? "start"
+            : justify === "end"
+            ? "end"
+            : justify === "center"
+            ? "center"
+            : "stretch",
+        ...props.style,
       }}
     >
       {children}
@@ -249,7 +333,7 @@ interface ResponsiveSectionProps extends ResponsiveSpacingProps {
   title?: string;
   subtitle?: string;
   actions?: React.ReactNode;
-  variant?: 'default' | 'card' | 'bordered';
+  variant?: "default" | "card" | "bordered";
 }
 
 export function ResponsiveSection({
@@ -257,20 +341,22 @@ export function ResponsiveSection({
   title,
   subtitle,
   actions,
-  variant = 'default',
-  className = '',
+  variant = "default",
+  className = "",
   ...props
 }: ResponsiveSectionProps) {
   const sectionClass = [
-    'gh-responsive-section',
+    "gh-responsive-section",
     `gh-responsive-section-${variant}`,
-    className
-  ].filter(Boolean).join(' ');
-  
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <ResponsiveSpacing
       {...props}
-      p={variant === 'card' ? SPACING_CONSTANTS.CARD_PADDING : undefined}
+      p={variant === "card" ? SPACING_CONSTANTS.CARD_PADDING : undefined}
       className={sectionClass}
     >
       {(title || subtitle || actions) && (
@@ -287,16 +373,10 @@ export function ResponsiveSection({
               </p>
             )}
           </div>
-          {actions && (
-            <div className="gh-section-actions">
-              {actions}
-            </div>
-          )}
+          {actions && <div className="gh-section-actions">{actions}</div>}
         </div>
       )}
-      <div className="gh-section-content">
-        {children}
-      </div>
+      <div className="gh-section-content">{children}</div>
     </ResponsiveSpacing>
   );
 }
@@ -306,26 +386,28 @@ export function ResponsiveSection({
  * Card wrapper with responsive spacing and styling
  */
 interface ResponsiveCardProps extends ResponsiveSpacingProps {
-  variant?: 'default' | 'elevated' | 'outlined' | 'ghost';
+  variant?: "default" | "elevated" | "outlined" | "ghost";
   interactive?: boolean;
   onClick?: () => void;
 }
 
 export function ResponsiveCard({
   children,
-  variant = 'default',
+  variant = "default",
   interactive = false,
   onClick,
-  className = '',
+  className = "",
   ...props
 }: ResponsiveCardProps) {
   const cardClass = [
-    'gh-responsive-card',
+    "gh-responsive-card",
     `gh-responsive-card-${variant}`,
-    interactive && 'gh-responsive-card-interactive',
-    className
-  ].filter(Boolean).join(' ');
-  
+    interactive && "gh-responsive-card-interactive",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <ResponsiveSpacing
       {...props}
@@ -333,8 +415,8 @@ export function ResponsiveCard({
       className={cardClass}
       onClick={onClick}
       style={{
-        cursor: interactive ? 'pointer' : undefined,
-        ...props.style
+        cursor: interactive ? "pointer" : undefined,
+        ...props.style,
       }}
     >
       {children}

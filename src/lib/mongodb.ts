@@ -1,5 +1,5 @@
-import 'dotenv/config';
-import { MongoClient, type Db } from 'mongodb';
+import "dotenv/config";
+import { MongoClient, type Db } from "mongodb";
 
 /**
  * MongoDB connection module with singleton pattern and connection caching.
@@ -31,7 +31,10 @@ export async function getMongoClient(): Promise<MongoConnection> {
       await cachedConnection.db.admin().ping();
       return cachedConnection;
     } catch (error) {
-      console.warn('[MongoDB] Cached connection is stale, reconnecting...', error);
+      console.warn(
+        "[MongoDB] Cached connection is stale, reconnecting...",
+        error
+      );
       cachedConnection = null;
     }
   }
@@ -43,7 +46,7 @@ export async function getMongoClient(): Promise<MongoConnection> {
 
   // Start new connection
   connectionPromise = connectToMongo();
-  
+
   try {
     cachedConnection = await connectionPromise;
     return cachedConnection;
@@ -66,7 +69,9 @@ async function connectToMongo(): Promise<MongoConnection> {
   const uri = process.env.IRUKA_MONGODB_URI;
 
   if (!uri) {
-    const error = new Error('[MongoDB] IRUKA_MONGODB_URI environment variable is not set');
+    const error = new Error(
+      "[MongoDB] IRUKA_MONGODB_URI environment variable is not set"
+    );
     console.error(error.message);
     throw error;
   }
@@ -78,11 +83,11 @@ async function connectToMongo(): Promise<MongoConnection> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`[MongoDB] Connection attempt ${attempt}/${maxRetries}...`);
-      
+
       // Improved connection options for better reliability
       const client = new MongoClient(uri, {
         maxPoolSize: 10, // Maximum number of connections in the pool
-        minPoolSize: 1,  // Minimum number of connections in the pool
+        minPoolSize: 1, // Minimum number of connections in the pool
         maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
         serverSelectionTimeoutMS: 15000, // Increased to 15 seconds
         socketTimeoutMS: 45000, // How long a send or receive on a socket can take
@@ -90,51 +95,55 @@ async function connectToMongo(): Promise<MongoConnection> {
         heartbeatFrequencyMS: 10000, // How often to check the server status
         retryWrites: true, // Retry writes on network errors
         retryReads: true, // Retry reads on network errors
-        compressors: ['zlib'], // Enable compression
-        // Additional options for better connection handling
-        bufferMaxEntries: 0, // Disable mongoose buffering
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
+        compressors: ["zlib"], // Enable compression
       });
-      
+
       // Connect with timeout
       await Promise.race([
         client.connect(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout after 15 seconds')), 15000)
-        )
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Connection timeout after 15 seconds")),
+            15000
+          )
+        ),
       ]);
-      
+
       // Test the connection
       await client.db().admin().ping();
-      
+
       // Extract database name from URI or use default
-      const dbName = extractDbName(uri) || 'iruka-game';
+      const dbName = extractDbName(uri) || "iruka-game";
       const db = client.db(dbName);
-      
+
       // Only log once to avoid spam
       if (!hasLoggedConnection) {
-        console.log(`[MongoDB] Connected successfully on attempt ${attempt} with connection pooling`);
+        console.log(
+          `[MongoDB] Connected successfully on attempt ${attempt} with connection pooling`
+        );
         hasLoggedConnection = true;
       }
-      
+
       return { client, db };
-      
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`[MongoDB] Connection attempt ${attempt} failed: ${lastError.message}`);
-      
+      console.error(
+        `[MongoDB] Connection attempt ${attempt} failed: ${lastError.message}`
+      );
+
       // If this is not the last attempt, wait before retrying
       if (attempt < maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
         console.log(`[MongoDB] Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
   // All attempts failed
-  const finalError = new Error(`[MongoDB] Failed to connect after ${maxRetries} attempts. Last error: ${lastError?.message}`);
+  const finalError = new Error(
+    `[MongoDB] Failed to connect after ${maxRetries} attempts. Last error: ${lastError?.message}`
+  );
   console.error(finalError.message);
   throw finalError;
 }
@@ -147,9 +156,9 @@ function extractDbName(uri: string): string | null {
     const url = new URL(uri);
     const pathname = url.pathname;
     // Remove leading slash
-    const dbName = pathname.startsWith('/') ? pathname.slice(1) : pathname;
+    const dbName = pathname.startsWith("/") ? pathname.slice(1) : pathname;
     // Remove query string if present
-    return dbName.split('?')[0] || null;
+    return dbName.split("?")[0] || null;
   } catch {
     return null;
   }
@@ -161,7 +170,7 @@ function extractDbName(uri: string): string | null {
  */
 export function getDb(): Db {
   if (!cachedConnection) {
-    throw new Error('[MongoDB] Not connected. Call getMongoClient() first.');
+    throw new Error("[MongoDB] Not connected. Call getMongoClient() first.");
   }
   return cachedConnection.db;
 }
@@ -175,12 +184,12 @@ export async function closeConnection(): Promise<void> {
     try {
       await cachedConnection.client.close();
     } catch (error) {
-      console.warn('[MongoDB] Error closing connection:', error);
+      console.warn("[MongoDB] Error closing connection:", error);
     }
     cachedConnection = null;
     connectionPromise = null;
     hasLoggedConnection = false;
-    console.log('[MongoDB] Connection closed');
+    console.log("[MongoDB] Connection closed");
   }
 }
 
@@ -189,7 +198,7 @@ export async function closeConnection(): Promise<void> {
  * Useful when connection issues are detected.
  */
 export async function forceReconnect(): Promise<MongoConnection> {
-  console.log('[MongoDB] Forcing reconnection...');
+  console.log("[MongoDB] Forcing reconnection...");
   await closeConnection();
   return getMongoClient();
 }
@@ -200,12 +209,12 @@ export async function forceReconnect(): Promise<MongoConnection> {
 export async function isConnected(): Promise<boolean> {
   try {
     if (!cachedConnection) return false;
-    
+
     // Ping the database to check if connection is alive
     await cachedConnection.db.admin().ping();
     return true;
   } catch (error) {
-    console.warn('[MongoDB] Health check failed:', error);
+    console.warn("[MongoDB] Health check failed:", error);
     return false;
   }
 }

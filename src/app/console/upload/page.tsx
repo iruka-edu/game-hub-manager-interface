@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ResponsiveUploadPage } from '@/features/upload/components/ResponsiveUploadPage';
-import type { UploadFormData } from '@/features/upload/components/ResponsiveUploadPage';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ResponsiveUploadPage } from "@/features/upload/components/ResponsiveUploadPage";
+import type { UploadFormData } from "@/features/upload/components/ResponsiveUploadPage";
 
 export default function UploadPage() {
   const router = useRouter();
@@ -11,61 +11,63 @@ export default function UploadPage() {
 
   const handleUpload = async (data: UploadFormData) => {
     if (!data.files || data.files.length === 0) {
-      throw new Error('No files selected');
+      throw new Error("No files selected");
     }
 
     setIsUploading(true);
-    
+
     try {
       // Prepare form data for upload
       const formData = new FormData();
-      formData.append('file', data.files[0]);
-      formData.append('gameData', JSON.stringify({
-        gameId: data.gameId,
-        title: data.title,
-        description: data.description,
-        version: data.version,
-        subject: data.subject,
-        grade: data.grade,
-        gameType: data.gameType,
-        lessonNo: data.lessonNo,
-        unit: data.unit,
-        textbook: data.textbook,
-        theme_primary: data.theme_primary,
-        theme_secondary: data.theme_secondary,
-        context_tags: data.context_tags,
-        difficulty_levels: data.difficulty_levels,
-        thumbnailDesktop: data.thumbnailDesktop,
-        thumbnailMobile: data.thumbnailMobile,
-        priority: data.priority,
-        tags: data.tags,
-        skills: data.skills,
-        themes: data.themes,
-        linkGithub: data.linkGithub,
-      }));
+      formData.append("file", data.files[0]);
+      formData.append(
+        "gameData",
+        JSON.stringify({
+          gameId: data.gameId,
+          title: data.title,
+          description: data.description,
+          version: data.version,
+          subject: data.subject,
+          grade: data.grade,
+          gameType: data.gameType,
+          lessonNo: data.lessonNo,
+          unit: data.unit,
+          textbook: data.textbook,
+          theme_primary: data.theme_primary,
+          theme_secondary: data.theme_secondary,
+          context_tags: data.context_tags,
+          difficulty_levels: data.difficulty_levels,
+          thumbnailDesktop: data.thumbnailDesktop,
+          thumbnailMobile: data.thumbnailMobile,
+          priority: data.priority,
+          tags: data.tags,
+          skills: data.skills,
+          themes: data.themes,
+          linkGithub: data.linkGithub,
+        })
+      );
 
-      const response = await fetch('/api/games/upload-with-metadata', {
-        method: 'POST',
+      const response = await fetch("/api/games/upload-with-metadata", {
+        method: "POST",
         body: formData,
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Upload failed');
+        throw new Error(result.error || "Upload failed");
       }
 
-      console.log('Upload successful:', result);
-      
+      console.log("Upload successful:", result);
+
       // Navigate to game detail page
       if (result.game?._id) {
         router.push(`/console/games/${result.game._id}`);
       } else {
-        router.push('/console/my-games');
+        router.push("/console/my-games");
       }
-      
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error("Upload error:", error);
       throw error;
     } finally {
       setIsUploading(false);
@@ -74,7 +76,7 @@ export default function UploadPage() {
 
   const handlePublish = async (gameId: string) => {
     // TODO: Implement publish logic
-    console.log('Publish game:', gameId);
+    console.log("Publish game:", gameId);
   };
 
   const handleNavigate = (path: string) => {

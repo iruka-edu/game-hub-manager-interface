@@ -3,19 +3,18 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  getGCSFoldersWithCache, 
-  deleteGCSFile, 
+import {
+  getGCSFoldersWithCache,
+  deleteGCSFile,
   clearGCSCache,
-  type GCSFoldersResponse,
-  type GCSDeleteResponse 
 } from "../api/gcsApi";
+import type { GCSDeleteResponse } from "../types";
 
 // Query keys
 export const gcsKeys = {
-  all: ['gcs'] as const,
-  folders: () => [...gcsKeys.all, 'folders'] as const,
-  cache: () => [...gcsKeys.all, 'cache'] as const,
+  all: ["gcs"] as const,
+  folders: () => [...gcsKeys.all, "folders"] as const,
+  cache: () => [...gcsKeys.all, "cache"] as const,
 };
 
 /**
@@ -43,14 +42,14 @@ export function useDeleteGCSFile() {
     onSuccess: (data: GCSDeleteResponse) => {
       // Invalidate and refetch GCS folders
       queryClient.invalidateQueries({ queryKey: gcsKeys.folders() });
-      
+
       // Clear cache since data changed
-      clearGCSCache('folders').catch(console.warn);
-      
-      console.log('GCS file deleted:', data.message);
+      clearGCSCache("folders").catch(console.warn);
+
+      console.log("GCS file deleted:", data.message);
     },
     onError: (error) => {
-      console.error('Failed to delete GCS file:', error);
+      console.error("Failed to delete GCS file:", error);
     },
   });
 }
@@ -64,18 +63,18 @@ export function useRefreshGCS() {
   return useMutation({
     mutationFn: async () => {
       // Clear cache first
-      await clearGCSCache('folders');
-      
+      await clearGCSCache("folders");
+
       // Then invalidate and refetch
       await queryClient.invalidateQueries({ queryKey: gcsKeys.folders() });
-      
+
       return { success: true };
     },
     onSuccess: () => {
-      console.log('GCS folders data refreshed');
+      console.log("GCS folders data refreshed");
     },
     onError: (error) => {
-      console.error('Failed to refresh GCS folders data:', error);
+      console.error("Failed to refresh GCS folders data:", error);
     },
   });
 }

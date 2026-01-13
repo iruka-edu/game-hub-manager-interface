@@ -268,9 +268,11 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
   const activeMenu = getActiveMenu();
 
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex flex-col transition-all duration-300 ${
-      isMinimized ? 'w-[80px]' : 'w-[260px]'
-    }`}>
+    <aside
+      className={`fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex flex-col transition-all duration-300 ${
+        isMinimized ? "w-[80px]" : "w-[260px]"
+      }`}
+    >
       {/* Logo */}
       <div className="p-5 border-b border-slate-700 flex items-center gap-3">
         <Link href="/console" className="flex items-center gap-3">
@@ -314,7 +316,7 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
                   activeMenu === item.id
                     ? "bg-indigo-600 text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                } ${isMinimized ? 'justify-center' : ''}`}
+                } ${isMinimized ? "justify-center" : ""}`}
                 title={isMinimized ? item.label : undefined}
               >
                 <MenuIcon name={item.icon} />
@@ -332,7 +334,7 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
                 )}
                 {isMinimized && item.badge && item.badge > 0 && (
                   <span className="absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                    {item.badge > 9 ? '9+' : item.badge}
+                    {item.badge > 9 ? "9+" : item.badge}
                   </span>
                 )}
               </Link>
@@ -343,7 +345,11 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
 
       {/* User Info */}
       <div className="p-4 border-t border-slate-700">
-        <div className={`flex items-center gap-3 ${isMinimized ? 'justify-center' : ''}`}>
+        <div
+          className={`flex items-center gap-3 ${
+            isMinimized ? "justify-center" : ""
+          }`}
+        >
           <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-semibold">
             {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
           </div>
@@ -353,7 +359,9 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
                 <p className="font-medium text-sm truncate">
                   {user.name || user.email}
                 </p>
-                <p className="text-xs text-slate-400 truncate">{userRoleDisplay}</p>
+                <p className="text-xs text-slate-400 truncate">
+                  {userRoleDisplay}
+                </p>
               </div>
               <a
                 href="/api/auth/logout"

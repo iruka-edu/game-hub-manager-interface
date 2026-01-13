@@ -126,7 +126,9 @@ export interface GameVersion {
   // Storage
   storagePath: string; // "games/{slug}/{version}/"
   entryFile: string; // "index.html"
+  entryUrl?: string; // Full URL to entry file (for web games)
   buildSize?: number; // Bytes
+  filesCount?: number; // Number of files in the build
 
   // Status
   status: VersionStatus;
@@ -232,7 +234,9 @@ export function serializeGameVersion(
     version: version.version,
     storagePath: version.storagePath,
     entryFile: version.entryFile,
+    entryUrl: version.entryUrl,
     buildSize: version.buildSize,
+    filesCount: version.filesCount,
     status: version.status,
     isDeleted: version.isDeleted,
     selfQAChecklist: version.selfQAChecklist,
@@ -259,7 +263,9 @@ export function deserializeGameVersion(
     version: data.version as string,
     storagePath: data.storagePath as string,
     entryFile: data.entryFile as string,
+    entryUrl: data.entryUrl as string | undefined,
     buildSize: data.buildSize as number | undefined,
+    filesCount: data.filesCount as number | undefined,
     status: data.status as VersionStatus,
     isDeleted: (data.isDeleted as boolean) ?? false,
     selfQAChecklist: data.selfQAChecklist as SelfQAChecklist | undefined,
@@ -483,7 +489,9 @@ export class GameVersionRepository {
       version: input.version.trim(),
       storagePath: input.storagePath.trim(),
       entryFile: input.entryFile.trim(),
+      entryUrl: input.entryUrl,
       buildSize: input.buildSize,
+      filesCount: input.filesCount,
       status,
       isDeleted: false,
       selfQAChecklist: input.selfQAChecklist,

@@ -2,15 +2,19 @@
  * Upload Manager - Centralized upload logic
  */
 
-import type { 
-  UploadState, 
-  UploadProgress, 
-  ValidationResult, 
-  ManifestData, 
+import type {
+  UploadState,
+  UploadProgress,
+  ValidationResult,
+  ManifestData,
   GameMetadata,
-  UploadConfig 
-} from '../../types/upload';
-import { validateGameZip, validateGameId, validateVersion } from '../upload-utils';
+  UploadConfig,
+} from "../../types/upload";
+import {
+  validateGameZip,
+  validateGameId,
+  validateVersion,
+} from "../upload-utils";
 
 export class UploadManager {
   private state: UploadState;
@@ -23,14 +27,14 @@ export class UploadManager {
       file: null,
       manifest: {
         gameId: initialMetadata.backendGameId,
-        version: '1.0.0',
-        runtime: 'HTML5',
-        entryPoint: 'index.html',
+        version: "1.0.0",
+        runtime: "HTML5",
+        entryPoint: "index.html",
       },
       metadata: initialMetadata,
       isUploading: false,
       progress: 0,
-      stage: 'idle',
+      stage: "idle",
       error: null,
     };
   }
@@ -53,7 +57,7 @@ export class UploadManager {
    */
   private setState(updates: Partial<UploadState>): void {
     this.state = { ...this.state, ...updates };
-    this.listeners.forEach(listener => listener(this.state));
+    this.listeners.forEach((listener) => listener(this.state));
   }
 
   /**
@@ -67,16 +71,16 @@ export class UploadManager {
    * Set file for upload
    */
   async setFile(file: File): Promise<ValidationResult> {
-    this.setState({ 
-      file, 
-      stage: 'validating',
-      error: null 
+    this.setState({
+      file,
+      stage: "validating",
+      error: null,
     });
 
     try {
       // Validate file
       const validation = await this.validateFile(file);
-      
+
       if (validation.valid && validation.manifestData) {
         // Auto-populate manifest from ZIP
         this.setState({
@@ -84,18 +88,19 @@ export class UploadManager {
             ...this.state.manifest,
             ...validation.manifestData,
           },
-          stage: 'idle',
+          stage: "idle",
         });
       } else {
-        this.setState({ stage: 'idle' });
+        this.setState({ stage: "idle" });
       }
 
       return validation;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.setState({ 
-        stage: 'error',
-        error: errorMessage 
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.setState({
+        stage: "error",
+        error: errorMessage,
       });
       return {
         valid: false,
@@ -110,7 +115,7 @@ export class UploadManager {
    */
   updateManifest(updates: Partial<ManifestData>): void {
     this.setState({
-      manifest: { ...this.state.manifest, ...updates }
+      manifest: { ...this.state.manifest, ...updates },
     });
   }
 
@@ -123,7 +128,7 @@ export class UploadManager {
 
     // Validate file
     if (!this.state.file) {
-      errors.push('Vui lòng chọn file để upload');
+      errors.push("Vui lòng chọn file để upload");
     }
 
     // Validate manifest
@@ -138,11 +143,11 @@ export class UploadManager {
     }
 
     if (!this.state.manifest.runtime) {
-      errors.push('Runtime là bắt buộc');
+      errors.push("Runtime là bắt buộc");
     }
 
     if (!this.state.manifest.entryPoint) {
-      errors.push('Entry point là bắt buộc');
+      errors.push("Entry point là bắt buộc");
     }
 
     return {
@@ -159,15 +164,15 @@ export class UploadManager {
     const validation = this.validate();
     if (!validation.valid) {
       this.setState({
-        stage: 'error',
-        error: validation.errors.join(', ')
+        stage: "error",
+        error: validation.errors.join(", "),
       });
       return false;
     }
 
     this.setState({
       isUploading: true,
-      stage: 'uploading',
+      stage: "uploading",
       progress: 0,
       error: null,
     });
@@ -181,7 +186,7 @@ export class UploadManager {
 
       // Step 2: Update metadata
       this.setState({
-        stage: 'updating',
+        stage: "updating",
         progress: 80,
       });
 
@@ -192,16 +197,15 @@ export class UploadManager {
 
       // Complete
       this.setState({
-        stage: 'complete',
+        stage: "complete",
         progress: 100,
         isUploading: false,
       });
 
       return true;
-
     } catch (error) {
       this.setState({
-        stage: 'error',
+        stage: "error",
         error: error instanceof Error ? error.message : String(error),
         isUploading: false,
       });
@@ -217,7 +221,7 @@ export class UploadManager {
       file: null,
       isUploading: false,
       progress: 0,
-      stage: 'idle',
+      stage: "idle",
       error: null,
     });
   }
@@ -230,22 +234,31 @@ export class UploadManager {
     if (file.size > this.config.validation.maxFileSize) {
       return {
         valid: false,
-        errors: [`File quá lớn. Tối đa ${this.config.validation.maxFileSize / 1024 / 1024}MB`],
+        errors: [
+          `File quá lớn. Tối đa ${
+            this.config.validation.maxFileSize / 1024 / 1024
+          }MB`,
+        ],
         warnings: [],
       };
     }
 
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    if (!extension || !this.config.validation.allowedTypes.includes(extension)) {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (
+      !extension ||
+      !this.config.validation.allowedTypes.includes(extension)
+    ) {
       return {
         valid: false,
-        errors: [`Chỉ hỗ trợ file: ${this.config.validation.allowedTypes.join(', ')}`],
+        errors: [
+          `Chỉ hỗ trợ file: ${this.config.validation.allowedTypes.join(", ")}`,
+        ],
         warnings: [],
       };
     }
 
     // ZIP validation
-    if (extension === 'zip') {
+    if (extension === "zip") {
       return await validateGameZip(file);
     }
 
@@ -255,41 +268,44 @@ export class UploadManager {
   /**
    * Private: Upload file to server
    */
-  private async uploadFile(): Promise<{ success: boolean; gameId?: string; error?: string }> {
+  private async uploadFile(): Promise<{
+    success: boolean;
+    gameId?: string;
+    error?: string;
+  }> {
     if (!this.state.file) {
-      return { success: false, error: 'No file selected' };
+      return { success: false, error: "No file selected" };
     }
 
     const formData = new FormData();
-    formData.append('file', this.state.file);
-    formData.append('gameId', this.state.manifest.gameId);
-    formData.append('version', this.state.manifest.version);
+    formData.append("file", this.state.file);
+    formData.append("gameId", this.state.manifest.gameId);
+    formData.append("version", this.state.manifest.version);
 
     try {
-      const { apiUpload } = await import('../api-fetch');
-      
+      const { apiUpload } = await import("../api-fetch");
+
       const result = await apiUpload<{ data: { gameId: string } }>(
-        this.config.endpoints.upload, 
+        this.config.endpoints.upload,
         formData,
-        {
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              const progress = Math.round((progressEvent.loaded * 70) / progressEvent.total);
-              this.setState({ progress });
-            }
+        (progressEvent: any) => {
+          if (progressEvent.total) {
+            const progress = Math.round(
+              (progressEvent.loaded * 70) / progressEvent.total
+            );
+            this.setState({ progress });
           }
         }
       );
 
-      return { 
-        success: true, 
-        gameId: result.data.gameId 
+      return {
+        success: true,
+        gameId: result.data.gameId,
       };
-
     } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.message || 'Upload failed'
+      return {
+        success: false,
+        error: error.message || "Upload failed",
       };
     }
   }
@@ -297,7 +313,9 @@ export class UploadManager {
   /**
    * Private: Update game metadata
    */
-  private async updateMetadata(gameId: string): Promise<{ success: boolean; error?: string }> {
+  private async updateMetadata(
+    gameId: string
+  ): Promise<{ success: boolean; error?: string }> {
     const updateData = {
       metadata: {
         runtime: this.state.manifest.runtime,
@@ -310,15 +328,14 @@ export class UploadManager {
     };
 
     try {
-      const { apiPut } = await import('../api-fetch');
-      
+      const { apiPut } = await import("../api-fetch");
+
       await apiPut(`${this.config.endpoints.update}/${gameId}`, updateData);
       return { success: true };
-
     } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.message || 'Metadata update failed'
+      return {
+        success: false,
+        error: error.message || "Metadata update failed",
       };
     }
   }
