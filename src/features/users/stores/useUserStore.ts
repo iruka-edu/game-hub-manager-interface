@@ -92,16 +92,13 @@ export const useUserStore = create<UserStoreState>((set) => ({
  */
 export const useUserFilters = () => useUserStore((state) => state.filters);
 export const useUserModal = () => useUserStore((state) => state.modal);
-export const useUserModalActions = () =>
-  useUserStore((state) => ({
-    openAddModal: state.openAddModal,
-    openEditModal: state.openEditModal,
-    closeModal: state.closeModal,
-  }));
-export const useUserFilterActions = () =>
-  useUserStore((state) => ({
-    setSearch: state.setSearch,
-    setRoleFilter: state.setRoleFilter,
-    setStatusFilter: state.setStatusFilter,
-    resetFilters: state.resetFilters,
-  }));
+
+// Individual action selectors to prevent infinite loops
+export const useOpenAddModal = () => useUserStore((state) => state.openAddModal);
+export const useOpenEditModal = () => useUserStore((state) => state.openEditModal);
+export const useCloseModal = () => useUserStore((state) => state.closeModal);
+
+export const useSetSearch = () => useUserStore((state) => state.setSearch);
+export const useSetRoleFilter = () => useUserStore((state) => state.setRoleFilter);
+export const useSetStatusFilter = () => useUserStore((state) => state.setStatusFilter);
+export const useResetFilters = () => useUserStore((state) => state.resetFilters);

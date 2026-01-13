@@ -6,11 +6,14 @@ import {
   useCreateUser,
   useUpdateUser,
   useUpdateUserStatus,
+  useDeleteUser,
 } from "../hooks/useUserMutations";
 import {
   useUserModal,
-  useUserModalActions,
-  useUserFilterActions,
+  useOpenAddModal,
+  useOpenEditModal,
+  useCloseModal,
+  useSetSearch,
   useUserFilters,
 } from "../stores/useUserStore";
 import type { User, CreateUserPayload, UpdateUserPayload } from "../types";
@@ -18,32 +21,36 @@ import type { Role } from "@/types/user-types";
 
 interface UserManagementProps {
   canManageUsers: boolean;
+  userRoles: Role[];
 }
 
 const roleLabels: Record<string, string> = {
-  dev: "Developer",
-  qc: "QC Tester",
+  dev: "Nhà phát triển",
+  qc: "Kiểm thử QC",
   cto: "CTO",
   ceo: "CEO",
-  admin: "Administrator",
+  admin: "Quản trị viên",
 };
 
 const availableRoles = Object.keys(roleLabels) as Role[];
 
-export function UserManagement({ canManageUsers }: UserManagementProps) {
+export function UserManagement({ canManageUsers, userRoles }: UserManagementProps) {
   // Server State (React Query)
   const { users, isLoading, isError, error } = useUsers();
 
   // Client State (Zustand)
   const modal = useUserModal();
   const filters = useUserFilters();
-  const { openAddModal, openEditModal, closeModal } = useUserModalActions();
-  const { setSearch } = useUserFilterActions();
+  const openAddModal = useOpenAddModal();
+  const openEditModal = useOpenEditModal();
+  const closeModal = useCloseModal();
+  const setSearch = useSetSearch();
 
   // Mutations
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
   const updateStatusMutation = useUpdateUserStatus();
+  const deleteUserMutation = useDeleteUser();
 
   // Local form state
   const [formData, setFormData] = useState({
@@ -53,6 +60,13 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
     roles: [] as Role[],
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    user: User | null;
+  }>({ isOpen: false, user: null });
+
+  // Check if current user can delete users (admin, cto, ceo only)
+  const canDeleteUsers = userRoles.some(role => ['admin', 'cto', 'ceo'].includes(role));
 
   const handleOpenAddModal = () => {
     setFormData({ name: "", email: "", password: "", roles: [] });
@@ -69,6 +83,14 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
     });
     setFormError(null);
     openEditModal(user);
+  };
+
+  const handleOpenDeleteConfirm = (user: User) => {
+    setDeleteConfirm({ isOpen: true, user });
+  };
+
+  const handleCloseDeleteConfirm = () => {
+    setDeleteConfirm({ isOpen: false, user: null });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,7 +119,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
       }
       closeModal();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "An error occurred");
+      setFormError(err instanceof Error ? err.message : "Đã xảy ra lỗi");
     }
   };
 
@@ -108,7 +130,18 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
         payload: { isActive: !currentStatus },
       });
     } catch (err) {
-      console.error("Failed to update status:", err);
+      console.error("Không thể cập nhật trạng thái:", err);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteConfirm.user) return;
+
+    try {
+      await deleteUserMutation.mutateAsync(deleteConfirm.user.id);
+      handleCloseDeleteConfirm();
+    } catch (err) {
+      console.error("Không thể xóa người dùng:", err);
     }
   };
 
@@ -135,7 +168,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
   if (isError) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        {error instanceof Error ? error.message : "An error occurred"}
+        {error instanceof Error ? error.message : "Đã xảy ra lỗi"}
       </div>
     );
   }
@@ -147,7 +180,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
         <div className="flex-1 max-w-md">
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder="Tìm kiếm người dùng..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={filters.search}
             onChange={(e) => setSearch(e.target.value)}
@@ -158,7 +191,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
             onClick={handleOpenAddModal}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
-            Add New User
+            Thêm người dùng mới
           </button>
         )}
       </div>
@@ -169,20 +202,20 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
+                Tên
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Email
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Roles
+                Vai trò
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
+                Trạng thái
               </th>
               {canManageUsers && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  Thao tác
                 </th>
               )}
             </tr>
@@ -218,7 +251,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
                         : "bg-red-100 text-red-800"
                     }`}
                   >
-                    {user.isActive ? "Active" : "Inactive"}
+                    {user.isActive ? "Hoạt động" : "Không hoạt động"}
                   </span>
                 </td>
                 {canManageUsers && (
@@ -227,7 +260,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
                       onClick={() => handleOpenEditModal(user)}
                       className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 text-xs font-medium"
                     >
-                      Edit
+                      Sửa
                     </button>
                     <button
                       onClick={() => handleToggleStatus(user.id, user.isActive)}
@@ -238,8 +271,17 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
                           : "bg-green-500 hover:bg-green-600"
                       }`}
                     >
-                      {user.isActive ? "Deactivate" : "Activate"}
+                      {user.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
                     </button>
+                    {canDeleteUsers && (
+                      <button
+                        onClick={() => handleOpenDeleteConfirm(user)}
+                        disabled={deleteUserMutation.isPending}
+                        className="px-3 py-1 bg-red-500 hover:bg-red-600 rounded text-white text-xs font-medium disabled:opacity-50"
+                      >
+                        Xóa
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
@@ -247,11 +289,11 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
           </tbody>
         </table>
         {users.length === 0 && (
-          <div className="text-center py-8 text-gray-500">No users found</div>
+          <div className="text-center py-8 text-gray-500">Không tìm thấy người dùng nào</div>
         )}
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {modal.isOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -276,7 +318,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
               <form onSubmit={handleSubmit}>
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    {modal.mode === "add" ? "Add New User" : "Edit User"}
+                    {modal.mode === "add" ? "Thêm người dùng mới" : "Sửa thông tin người dùng"}
                   </h3>
 
                   {formError && (
@@ -288,7 +330,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Name
+                        Tên
                       </label>
                       <input
                         type="text"
@@ -319,7 +361,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
                     {modal.mode === "add" && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
-                          Password
+                          Mật khẩu
                         </label>
                         <input
                           type="password"
@@ -338,7 +380,7 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Roles
+                        Vai trò
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         {availableRoles.map((role) => (
@@ -368,17 +410,90 @@ export function UserManagement({ canManageUsers }: UserManagementProps) {
                     disabled={isFormLoading}
                     className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
                   >
-                    {isFormLoading ? "Saving..." : "Save"}
+                    {isFormLoading ? "Đang lưu..." : "Lưu"}
                   </button>
                   <button
                     type="button"
                     onClick={closeModal}
                     className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   >
-                    Cancel
+                    Hủy
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.isOpen && deleteConfirm.user && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div
+                className="absolute inset-0 bg-gray-500 opacity-75"
+                onClick={handleCloseDeleteConfirm}
+              ></div>
+            </div>
+
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full relative z-10">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg
+                      className="h-6 w-6 text-red-600"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      Xác nhận xóa người dùng
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Bạn có chắc chắn muốn xóa người dùng{" "}
+                        <span className="font-medium">{deleteConfirm.user.name}</span>?
+                        Hành động này không thể hoàn tác.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleDeleteUser}
+                  disabled={deleteUserMutation.isPending}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                >
+                  {deleteUserMutation.isPending ? "Đang xóa..." : "Xóa"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseDeleteConfirm}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Hủy
+                </button>
+              </div>
             </div>
           </div>
         </div>
