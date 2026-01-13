@@ -1,173 +1,292 @@
-# Google Cloud Storage Management Feature
+# GCS Management Feature
 
-## Overview
-Added a new tab "Quản lý GCS" to the My Games page that allows administrators to manage files stored on Google Cloud Storage. This feature helps identify and clean up orphaned game files that no longer have corresponding entries in the MongoDB database.
+## Tổng quan
+Tính năng quản lý Google Cloud Storage (GCS) cho phép admin xem, so sánh và xóa các file trên GCS bucket, đồng thời kiểm tra tính đồng bộ với database.
 
-## Features
-
-### 1. GCS File Listing
-- **View all files**: Lists all files in the `games/` directory on GCS
-- **File information**: Shows file path, size, creation date, and status
-- **Status indicators**: 
-  - 🟢 **Hợp lệ** - Game exists in database
-  - 🔴 **Thừa** - Game not found in database (orphaned)
-
-### 2. Statistics Dashboard
-- **Total files on GCS**: Count of all game files
-- **Valid files**: Files with corresponding database entries
-- **Orphaned files**: Files without database entries (candidates for deletion)
-
-### 3. File Filtering
-- **All files**: Show complete file list
-- **Valid files only**: Show only files with database matches
-- **Orphaned files only**: Show only files without database matches
-
-### 4. Cleanup Functionality
-- **Safe deletion**: Only deletes files without corresponding database entries
-- **Batch processing**: Handles large numbers of files efficiently
-- **Confirmation modal**: Shows exactly which files will be deleted
-- **Error handling**: Reports any deletion failures
-
-## Access Control
-
-### Permissions
-- **Admin only**: Only users with `admin` role can access this feature
-- **Tab visibility**: GCS tab only appears for admin users
-- **API protection**: All GCS endpoints require admin authentication
-
-## Technical Implementation
-
-### Components
-- **`GCSManagement.astro`**: Main UI component with file listing and controls
-- **`gcsManagement.ts`**: Client-side logic for data loading and interactions
-
-### API Endpoints
-- **`GET /api/gcs/files`**: Lists all files on GCS with metadata
-- **`GET /api/games/ids`**: Returns all game IDs from database
-- **`POST /api/gcs/cleanup`**: Deletes orphaned files from GCS
-
-### File Path Structure
-Files are expected to follow the pattern: `games/{gameId}/...`
-- Game ID is extracted from the path for database comparison
-- Only files matching this pattern are considered for cleanup
-
-## Configuration
-
-### Environment Variables
-Required environment variables for GCS integration:
-```env
-GCLOUD_PROJECT_ID=your-project-id
-GCLOUD_BUCKET_NAME=your-bucket-name
-GCLOUD_CLIENT_EMAIL=your-service-account-email
-GCLOUD_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...your-private-key...\n-----END PRIVATE KEY-----\n"
+## Đường dẫn truy cập
+```
+http://localhost:3000/console/my-games?tab=gcs
 ```
 
-### Service Account Permissions
-The service account needs the following GCS permissions:
-- `storage.objects.list` - To list files
-- `storage.objects.delete` - To delete orphaned files
-- `storage.objects.get` - To read file metadata
+## Quyền truy cập
+- **Chỉ Admin** mới có thể truy cập tính năng này
+- Kiểm tra quyền ở cả frontend và backend
 
-## Usage Workflow
+## Tính năng chính
 
-### 1. Access GCS Management
-1. Navigate to `/console/my-games`
-2. Click on "Quản lý GCS" tab (admin only)
-3. System automatically loads GCS data
+### 1. **Xem danh sách file GCS**
+- Hiển thị tất cả file trong GCS bucket
+- Thông tin chi tiết: tên file, kích thước, ngày cập nhật
+- Trích xuất gameId và version từ đường dẫn file
 
-### 2. Review Files
-1. View statistics dashboard for overview
-2. Use filter dropdown to focus on specific file types
-3. Review file list with status indicators
+### 2. **So sánh với Database**
+- Kiểm tra file có tồn tại trong database không
+- Hiển thị trạng thái: "Có trong DB" hoặc "File rác"
+- Liên kết với thông tin game (title, status)
 
-### 3. Clean Up Orphaned Files
-1. Click "Dọn dẹp GCS" button
-2. Review confirmation modal showing files to be deleted
-3. Confirm deletion to remove orphaned files
-4. System reports deletion results
+### 3. **Thống kê tổng quan**
+- Tổng số file
+- Tổng dung lượng
+- Số file có trong DB
+- Số file rác (orphaned)
 
-## Safety Features
+### 4. **Tìm kiếm và lọc**
+- Tìm kiếm theo tên file, gameId, tên game
+- Lọc theo trạng thái: Tất cả / Có trong DB / File rác
+- Sắp xếp theo: tên, kích thước, ngày cập nhật, tên game
 
-### Double Verification
-- Files are checked against database before deletion
-- Only files without valid game IDs are deleted
-- Confirmation modal shows exact files to be removed
+### 5. **Xóa file**
+- Xóa file đơn lẻ
+- Xóa nhiều file cùng lúc (bulk delete)
+- Xác nhận trước khi xóa
+- Hỗ trợ xóa cả thư mục
 
-### Error Handling
-- Individual file deletion errors don't stop the process
-- Failed deletions are reported to user
-- Successful deletions are logged
+### 6. **Cache tối ưu**
+- Cache dữ liệu GCS trong 5 phút
+- Tự động refresh cache khi có thay đổi
+- Nút "Làm mới" để force refresh
 
-### Audit Trail
-- All cleanup operations are logged with user ID
-- Deletion counts and errors are tracked
-- Console logs provide detailed operation history
+## Cấu trúc API
 
-## Performance Considerations
+### **GET /api/gcs/files**
+```typescript
+interface GCSFilesResponse {
+  success: boolean;
+  files: GCSFile[];
+  stats: GCSStats;
+}
 
-### Batch Processing
-- Files are deleted in batches of 10 to avoid timeouts
-- Large file lists are handled efficiently
-- Progress is tracked and reported
+interface GCSFile {
+  name: string;
+  size: number;
+  updated: string;
+  gameId?: string;
+  version?: string;
+  inDatabase: boolean;
+  gameTitle?: string;
+  status?: string;
+}
+```
 
-### Caching
-- File lists are cached on client side
-- Database game IDs are fetched once per session
-- Refresh button allows manual cache invalidation
+### **DELETE /api/gcs/files/[...path]**
+```typescript
+interface GCSDeleteResponse {
+  success: boolean;
+  message: string;
+  deletedCount: number;
+}
+```
 
-## Error Scenarios
+### **Cache API**
+- `GET /api/gcs/cache` - Lấy cache
+- `POST /api/gcs/cache` - Set cache
+- `DELETE /api/gcs/cache` - Xóa cache
 
-### Common Issues
-1. **GCS credentials not configured**: Check environment variables
-2. **Insufficient permissions**: Verify service account roles
-3. **Network timeouts**: Retry operation or reduce batch size
-4. **File already deleted**: Harmless, operation continues
+## Cấu trúc thư mục
 
-### Error Messages
-- Clear user-friendly error messages
-- Technical details logged to console
-- Graceful degradation when services unavailable
+```
+src/features/gcs/
+├── api/
+│   └── gcsApi.ts           # API functions
+├── hooks/
+│   └── useGCS.ts           # React Query hooks
+├── components/
+│   └── GCSManagement.tsx   # Main component
+├── types/
+│   └── index.ts            # TypeScript types
+└── index.ts                # Feature exports
 
-## Monitoring
+src/app/api/gcs/
+├── files/
+│   ├── route.ts            # List files
+│   └── [...path]/route.ts  # Delete files
+└── cache/
+    └── route.ts            # Cache management
+```
 
-### Metrics to Track
-- Number of orphaned files cleaned up
-- Frequency of cleanup operations
-- Storage space reclaimed
-- Error rates and types
+## Components
 
-### Logging
-- All GCS operations are logged
-- User actions are tracked
-- Performance metrics available in console
+### **GCSManagement**
+Main component với các tính năng:
+- Stats cards hiển thị thống kê
+- Search và filter controls
+- Sortable table với checkbox selection
+- Delete confirmation modal
+- Bulk actions
+
+### **Hooks**
+- `useGCSFiles()` - Fetch files với cache
+- `useDeleteGCSFile()` - Delete file mutation
+- `useRefreshGCS()` - Refresh data mutation
+
+## Cache Strategy
+
+### **In-Memory Cache**
+```typescript
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+  ttl: number; // 5 minutes default
+}
+```
+
+### **Cache Flow**
+1. **First Load**: Fetch từ API → Cache result
+2. **Subsequent Loads**: Load từ cache nếu chưa expire
+3. **After Changes**: Clear cache → Refetch fresh data
+4. **Manual Refresh**: Clear cache → Force refetch
+
+### **Cache Benefits**
+- Giảm API calls đến GCS (expensive operations)
+- Faster loading cho subsequent visits
+- Automatic invalidation khi có changes
+
+## Security
+
+### **Authentication**
+- JWT session verification
+- User role checking (admin only)
+
+### **Authorization**
+- Backend: Kiểm tra role trong mỗi API endpoint
+- Frontend: Ẩn UI nếu không phải admin
+
+### **File Path Validation**
+- Encode file paths để tránh path traversal
+- Validate file existence trước khi delete
+
+## Performance Optimizations
+
+### **1. Efficient GCS Operations**
+- Batch operations khi có thể
+- Proper error handling và retry logic
+
+### **2. Frontend Optimizations**
+- Virtual scrolling cho large file lists (có thể thêm sau)
+- Debounced search input
+- Memoized filtering và sorting
+
+### **3. Caching Strategy**
+- 5-minute TTL cho GCS data
+- React Query caching cho client-side
+- Automatic cache invalidation
+
+## Error Handling
+
+### **API Errors**
+- Network errors với retry mechanism (axios)
+- GCS permission errors
+- File not found errors
+
+### **UI Error States**
+- Loading states với spinners
+- Error messages bằng tiếng Việt
+- Retry buttons cho failed operations
+
+## Usage Examples
+
+### **Basic Usage**
+```typescript
+// In component
+const { data, isLoading, error } = useGCSFiles();
+const deleteFile = useDeleteGCSFile();
+
+// Delete file
+await deleteFile.mutateAsync('games/my-game/1.0.0/index.html');
+```
+
+### **With Cache**
+```typescript
+// Auto-cached
+const gcsData = await getGCSFilesWithCache();
+
+// Manual cache management
+await setGCSCache(data, 'files', 300000); // 5 minutes
+await clearGCSCache('files');
+```
+
+## Environment Setup
+
+### **Required Environment Variables**
+```bash
+GCLOUD_PROJECT_ID=your-project-id
+GCLOUD_BUCKET_NAME=your-bucket-name
+GCLOUD_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
+GCLOUD_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+### **GCS Permissions**
+Service account cần các quyền:
+- `storage.objects.list`
+- `storage.objects.delete`
+- `storage.objects.get`
+
+## File Path Convention
+
+### **Expected Structure**
+```
+games/
+├── {gameId}/
+│   └── {version}/
+│       ├── index.html
+│       ├── assets/
+│       └── ...
+```
+
+### **Path Parsing**
+- Extract gameId từ `games/{gameId}/{version}/...`
+- Extract version từ path structure
+- Map với database records
 
 ## Future Enhancements
 
-### Potential Improvements
-1. **Scheduled cleanup**: Automatic orphaned file removal
-2. **Storage analytics**: Detailed usage reports and trends
-3. **File preview**: View file contents before deletion
-4. **Bulk operations**: More granular file management
-5. **Integration with game lifecycle**: Auto-cleanup on game deletion
+### **1. Advanced Features**
+- File preview/download
+- Batch upload interface
+- Storage usage analytics
+- Automated cleanup jobs
 
-### Scalability
-- Support for larger file counts (pagination)
-- Parallel processing for faster operations
-- Advanced filtering and search capabilities
-- Export functionality for audit reports
+### **2. Performance**
+- Redis cache thay vì in-memory
+- Background sync jobs
+- Pagination cho large datasets
+
+### **3. Monitoring**
+- GCS operation metrics
+- Cache hit/miss rates
+- Error tracking và alerting
 
 ## Testing
 
-### Test Scenarios
-1. **File listing**: Verify all GCS files are displayed correctly
-2. **Status detection**: Confirm orphaned vs valid file identification
-3. **Cleanup operation**: Test safe deletion of orphaned files only
-4. **Error handling**: Verify graceful handling of failures
-5. **Permission checks**: Ensure admin-only access
+### **API Testing**
+```bash
+# List files
+curl -X GET "http://localhost:3000/api/gcs/files" \
+  -H "Cookie: iruka_session=..."
 
-### Manual Testing Steps
-1. Create test games in database
-2. Upload files to GCS (some matching, some orphaned)
-3. Verify file listing shows correct statuses
-4. Test cleanup removes only orphaned files
-5. Confirm valid game files remain untouched
+# Delete file
+curl -X DELETE "http://localhost:3000/api/gcs/files/games/test/1.0.0/index.html" \
+  -H "Cookie: iruka_session=..."
+```
+
+### **Component Testing**
+- Unit tests cho hooks
+- Integration tests cho API endpoints
+- E2E tests cho user workflows
+
+## Deployment Notes
+
+### **Production Considerations**
+- Use Redis cho cache thay vì in-memory
+- Monitor GCS API quotas và costs
+- Set up proper logging và monitoring
+- Configure appropriate timeouts
+
+### **Security Checklist**
+- ✅ Admin-only access
+- ✅ JWT session validation
+- ✅ File path validation
+- ✅ Error message sanitization
+- ✅ Rate limiting (via axios retry)
+
+Tính năng GCS Management giờ đây đã hoàn chỉnh với đầy đủ tính năng quản lý, cache tối ưu và bảo mật cao!

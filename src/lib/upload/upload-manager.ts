@@ -266,26 +266,30 @@ export class UploadManager {
     formData.append('version', this.state.manifest.version);
 
     try {
-      const response = await fetch(this.config.endpoints.upload, {
-        method: 'POST',
-        body: formData,
-      });
+      const { apiUpload } = await import('../api-fetch');
+      
+      const result = await apiUpload<{ data: { gameId: string } }>(
+        this.config.endpoints.upload, 
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const progress = Math.round((progressEvent.loaded * 70) / progressEvent.total);
+              this.setState({ progress });
+            }
+          }
+        }
+      );
 
-      if (!response.ok) {
-        const error = await response.text();
-        return { success: false, error };
-      }
-
-      const result = await response.json();
       return { 
         success: true, 
         gameId: result.data.gameId 
       };
 
-    } catch (error) {
+    } catch (error: any) {
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : String(error) 
+        error: error.message || 'Upload failed'
       };
     }
   }
@@ -306,25 +310,15 @@ export class UploadManager {
     };
 
     try {
-      const response = await fetch(`${this.config.endpoints.update}/${gameId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        return { success: false, error };
-      }
-
+      const { apiPut } = await import('../api-fetch');
+      
+      await apiPut(`${this.config.endpoints.update}/${gameId}`, updateData);
       return { success: true };
 
-    } catch (error) {
+    } catch (error: any) {
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : String(error) 
+        error: error.message || 'Metadata update failed'
       };
     }
   }

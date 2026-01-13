@@ -1,13 +1,14 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifySession } from '@/lib/session';
-import { UserRepository } from '@/models/User';
-import { GameRepository, type Game } from '@/models/Game';
-import { GameVersionRepository, type GameVersion } from '@/models/GameVersion';
+import { getUserRepository, getGameRepository, getGameVersionRepository } from '@/lib/repository-manager';
+import type { Game } from '@/models/Game';
+import type { GameVersion } from '@/models/GameVersion';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { GameTable } from '@/components/tables/GameTable';
 import { GameFilters } from '@/components/filters/GameFilters';
+import { GCSManagement } from '@/features/gcs/components/GCSManagement';
 import Link from 'next/link';
 
 // Serialized types for client components (ObjectId converted to string)
@@ -138,18 +139,25 @@ interface Props {
 }
 
 async function getGamesWithVersions(userId: string): Promise<GameWithVersion[]> {
-  const gameRepo = await GameRepository.getInstance();
-  const versionRepo = await GameVersionRepository.getInstance();
+  // Use cached repositories for better performance
+  const [gameRepo, versionRepo] = await Promise.all([
+    getGameRepository(),
+    getGameVersionRepository()
+  ]);
+  
   const rawGames = await gameRepo.findByOwnerId(userId);
 
   const gamesWithVersions: GameWithVersion[] = await Promise.all(
     rawGames.map(async (game) => {
-      const latestVersion = game.latestVersionId
-        ? await versionRepo.findById(game.latestVersionId.toString())
-        : await versionRepo.getLatestVersion(game._id.toString());
-      const liveVersion = game.liveVersionId
-        ? await versionRepo.findById(game.liveVersionId.toString())
-        : null;
+      const [latestVersion, liveVersion] = await Promise.all([
+        game.latestVersionId
+          ? versionRepo.findById(game.latestVersionId.toString())
+          : versionRepo.getLatestVersion(game._id.toString()),
+        game.liveVersionId
+          ? versionRepo.findById(game.liveVersionId.toString())
+          : Promise.resolve(null)
+      ]);
+      
       return { game, latestVersion, liveVersion };
     })
   );
@@ -183,7 +191,7 @@ export default async function MyGamesPage({ searchParams }: Props) {
     redirect('/login?redirect=/console/my-games');
   }
 
-  const userRepo = await UserRepository.getInstance();
+  const userRepo = await getUserRepository();
   const user = await userRepo.findById(session.userId);
 
   if (!user) {
@@ -226,6 +234,7 @@ export default async function MyGamesPage({ searchParams }: Props) {
   ];
 
   const enableBulkActions = hasRole('dev') || hasRole('admin');
+  const isAdmin = hasRole('admin');
 
   return (
     <div className="p-8">
@@ -310,11 +319,9 @@ export default async function MyGamesPage({ searchParams }: Props) {
         </>
       )}
 
-      {/* GCS Management Tab - placeholder for now */}
+      {/* GCS Management Tab */}
       {currentTab === 'gcs' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <p className="text-slate-500">GCS Management will be migrated in a later task.</p>
-        </div>
+        <GCSManagement isAdmin={isAdmin} />
       )}
     </div>
   );

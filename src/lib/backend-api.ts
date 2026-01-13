@@ -3,39 +3,13 @@
  * Based on docs/interface/BE_vu.json
  */
 
+import { apiGet, apiPost, apiPut, apiDelete } from './api-fetch';
+
 const BACKEND_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8000';
 
-interface FetchOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  body?: unknown;
-  headers?: Record<string, string>;
-}
-
-async function fetchBackend<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-  const { method = 'GET', body, headers = {} } = options;
-  
-  const url = `${BACKEND_BASE_URL}${endpoint}`;
-  
-  const fetchOptions: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-  };
-  
-  if (body && method !== 'GET') {
-    fetchOptions.body = JSON.stringify(body);
-  }
-  
-  const response = await fetch(url, fetchOptions);
-  
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Backend API error: ${response.status} - ${error}`);
-  }
-  
-  return response.json();
+// Helper function to create full URL
+function createBackendUrl(endpoint: string): string {
+  return `${BACKEND_BASE_URL}${endpoint}`;
 }
 
 // ============================================
@@ -171,47 +145,47 @@ export interface GameVersionResponse {
 
 export const gameLessonsApi = {
   /** GET /api/v1/game-lessons/subjects */
-  getSubjects: () => fetchBackend<SubjectBase[]>('/api/v1/game-lessons/subjects'),
+  getSubjects: () => apiGet<SubjectBase[]>(createBackendUrl('/api/v1/game-lessons/subjects')),
   
   /** GET /api/v1/game-lessons/age-bands */
-  getAgeBands: () => fetchBackend<AgeBandOut[]>('/api/v1/game-lessons/age-bands'),
+  getAgeBands: () => apiGet<AgeBandOut[]>(createBackendUrl('/api/v1/game-lessons/age-bands')),
   
   /** GET /api/v1/game-lessons/courses/{subject_id}/{age_band_id} */
   getCourses: (subjectId: string, ageBandId: string) => 
-    fetchBackend<CourseOut[]>(`/api/v1/game-lessons/courses/${subjectId}/${ageBandId}`),
+    apiGet<CourseOut[]>(createBackendUrl(`/api/v1/game-lessons/courses/${subjectId}/${ageBandId}`)),
   
   /** GET /api/v1/game-lessons/tracks?subject_id={}&age_band_id={} */
   getTracksBySubjectAndAgeBand: (subjectId: string, ageBandId: string) =>
-    fetchBackend<TrackOut[]>(`/api/v1/game-lessons/tracks?subject_id=${subjectId}&age_band_id=${ageBandId}`),
+    apiGet<TrackOut[]>(createBackendUrl('/api/v1/game-lessons/tracks'), { subject_id: subjectId, age_band_id: ageBandId }),
   
   /** GET /api/v1/game-lessons/tracks/{course_id} */
   getTracksByCourse: (courseId: string) =>
-    fetchBackend<TrackOut[]>(`/api/v1/game-lessons/tracks/${courseId}`),
+    apiGet<TrackOut[]>(createBackendUrl(`/api/v1/game-lessons/tracks/${courseId}`)),
   
   /** GET /api/v1/game-lessons/units/{track_id} */
   getUnits: (trackId: string) =>
-    fetchBackend<UnitOut[]>(`/api/v1/game-lessons/units/${trackId}`),
+    apiGet<UnitOut[]>(createBackendUrl(`/api/v1/game-lessons/units/${trackId}`)),
   
   /** GET /api/v1/game-lessons/lessons?track_id={} */
   getLessonsByTrack: (trackId: string) =>
-    fetchBackend<LessonTrackOut[]>(`/api/v1/game-lessons/lessons?track_id=${trackId}`),
+    apiGet<LessonTrackOut[]>(createBackendUrl('/api/v1/game-lessons/lessons'), { track_id: trackId }),
   
   /** GET /api/v1/game-lessons/lessons/{unit_id} */
   getLessonsByUnit: (unitId: string) =>
-    fetchBackend<LessonTrackOut[]>(`/api/v1/game-lessons/lessons/${unitId}`),
+    apiGet<LessonTrackOut[]>(createBackendUrl(`/api/v1/game-lessons/lessons/${unitId}`)),
   
   /** GET /api/v1/game-lessons/skills */
-  getSkills: () => fetchBackend<SkillOut[]>('/api/v1/game-lessons/skills'),
+  getSkills: () => apiGet<SkillOut[]>(createBackendUrl('/api/v1/game-lessons/skills')),
   
   /** GET /api/v1/game-lessons/skills/filter?age_band_id={}&subject_id={} */
   getSkillsFiltered: (ageBandId: string, subjectId: string) =>
-    fetchBackend<SkillOut[]>(`/api/v1/game-lessons/skills/filter?age_band_id=${ageBandId}&subject_id=${subjectId}`),
+    apiGet<SkillOut[]>(createBackendUrl('/api/v1/game-lessons/skills/filter'), { age_band_id: ageBandId, subject_id: subjectId }),
   
   /** GET /api/v1/game-lessons/levels */
-  getLevels: () => fetchBackend<LevelOut[]>('/api/v1/game-lessons/levels'),
+  getLevels: () => apiGet<LevelOut[]>(createBackendUrl('/api/v1/game-lessons/levels')),
   
   /** GET /api/v1/game-lessons/themes */
-  getThemes: () => fetchBackend<ThemeOut[]>('/api/v1/game-lessons/themes'),
+  getThemes: () => apiGet<ThemeOut[]>(createBackendUrl('/api/v1/game-lessons/themes')),
 };
 
 // ============================================
@@ -220,44 +194,43 @@ export const gameLessonsApi = {
 
 export const gamesApi = {
   /** GET /api/v1/games/ */
-  listGames: () => fetchBackend<GameResponse[]>('/api/v1/games/'),
+  listGames: () => apiGet<GameResponse[]>(createBackendUrl('/api/v1/games/')),
   
   /** POST /api/v1/games/ */
   createGame: (data: GameCreate) => 
-    fetchBackend<GameResponse>('/api/v1/games/', { method: 'POST', body: data }),
+    apiPost<GameResponse>(createBackendUrl('/api/v1/games/'), data),
   
   /** GET /api/v1/games/{game_id} */
   getGame: (gameId: string) => 
-    fetchBackend<GameResponse>(`/api/v1/games/${gameId}`),
+    apiGet<GameResponse>(createBackendUrl(`/api/v1/games/${gameId}`)),
   
   /** PUT /api/v1/games/{game_id} */
   updateGame: (gameId: string, data: GameUpdate) =>
-    fetchBackend<GameResponse>(`/api/v1/games/${gameId}`, { method: 'PUT', body: data }),
+    apiPut<GameResponse>(createBackendUrl(`/api/v1/games/${gameId}`), data),
   
   /** DELETE /api/v1/games/{game_id} */
   deleteGame: (gameId: string, deletedBy?: string, reason?: string) => {
-    const params = new URLSearchParams();
-    if (deletedBy) params.append('deleted_by', deletedBy);
-    if (reason) params.append('reason', reason);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return fetchBackend<GameResponse>(`/api/v1/games/${gameId}${query}`, { method: 'DELETE' });
+    const params: Record<string, string> = {};
+    if (deletedBy) params.deleted_by = deletedBy;
+    if (reason) params.reason = reason;
+    return apiDelete<GameResponse>(createBackendUrl(`/api/v1/games/${gameId}`), params);
   },
   
   /** GET /api/v1/games/by_lesson/{lesson_id} */
   getGamesByLesson: (lessonId: string) =>
-    fetchBackend<GameResponse[]>(`/api/v1/games/by_lesson/${lessonId}`),
+    apiGet<GameResponse[]>(createBackendUrl(`/api/v1/games/by_lesson/${lessonId}`)),
   
   /** POST /api/v1/games/{game_id}/versions */
   createGameVersion: (gameId: string, data: GameVersionCreate) =>
-    fetchBackend<GameVersionResponse>(`/api/v1/games/${gameId}/versions`, { method: 'POST', body: data }),
+    apiPost<GameVersionResponse>(createBackendUrl(`/api/v1/games/${gameId}/versions`), data),
   
   /** PUT /api/v1/games/{game_id}/versions/{version} */
   updateGameVersion: (gameId: string, version: string, data: GameVersionUpdate) =>
-    fetchBackend<GameVersionResponse>(`/api/v1/games/${gameId}/versions/${version}`, { method: 'PUT', body: data }),
+    apiPut<GameVersionResponse>(createBackendUrl(`/api/v1/games/${gameId}/versions/${version}`), data),
   
   /** DELETE /api/v1/games/{game_id}/versions/{version} */
   deleteGameVersion: (gameId: string, version: string) =>
-    fetchBackend<GameVersionResponse>(`/api/v1/games/${gameId}/versions/${version}`, { method: 'DELETE' }),
+    apiDelete<GameVersionResponse>(createBackendUrl(`/api/v1/games/${gameId}/versions/${version}`)),
 };
 
 export default { gameLessonsApi, gamesApi };

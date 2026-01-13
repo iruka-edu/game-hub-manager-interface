@@ -1,7 +1,17 @@
 /**
- * API Fetch Utilities
- * Base fetch wrapper for all API calls with consistent error handling
+ * API Fetch Utilities - Axios Implementation
+ * Base axios wrapper for all API calls with retry mechanism and consistent error handling
  */
+
+import { 
+  apiGet as axiosGet, 
+  apiPost as axiosPost, 
+  apiPut as axiosPut, 
+  apiPatch as axiosPatch, 
+  apiDelete as axiosDelete,
+  apiUpload as axiosUpload
+} from './axios';
+import { AxiosError } from 'axios';
 
 export interface APIErrorResponse {
   error: string;
@@ -29,94 +39,108 @@ export class APIError extends Error {
 }
 
 /**
- * Base fetch function with authentication and error handling
- * All API functions should use this as the base
+ * Convert axios error to APIError
  */
-export async function apiFetch<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    credentials: "include", // Include cookies for session
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    let errorData: APIErrorResponse;
-    try {
-      errorData = await response.json();
-    } catch {
-      errorData = {
-        error: `HTTP ${response.status}: ${response.statusText}`,
-      };
-    }
-
+function handleAxiosError(error: any): never {
+  if (error.response) {
+    // Server responded with error status
+    const errorData = error.response.data || {};
     throw new APIError(
-      errorData.error || "An error occurred",
-      response.status,
+      errorData.error || error.message || 'Đã xảy ra lỗi từ server',
+      error.response.status,
       errorData.code,
       errorData.details
     );
+  } else if (error.request) {
+    // Network error
+    throw new APIError(
+      'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+      0,
+      'NETWORK_ERROR'
+    );
+  } else {
+    // Other error
+    throw new APIError(
+      error.message || 'Đã xảy ra lỗi không xác định',
+      0,
+      'UNKNOWN_ERROR'
+    );
   }
-
-  return response.json();
 }
 
 /**
- * GET request helper
+ * GET request helper with error handling
  */
-export function apiGet<T>(
+export async function apiGet<T>(
   url: string,
   params?: Record<string, string | number | boolean | undefined>
 ): Promise<T> {
-  const queryString = params ? buildQueryString(params) : "";
-  const fullUrl = queryString ? `${url}?${queryString}` : url;
-
-  return apiFetch<T>(fullUrl, { method: "GET" });
+  try {
+    const queryString = params ? buildQueryString(params) : "";
+    const fullUrl = queryString ? `${url}?${queryString}` : url;
+    return await axiosGet<T>(fullUrl);
+  } catch (error) {
+    return handleAxiosError(error);
+  }
 }
 
 /**
- * POST request helper
+ * POST request helper with error handling
  */
-export function apiPost<T>(url: string, body?: unknown): Promise<T> {
-  return apiFetch<T>(url, {
-    method: "POST",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+export async function apiPost<T>(url: string, body?: unknown): Promise<T> {
+  try {
+    return await axiosPost<T>(url, body);
+  } catch (error) {
+    return handleAxiosError(error);
+  }
 }
 
 /**
- * PUT request helper
+ * PUT request helper with error handling
  */
-export function apiPut<T>(url: string, body?: unknown): Promise<T> {
-  return apiFetch<T>(url, {
-    method: "PUT",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+export async function apiPut<T>(url: string, body?: unknown): Promise<T> {
+  try {
+    return await axiosPut<T>(url, body);
+  } catch (error) {
+    return handleAxiosError(error);
+  }
 }
 
 /**
- * PATCH request helper
+ * PATCH request helper with error handling
  */
-export function apiPatch<T>(url: string, body?: unknown): Promise<T> {
-  return apiFetch<T>(url, {
-    method: "PATCH",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+export async function apiPatch<T>(url: string, body?: unknown): Promise<T> {
+  try {
+    return await axiosPatch<T>(url, body);
+  } catch (error) {
+    return handleAxiosError(error);
+  }
 }
 
 /**
- * DELETE request helper
+ * DELETE request helper with error handling
  */
-export function apiDelete<T>(url: string, body?: unknown): Promise<T> {
-  return apiFetch<T>(url, {
-    method: "DELETE",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+export async function apiDelete<T>(url: string, body?: unknown): Promise<T> {
+  try {
+    return await axiosDelete<T>(url);
+  } catch (error) {
+    return handleAxiosError(error);
+  }
+}
+
+/**
+ * File upload helper with error handling
+ */
+export async function apiUpload<T>(
+  url: string, 
+  formData: FormData,
+  onUploadProgress?: (progressEvent: any) => void
+): Promise<T> {
+  try {
+    return await axiosUpload<T>(url, formData, { onUploadProgress });
+  } catch (error) {
+    return handleAxiosError(error);
+  }
 }
 
 /**
@@ -139,4 +163,28 @@ export function buildQueryString(
   });
 
   return searchParams.toString();
+}
+
+// Legacy compatibility - keep the old apiFetch function for backward compatibility
+export async function apiFetch<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
+  const body = options.body ? JSON.parse(options.body as string) : undefined;
+
+  switch (method) {
+    case 'GET':
+      return apiGet<T>(url);
+    case 'POST':
+      return apiPost<T>(url, body);
+    case 'PUT':
+      return apiPut<T>(url, body);
+    case 'PATCH':
+      return apiPatch<T>(url, body);
+    case 'DELETE':
+      return apiDelete<T>(url, body);
+    default:
+      throw new APIError(`Unsupported method: ${method}`, 0, 'UNSUPPORTED_METHOD');
+  }
 }

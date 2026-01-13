@@ -17,6 +17,9 @@ let cachedConnection: MongoConnection | null = null;
 // Connection promise to prevent race conditions during concurrent requests
 let connectionPromise: Promise<MongoConnection> | null = null;
 
+// Track if we've already logged successful connection
+let hasLoggedConnection = false;
+
 /**
  * Get MongoDB client with connection caching (singleton pattern).
  * Reuses existing connection for concurrent requests.
@@ -56,14 +59,28 @@ async function connectToMongo(): Promise<MongoConnection> {
   }
 
   try {
-    const client = new MongoClient(uri);
+    // Optimized connection options
+    const client = new MongoClient(uri, {
+      maxPoolSize: 10, // Maximum number of connections in the pool
+      minPoolSize: 2,  // Minimum number of connections in the pool
+      maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+      serverSelectionTimeoutMS: 5000, // How long to try selecting a server
+      socketTimeoutMS: 45000, // How long a send or receive on a socket can take
+      connectTimeoutMS: 10000, // How long to wait for a connection to be established
+      heartbeatFrequencyMS: 10000, // How often to check the server status
+    });
+    
     await client.connect();
     
     // Extract database name from URI or use default
     const dbName = extractDbName(uri) || 'iruka-game';
     const db = client.db(dbName);
     
-    console.log('[MongoDB] Connected successfully');
+    // Only log once to avoid spam
+    if (!hasLoggedConnection) {
+      console.log('[MongoDB] Connected successfully with connection pooling');
+      hasLoggedConnection = true;
+    }
     
     return { client, db };
   } catch (error) {
@@ -108,6 +125,22 @@ export async function closeConnection(): Promise<void> {
   if (cachedConnection) {
     await cachedConnection.client.close();
     cachedConnection = null;
+    hasLoggedConnection = false;
     console.log('[MongoDB] Connection closed');
+  }
+}
+
+/**
+ * Health check for MongoDB connection
+ */
+export async function isConnected(): Promise<boolean> {
+  try {
+    if (!cachedConnection) return false;
+    
+    // Ping the database to check if connection is alive
+    await cachedConnection.db.admin().ping();
+    return true;
+  } catch {
+    return false;
   }
 }
