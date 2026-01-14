@@ -102,7 +102,7 @@ export async function GET(
 
     // Build the GCS URL
     // Format: https://storage.googleapis.com/{bucket}/{storagePath}/{entryFile}
-    const gcsBucket = process.env.GCS_BUCKET_NAME || "iruka-game-builds";
+    const gcsBucket = process.env.GCLOUD_BUCKET_NAME || "iruka-edu-mini-game";
     const gcsBaseUrl =
       process.env.GCS_BASE_URL || `https://storage.googleapis.com/${gcsBucket}`;
 

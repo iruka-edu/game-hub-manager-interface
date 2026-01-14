@@ -14,6 +14,9 @@ importers:
       '@iruka-edu/game-core':
         specifier: ^0.2.0
         version: 0.2.0(phaser@3.90.0)
+      '@iruka-edu/mini-game-sdk':
+        specifier: ^0.3.2
+        version: 0.3.2(phaser@3.90.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
@@ -738,6 +741,13 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       phaser: ^3.80.0
+
+  '@iruka-edu/mini-game-sdk@0.3.2':
+    resolution: {integrity: sha512-wiMnaQtFVveuIxdH9PM1TciteJU8cTHyT3vHqFH6u8TEV9yCzaqMROw/xNEwxy8+8Gh/b2VY9c9/4fjHkCzalw==, tarball: https://npm.pkg.github.com/download/@iruka-edu/mini-game-sdk/0.3.2/205ad1bd5c980bf68fff655c994b430478086650}
+    peerDependencies:
+      phaser: ^3.80.0
+      react: ^18
+      react-dom: ^18
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2285,6 +2295,9 @@ packages:
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
+
+  howler@2.2.4:
+    resolution: {integrity: sha512-iARIBPgcQrwtEr+tALF+rapJ8qSc+Set2GJQl7xT1MQzWaVkFebdJhR3alVlSiUf5U7nAANKuj3aWpwerocD5w==}
 
   html-entities@2.6.0:
     resolution: {integrity: sha512-kig+rMn/QOVRvr7c86gQ8lWXq+Hkv6CbAH1hLu+RG338StTpE8Z0b44SDVaqVu7HGKf27frdmUYEs9hTUX/cLQ==}
@@ -4042,6 +4055,14 @@ snapshots:
     dependencies:
       phaser: 3.90.0
 
+  '@iruka-edu/mini-game-sdk@0.3.2(phaser@3.90.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      '@iruka-edu/game-core': 0.2.0(phaser@3.90.0)
+      howler: 2.2.4
+      phaser: 3.90.0
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -5743,6 +5764,8 @@ snapshots:
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
+
+  howler@2.2.4: {}
 
   html-entities@2.6.0: {}
 

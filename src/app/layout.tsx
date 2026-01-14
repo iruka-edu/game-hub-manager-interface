@@ -11,7 +11,11 @@ export const metadata: Metadata = {
   description:
     "Internal management console for educational mini-games at Iruka Education",
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
   },
   manifest: "/manifest.json",
   appleWebApp: {

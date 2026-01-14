@@ -19,7 +19,7 @@ interface GameData {
   // Extended metadata fields
   priority?: string;
   tags?: string[];
-  lesson?: string[];
+  lesson?: string | string[];
   level?: string;
   skills?: string[];
   themes?: string[];
@@ -47,9 +47,21 @@ function formatDate(dateStr: string): string {
 }
 
 export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
-  const renderArrayField = (items?: string[]) => {
-    if (!items || items.length === 0) return '-';
-    return items.join(', ');
+  const renderArrayField = (items?: string | string[]) => {
+    if (!items) return '-';
+    
+    // Handle single string
+    if (typeof items === 'string') {
+      return items.trim() === '' ? '-' : items;
+    }
+    
+    // Handle array
+    if (Array.isArray(items)) {
+      if (items.length === 0) return '-';
+      return items.join(', ');
+    }
+    
+    return '-';
   };
 
   const getCompletenessColor = (percentage?: number) => {

@@ -7,6 +7,7 @@ import { GameErrorOverlay } from "@/components/game/GameErrorOverlay";
 import { GameIframe } from "@/components/game/GameIframe";
 import { GameContainer } from "@/components/game/GameContainer";
 import { GameStyles } from "@/components/game/GameStyles";
+import { FullscreenExitButton } from "@/components/game/FullscreenExitButton";
 import { useGamePlayer } from "@/hooks/useGamePlayer";
 import { SerializedGame, SerializedVersion } from "@/types/game";
 
@@ -45,6 +46,8 @@ export function GamePlayer({
     handleRetry,
   } = useGamePlayer(gameUrl);
 
+  const showToolbar = !isFullscreen;
+
   return (
     <>
       <OrientationLock preferredOrientation="landscape">
@@ -52,21 +55,29 @@ export function GamePlayer({
           ref={containerRef}
           isFullscreen={isFullscreen}
           cssHeight={cssHeight}
+          showToolbar={showToolbar}
         >
-          {/* Game Toolbar */}
-          <GameToolbar
-            game={game}
-            version={version}
-            gameId={gameId}
-            deviceType={deviceType}
-            isFullscreen={isFullscreen}
-            showInFullscreen={showToolbarInFullscreen}
-            onFullscreenToggle={handleFullscreenToggle}
-            onRefresh={handleRetry}
-          />
+          {/* Game Toolbar - hidden in fullscreen */}
+          {showToolbar && (
+            <GameToolbar
+              game={game}
+              version={version}
+              gameId={gameId}
+              deviceType={deviceType}
+              isFullscreen={isFullscreen}
+              showInFullscreen={showToolbarInFullscreen}
+              onFullscreenToggle={handleFullscreenToggle}
+              onRefresh={handleRetry}
+            />
+          )}
 
           {/* Game Frame Container */}
-          <div className="relative w-full h-full">
+          <div className="relative flex-1 w-full min-h-0">
+            {/* Fullscreen Exit Button - only visible in fullscreen */}
+            {isFullscreen && (
+              <FullscreenExitButton onClick={handleFullscreenToggle} />
+            )}
+
             {/* Loading Overlay */}
             <GameLoadingOverlay
               isLoading={isLoading}

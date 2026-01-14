@@ -2,7 +2,7 @@
  * QC Testing System Type Definitions
  * 
  * This file contains shared TypeScript interfaces and types used across
- * the QC Testing System components.
+ * the QC Testing System components, including comprehensive SDK testing.
  */
 
 /**
@@ -137,4 +137,108 @@ export interface TestProgress {
   startTime?: Date;
   estimatedCompletion?: Date;
   errors?: string[];
+}
+
+/**
+ * Comprehensive QC Test Configuration
+ */
+export interface ComprehensiveQCConfig {
+  enableSDKTesting: boolean;
+  enablePerformanceTesting: boolean;
+  enableDeviceCompatibilityTesting: boolean;
+  testTimeout: number;
+  performanceThresholds: {
+    maxLoadTime: number;
+    minFrameRate: number;
+    maxMemoryUsage: number;
+    maxBundleSize: number;
+  };
+  deviceTargets: {
+    mobile: boolean;
+    tablet: boolean;
+    desktop: boolean;
+  };
+  sdkFeaturesToTest: string[];
+}
+
+/**
+ * SDK Test Result for individual components
+ */
+export interface SDKTestResult {
+  component: string;
+  testName: string;
+  passed: boolean;
+  duration: number;
+  errors: string[];
+  warnings: string[];
+  details?: any;
+}
+
+/**
+ * Performance Test Results
+ */
+export interface PerformanceTestResults {
+  loadTime: number;
+  frameRate: number;
+  memoryUsage: number;
+  bundleSize: number;
+  assetLoadTime: number;
+  networkRequests: number;
+  renderTime: number;
+  interactionLatency: number;
+}
+
+/**
+ * Device Compatibility Test Results
+ */
+export interface DeviceCompatibilityTestResults {
+  mobile: DeviceTestResult;
+  tablet: DeviceTestResult;
+  desktop: DeviceTestResult;
+}
+
+export interface DeviceTestResult {
+  tested: boolean;
+  passed: boolean;
+  issues: string[];
+  performanceMetrics?: PerformanceTestResults;
+  screenshotUrl?: string;
+}
+
+/**
+ * Comprehensive QC Test Report
+ */
+export interface ComprehensiveQCTestReport {
+  gameId: string;
+  versionId: string;
+  testTimestamp: Date;
+  testDuration: number;
+  overallResult: 'PASS' | 'FAIL' | 'WARNING';
+  
+  // Core QA Results
+  qaResults: QATestResults;
+  
+  // SDK Integration Results
+  sdkTestResults: {
+    totalTests: number;
+    passedTests: number;
+    failedTests: number;
+    results: SDKTestResult[];
+  };
+  
+  // Performance Results
+  performanceResults: PerformanceTestResults;
+  
+  // Device Compatibility Results
+  deviceCompatibilityResults: DeviceCompatibilityTestResults;
+  
+  // Analysis
+  criticalIssues: string[];
+  warnings: string[];
+  recommendations: string[];
+  
+  // Metadata
+  testConfig: ComprehensiveQCConfig;
+  testEnvironment: string;
+  testerUserId: string;
 }

@@ -2,7 +2,7 @@
 
 export function GameStyles() {
   return (
-    <style jsx>{`
+    <style jsx global>{`
       /* Mobile game container optimizations */
       .game-container {
         height: 100vh; /* Fallback */
@@ -11,6 +11,8 @@ export function GameStyles() {
         overflow: hidden;
         position: relative;
         background: #000;
+        display: flex;
+        flex-direction: column;
       }
 
       .game-container-fullscreen {
@@ -77,16 +79,6 @@ export function GameStyles() {
         .game-toolbar {
           position: relative !important;
           height: 2.5rem;
-        }
-        
-        .game-container {
-          height: calc(100vh - 2.5rem) !important;
-          height: calc(100svh - 2.5rem) !important;
-        }
-        
-        .game-container-fullscreen {
-          height: 100vh !important;
-          height: 100svh !important;
         }
       }
 

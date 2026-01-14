@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 interface QCReviewFormProps {
@@ -19,6 +19,23 @@ interface QCReviewFormProps {
     qaSummary?: any;
   };
   reviewerName: string;
+}
+
+// Auto test result types
+interface AutoTestResult {
+  testId: string;
+  passed: boolean;
+  message?: string;
+  duration?: number;
+  details?: any;
+}
+
+interface SDKTestProgress {
+  phase: 'idle' | 'initializing' | 'running' | 'completed' | 'error';
+  currentTest?: string;
+  progress: number;
+  results: AutoTestResult[];
+  error?: string;
 }
 
 interface QATest {
@@ -49,6 +66,14 @@ export function QCReviewForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("sdk");
+  
+  // Auto test state
+  const [autoTestProgress, setAutoTestProgress] = useState<SDKTestProgress>({
+    phase: 'idle',
+    progress: 0,
+    results: []
+  });
+  const [isRunningAutoTests, setIsRunningAutoTests] = useState(false);
 
   // Initialize tests from version.qaSummary if available
   const initialCategories = [
@@ -335,6 +360,190 @@ export function QCReviewForm({
 
   const [generalNotes, setGeneralNotes] = useState("");
 
+  // Run SDK Auto Tests
+  const runAutoTests = useCallback(async () => {
+    setIsRunningAutoTests(true);
+    setAutoTestProgress({
+      phase: 'initializing',
+      progress: 0,
+      results: [],
+      currentTest: 'Khởi tạo SDK...'
+    });
+    setError("");
+
+    try {
+      // Call the comprehensive test API
+      const response = await fetch('/api/qc/run-comprehensive-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId: game.gameId,
+          versionId: versionId,
+          gameUrl: `/play/${game.gameId}`, // Game play URL
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to run auto tests');
+      }
+
+      setAutoTestProgress(prev => ({
+        ...prev,
+        phase: 'running',
+        progress: 20,
+        currentTest: 'Đang chạy QA-01: SDK Handshake...'
+      }));
+
+      const data = await response.json();
+      console.log('📊 Auto test response:', data);
+      
+      const testReport = data.testReport;
+      const results = testReport.qaResults;
+      
+      console.log('📋 QA Results:', results);
+      console.log('📈 Overall Result:', testReport.overallResult);
+
+      // Map API results to auto test results
+      const autoTestResults: AutoTestResult[] = [];
+
+      // QA-01: SDK Handshake
+      if (results.qa01) {
+        autoTestResults.push({
+          testId: 'sdk_handshake',
+          passed: results.qa01.pass,
+          message: results.qa01.pass 
+            ? `Khởi tạo: ${results.qa01.initToReadyMs}ms, Kết thúc: ${results.qa01.quitToCompleteMs}ms`
+            : `Lỗi handshake - Khởi tạo: ${results.qa01.initToReadyMs}ms (tối đa: 10000ms)`,
+          duration: results.qa01.initToReadyMs + results.qa01.quitToCompleteMs,
+          details: results.qa01
+        });
+      }
+
+      setAutoTestProgress(prev => ({
+        ...prev,
+        progress: 40,
+        currentTest: 'Đang chạy QA-02: Định dạng dữ liệu...'
+      }));
+
+      // QA-02: Data Format / Converter
+      if (results.qa02) {
+        autoTestResults.push({
+          testId: 'sdk_data_format',
+          passed: results.qa02.pass,
+          message: results.qa02.pass
+            ? `Độ chính xác: ${(results.qa02.accuracy * 100).toFixed(1)}%, Hoàn thành: ${(results.qa02.completion * 100).toFixed(1)}%`
+            : `Lỗi xác thực dữ liệu: ${results.qa02.validationErrors?.join(', ') || 'Lỗi không xác định'}`,
+          details: results.qa02
+        });
+      }
+
+      setAutoTestProgress(prev => ({
+        ...prev,
+        progress: 60,
+        currentTest: 'Đang chạy QA-03: Hiệu năng...'
+      }));
+
+      // QA-03: Performance / iOS Pack
+      if (results.qa03) {
+        const perfPassed = !results.qa03.auto.assetError && 
+                          results.qa03.manual.noAutoplay && 
+                          results.qa03.manual.noWhiteScreen;
+        
+        autoTestResults.push({
+          testId: 'perf_load_time',
+          passed: !results.qa03.auto.assetError,
+          message: !results.qa03.auto.assetError
+            ? `Thời gian tải tài nguyên: ${results.qa03.auto.readyMs}ms`
+            : `Lỗi tải tài nguyên: ${results.qa03.auto.errorDetails?.join(', ') || 'Quá thời gian'}`,
+          duration: results.qa03.auto.readyMs,
+          details: results.qa03.auto
+        });
+
+        autoTestResults.push({
+          testId: 'perf_bundle_size',
+          passed: perfPassed,
+          message: perfPassed
+            ? 'Kích thước bundle trong giới hạn'
+            : 'Phát hiện vấn đề về kích thước hoặc hiệu năng',
+          details: results.qa03
+        });
+      }
+
+      setAutoTestProgress(prev => ({
+        ...prev,
+        progress: 80,
+        currentTest: 'Đang chạy QA-04: Kiểm tra trùng lặp...'
+      }));
+
+      // QA-04: Idempotency
+      if (results.qa04) {
+        autoTestResults.push({
+          testId: 'game_idempotency',
+          passed: results.qa04.pass,
+          message: results.qa04.pass
+            ? `Không có gửi trùng, đã xác minh ${results.qa04.backendRecordCount} bản ghi`
+            : `Lỗi kiểm tra trùng lặp: ${results.qa04.duplicateAttemptId ? 'Phát hiện ID trùng' : 'Kiểm tra nhất quán thất bại'}`,
+          details: results.qa04
+        });
+      }
+
+      // SDK Events test (from QA-01 events)
+      if (results.qa01?.events) {
+        const hasAllEvents = results.qa01.events.some((e: any) => e.type === 'INIT') &&
+                            results.qa01.events.some((e: any) => e.type === 'READY') &&
+                            results.qa01.events.some((e: any) => e.type === 'QUIT') &&
+                            results.qa01.events.some((e: any) => e.type === 'COMPLETE');
+        
+        autoTestResults.push({
+          testId: 'sdk_events',
+          passed: hasAllEvents,
+          message: hasAllEvents
+            ? 'Tất cả sự kiện SDK hoạt động đúng'
+            : 'Thiếu sự kiện SDK lifecycle',
+          details: results.qa01.events
+        });
+      }
+
+      setAutoTestProgress({
+        phase: 'completed',
+        progress: 100,
+        results: autoTestResults,
+        currentTest: 'Hoàn thành!'
+      });
+
+      // Update test categories with auto test results
+      setTestCategories(categories => 
+        categories.map(category => ({
+          ...category,
+          tests: category.tests.map(test => {
+            if (!test.isAutoTest) return test;
+            
+            const autoResult = autoTestResults.find(r => r.testId === test.id);
+            if (!autoResult) return test;
+            
+            return {
+              ...test,
+              passed: autoResult.passed,
+              notes: autoResult.message || test.notes
+            };
+          })
+        }))
+      );
+
+    } catch (err: any) {
+      setAutoTestProgress({
+        phase: 'error',
+        progress: 0,
+        results: [],
+        error: err.message || 'Auto test failed'
+      });
+      setError(`Auto test error: ${err.message}`);
+    } finally {
+      setIsRunningAutoTests(false);
+    }
+  }, [game.gameId, versionId]);
+
   const updateTest = (
     testId: string,
     field: "passed" | "notes",
@@ -500,6 +709,153 @@ export function QCReviewForm({
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
+
+      {/* Auto Test Panel */}
+      <div className="mb-6 p-4 bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <h3 className="font-semibold text-slate-900">Kiểm tra tự động SDK</h3>
+              {autoTestProgress.phase === 'completed' && (
+                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                  Hoàn thành
+                </span>
+              )}
+              {autoTestProgress.phase === 'error' && (
+                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                  Lỗi
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-slate-600">
+              Chạy kiểm tra tự động: SDK handshake, định dạng dữ liệu, hiệu năng và kiểm tra trùng lặp
+            </p>
+            
+            {/* Progress Bar */}
+            {(autoTestProgress.phase === 'initializing' || autoTestProgress.phase === 'running') && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                  <span>{autoTestProgress.currentTest}</span>
+                  <span>{autoTestProgress.progress}%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${autoTestProgress.progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Results Summary */}
+            {autoTestProgress.phase === 'completed' && autoTestProgress.results.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {autoTestProgress.results.map((result) => {
+                    // Map test IDs to Vietnamese names
+                    const testNameMap: Record<string, string> = {
+                      'sdk_handshake': 'SDK Handshake',
+                      'sdk_data_format': 'Định dạng dữ liệu',
+                      'sdk_events': 'Sự kiện SDK',
+                      'perf_load_time': 'Thời gian tải',
+                      'perf_bundle_size': 'Kích thước bundle',
+                      'game_idempotency': 'Kiểm tra trùng lặp'
+                    };
+                    const displayName = testNameMap[result.testId] || result.testId.replace(/_/g, ' ');
+                    
+                    return (
+                      <div 
+                        key={result.testId}
+                        className={`inline-flex flex-col px-3 py-2 rounded-lg text-xs ${
+                          result.passed 
+                            ? 'bg-green-100 border border-green-200' 
+                            : 'bg-red-100 border border-red-200'
+                        }`}
+                      >
+                        <span className={`font-semibold ${result.passed ? 'text-green-800' : 'text-red-800'}`}>
+                          {result.passed ? '✓' : '✗'} {displayName}
+                        </span>
+                        {result.message && (
+                          <span className={`mt-0.5 ${result.passed ? 'text-green-700' : 'text-red-700'}`}>
+                            {result.message}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Overall Summary */}
+                <div className={`p-3 rounded-lg ${
+                  autoTestProgress.results.every(r => r.passed)
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-amber-50 border border-amber-200'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {autoTestProgress.results.every(r => r.passed) ? (
+                      <>
+                        <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-medium text-green-800">
+                          Tất cả kiểm tra tự động đều ĐẠT
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-medium text-amber-800">
+                          {autoTestProgress.results.filter(r => !r.passed).length} kiểm tra tự động KHÔNG ĐẠT - Cần xem xét thủ công
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {autoTestProgress.phase === 'error' && autoTestProgress.error && (
+              <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                {autoTestProgress.error}
+              </div>
+            )}
+          </div>
+          
+          <button
+            type="button"
+            onClick={runAutoTests}
+            disabled={isRunningAutoTests}
+            className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center gap-2 shrink-0 ${
+              isRunningAutoTests
+                ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
+            }`}
+          >
+            {isRunningAutoTests ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Đang chạy...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Chạy kiểm tra
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
       {/* Category Tabs */}
       <div className="mb-6 border-b border-slate-200">

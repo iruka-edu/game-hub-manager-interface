@@ -136,39 +136,12 @@ export function useGamePlayer(gameUrl: string) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen, toggleFullscreen]);
 
-  // Auto-hide toolbar in fullscreen with device-specific timing
+  // Hide toolbar completely in fullscreen mode
   useEffect(() => {
-    if (!isFullscreen) return;
-
-    const controlManager = ResponsiveControlManager.getInstance();
-    const deviceConfig = controlManager.getDeviceConfig(deviceType);
-    const autoHideDelay = deviceConfig.fullscreen.autoHideDelay;
-
-    let hideTimeout: NodeJS.Timeout;
-    
-    const showToolbar = () => {
-      setShowToolbarInFullscreen(true);
-      clearTimeout(hideTimeout);
-      hideTimeout = setTimeout(() => {
-        setShowToolbarInFullscreen(false);
-      }, autoHideDelay);
-    };
-
-    const handleMouseMove = () => showToolbar();
-    const handleTouchStart = () => showToolbar();
-
-    // Show toolbar initially
-    showToolbar();
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('touchstart', handleTouchStart);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('touchstart', handleTouchStart);
-      clearTimeout(hideTimeout);
-    };
-  }, [isFullscreen, deviceType]);
+    if (isFullscreen) {
+      setShowToolbarInFullscreen(false);
+    }
+  }, [isFullscreen]);
 
   // Prevent zoom on double tap for mobile
   useEffect(() => {

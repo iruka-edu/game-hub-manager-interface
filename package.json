@@ -24,7 +24,7 @@
     "seed:users": "tsx scripts/seed-users.ts",
     "hard-delete-games": "tsx scripts/hard-delete-all-games.ts",
     "deploy:storage": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-storage.ps1",
-    "setup": "pnpm dlx dotenv-cli -- pnpm add @iruka-edu/game-core",
+    "setup": "pnpm dlx dotenv-cli -- pnpm add @iruka-edu/game-core @iruka-edu/mini-game-sdk",
     "setup-auth": "tsx scripts/setup-github-auth.ts",
     "update-game-core": "tsx scripts/update-game-core.ts",
     "force-update-game-core": "tsx scripts/force-update-game-core.ts",
@@ -35,6 +35,7 @@
   "dependencies": {
     "@google-cloud/storage": "^7.18.0",
     "@iruka-edu/game-core": "^0.2.0",
+    "@iruka-edu/mini-game-sdk": "^0.3.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.17",
     "@tanstack/react-query": "^5.90.16",
