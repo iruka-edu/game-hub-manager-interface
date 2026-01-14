@@ -17,6 +17,7 @@ const PROTECTED_API_PATTERNS = [
   '/api/notifications',
   '/api/audit-logs',
   '/api/users',
+  '/api/auth/me',
 ];
 
 /**
@@ -59,7 +60,7 @@ function getApiPermission(pathname: string): Permission | null {
 
 /**
  * Next.js middleware for session validation and route protection
- * Mirrors the behavior of the original Astro middleware
+ * Enhanced for mobile compatibility
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -73,9 +74,33 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Try to get session from cookie
+  // Try to get session from cookie with enhanced mobile support
   const token = request.cookies.get('iruka_session')?.value;
-  const session = token ? verifySession(token) : null;
+  
+  // Enhanced session verification with better error handling
+  let session: any = null;
+  if (token) {
+    try {
+      session = verifySession(token);
+    } catch (error) {
+      console.warn('[Middleware] Session verification failed:', error);
+      // Clear invalid session cookie
+      const response = isProtectedApi 
+        ? NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+        : NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(pathname + request.nextUrl.search)}`, request.url));
+      
+      // Clear the invalid cookie with proper settings
+      const isProduction = process.env.NODE_ENV === 'production';
+      let clearCookie = 'iruka_session=; HttpOnly; Path=/; Max-Age=0';
+      if (isProduction) {
+        clearCookie += '; Secure; SameSite=None';
+      } else {
+        clearCookie += '; SameSite=Lax';
+      }
+      response.headers.set('Set-Cookie', clearCookie);
+      return response;
+    }
+  }
 
   if (!session) {
     // Session invalid or expired
@@ -85,13 +110,15 @@ export async function middleware(request: NextRequest) {
         { error: 'Unauthorized' },
         { status: 401 }
       );
-      // Clear the invalid session cookie
-      response.cookies.set('iruka_session', '', {
-        httpOnly: true,
-        path: '/',
-        maxAge: 0,
-        sameSite: 'lax',
-      });
+      // Clear the invalid session cookie with proper mobile settings
+      const isProduction = process.env.NODE_ENV === 'production';
+      let clearCookie = 'iruka_session=; HttpOnly; Path=/; Max-Age=0';
+      if (isProduction) {
+        clearCookie += '; Secure; SameSite=None';
+      } else {
+        clearCookie += '; SameSite=Lax';
+      }
+      response.headers.set('Set-Cookie', clearCookie);
       return response;
     } else {
       // Redirect to login for page routes with return URL
@@ -168,5 +195,6 @@ export const config = {
     '/api/notifications/:path*',
     '/api/audit-logs/:path*',
     '/api/users/:path*',
+    '/api/auth/me',
   ],
 };

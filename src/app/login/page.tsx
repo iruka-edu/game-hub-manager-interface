@@ -34,7 +34,11 @@ export default function LoginPage() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        credentials: 'same-origin', // Ensure cookies are sent
         body: JSON.stringify({ email, password }),
       });
 
@@ -45,10 +49,14 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to console on success
-      router.push('/console');
-      router.refresh();
+      // Get redirect URL from query params or default to console
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get('redirect') || '/console';
+      
+      // Force a hard navigation to ensure cookies are properly set
+      window.location.href = redirectUrl;
     } catch (err) {
+      console.error('Login error:', err);
       setError('Lỗi kết nối. Vui lòng thử lại.');
     } finally {
       setLoading(false);

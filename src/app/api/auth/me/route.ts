@@ -1,37 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserFromHeaders } from '@/lib/auth';
+import { getUserFromCookies } from '@/lib/auth';
 
 /**
  * GET /api/auth/me
- * Returns current user information from session
- * Migrated from: src/pages/api/auth/me.ts
+ * Get current user information
+ * Enhanced for mobile compatibility
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromHeaders(request.headers);
-
+    const user = await getUserFromCookies();
+    
     if (!user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
+    // Return user info without sensitive data
     return NextResponse.json(
       {
-        user: {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          roles: user.roles,
-          avatar: user.avatar,
-          teamIds: user.teamIds,
-        },
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        roles: user.roles,
+        isActive: user.isActive,
       },
-      { status: 200 }
+      { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
     );
   } catch (error) {
-    console.error('[Auth] Me error:', error);
+    console.error('[Auth] Me endpoint error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

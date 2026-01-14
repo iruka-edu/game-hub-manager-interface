@@ -6,7 +6,7 @@ import { forceReconnect } from '@/lib/mongodb';
 /**
  * POST /api/auth/login
  * Login endpoint with email and password authentication
- * Migrated from: src/pages/api/auth/login.ts
+ * Enhanced for mobile compatibility
  */
 export async function POST(request: NextRequest) {
   try {
@@ -91,7 +91,14 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
+    // Set cookie with enhanced mobile compatibility
     response.headers.set('Set-Cookie', cookie);
+    
+    // Add additional headers for mobile compatibility
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
     return response;
   } catch (error) {
     console.error('[Auth] Login error:', error);
