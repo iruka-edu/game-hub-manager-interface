@@ -269,7 +269,7 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex flex-col transition-all duration-300 ${
+      className={`hidden lg:flex fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex-col transition-all duration-300 ${
         isMinimized ? "w-[80px]" : "w-[260px]"
       }`}
     >

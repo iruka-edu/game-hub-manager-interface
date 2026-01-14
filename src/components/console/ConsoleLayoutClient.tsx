@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { MobileNav } from "./MobileNav";
 
 import type { Role } from "@/models/User";
 
@@ -36,17 +37,23 @@ export function ConsoleLayoutClient({
 
   return (
     <div className="flex min-h-screen">
+      {/* Desktop Sidebar - hidden on mobile */}
       <Sidebar user={user} isMinimized={isMinimized} />
+      
+      {/* Mobile Navigation */}
+      <MobileNav user={user} />
+      
+      {/* Main Content */}
       <div
-        className={`flex-1 transition-[margin] duration-300 ${
-          isMinimized ? "ml-[80px]" : "ml-[260px]"
+        className={`flex-1 transition-[margin] duration-300 ml-0 ${
+          isMinimized ? "lg:ml-[80px]" : "lg:ml-[260px]"
         }`}
       >
         <TopBar
           onToggleMinimize={handleToggleMinimize}
           isMinimized={isMinimized}
         />
-        <main className="p-6">{children}</main>
+        <main className="p-4 sm:p-6 pt-16 lg:pt-6">{children}</main>
       </div>
     </div>
   );

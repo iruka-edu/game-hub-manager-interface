@@ -7,7 +7,7 @@ import Image from 'next/image';
 interface GameMeta {
   grade: string;
   subject: string;
-  lesson: string[];
+  lessonNo: string;
   backendGameId: string;
   level: string;
   skills: string[];
@@ -65,6 +65,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
   // ZIP file state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileSizeWarning, setFileSizeWarning] = useState<string>('');
   
   // Thumbnail states
   const [desktopThumbnail, setDesktopThumbnail] = useState<ThumbnailData>({ file: null, preview: null });
@@ -81,9 +82,14 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
     version: '1.0.0',
     runtime: 'HTML5',
     entryPoint: 'index.html',
-    difficulty: '', // Required field
+    difficulty: meta.level || '', // Use level from meta (1/2/3)
     targetAge: GRADE_AGE_MAPPING[meta.grade as keyof typeof GRADE_AGE_MAPPING] || 'Chưa xác định',
   });
+
+  // Game ID edit mode
+  const [isEditingGameId, setIsEditingGameId] = useState(false);
+  const [editedGameId, setEditedGameId] = useState(meta.backendGameId || '');
+  const [gameIdError, setGameIdError] = useState('');
 
   // Auto-detect SDK and check for duplicates
   const [sdkDetected, setSdkDetected] = useState<string | null>(null);
@@ -169,6 +175,24 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
       setError('File quá lớn. Tối đa 100MB');
       return;
     }
+    
+    // Check file size and show warning if > 4MB
+    const sizeMB = file.size / (1024 * 1024);
+    if (sizeMB > 4) {
+      setFileSizeWarning(
+        `File có dung lượng ${sizeMB.toFixed(1)}MB, lớn hơn khuyến nghị (3-4MB). ` +
+        `Điều này có thể ảnh hưởng đến tốc độ tải game cho học sinh. ` +
+        `Bạn vẫn có thể upload nhưng nên tối ưu lại game để giảm dung lượng.`
+      );
+    } else if (sizeMB > 3) {
+      setFileSizeWarning(
+        `File có dung lượng ${sizeMB.toFixed(1)}MB, gần đạt giới hạn khuyến nghị (3-4MB). ` +
+        `Nên kiểm tra và tối ưu nếu có thể.`
+      );
+    } else {
+      setFileSizeWarning('');
+    }
+    
     setUploadedFile(file);
     setError('');
     
@@ -227,6 +251,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
     setUploading(true);
     setError('');
+    setGameIdError('');
     setUploadProgress(0);
 
     try {
@@ -240,7 +265,8 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
           gameId: manifest.gameId,
           subject: meta.subject,
           grade: meta.grade,
-          lesson: meta.lesson,
+          lessonNo: parseInt(meta.lessonNo) || 1,
+          textbook: meta.quyenSach || undefined,
           backendGameId: meta.backendGameId,
           level: meta.level,
           skills: meta.skills,
@@ -248,8 +274,6 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
           linkGithub: meta.linkGithub,
           gameType: 'html5',
           description: `Game được tải lên từ ${meta.linkGithub}`,
-          difficulty: manifest.difficulty,
-          targetAge: manifest.targetAge,
           runtime: manifest.runtime,
         }),
       });
@@ -257,7 +281,16 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
       setUploadProgress(15);
 
       const createData = await createResponse.json();
-      if (!createResponse.ok && !createData.existingGame) {
+      
+      // Handle duplicate game ID error
+      if (!createResponse.ok) {
+        if (createData.error?.includes('already exists') || createData.error?.includes('đã tồn tại')) {
+          setGameIdError(`Game ID "${manifest.gameId}" đã tồn tại. Vui lòng chọn ID khác hoặc thêm version mới.`);
+          setIsEditingGameId(true);
+          setUploading(false);
+          setUploadStep('');
+          return;
+        }
         throw new Error(createData.error || 'Không thể tạo game');
       }
 
@@ -331,14 +364,24 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
     }
   };
 
-  const canSubmit = uploadedFile && manifest.gameId && manifest.version && manifest.difficulty;
+  const canSubmit = uploadedFile && manifest.version;
 
   return (
     <div className="space-y-6">
       {/* ZIP Upload Zone */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-1">File Game (ZIP)</h3>
-        <p className="text-sm text-slate-500 mb-4">Tải lên file ZIP chứa game HTML5. Tối đa 100MB.</p>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">File Game (ZIP)</h3>
+            <p className="text-sm text-slate-500">Tải lên file ZIP chứa game HTML5. Khuyến nghị 3-4MB, tối đa 100MB.</p>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs font-medium text-blue-700">Khuyến nghị: 3-4MB</span>
+          </div>
+        </div>
 
         <div
           onDrop={handleDrop}
@@ -362,10 +405,22 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               <p className="font-medium text-slate-900">{uploadedFile.name}</p>
-              <p className="text-sm text-slate-500">{formatFileSize(uploadedFile.size)}</p>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <p className="text-sm text-slate-500">{formatFileSize(uploadedFile.size)}</p>
+                {uploadedFile.size > 4 * 1024 * 1024 && (
+                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                    Lớn hơn khuyến nghị
+                  </span>
+                )}
+                {uploadedFile.size > 3 * 1024 * 1024 && uploadedFile.size <= 4 * 1024 * 1024 && (
+                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
+                    Gần giới hạn
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }}
+                onClick={(e) => { e.stopPropagation(); setUploadedFile(null); setFileSizeWarning(''); }}
                 className="mt-2 text-sm text-red-600 hover:text-red-700"
               >
                 Xóa file
@@ -381,6 +436,30 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             </div>
           )}
         </div>
+
+        {/* File Size Warning */}
+        {fileSizeWarning && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-yellow-900 mb-1">⚠️ Cảnh báo dung lượng file</h4>
+                <p className="text-sm text-yellow-800">{fileSizeWarning}</p>
+                <div className="mt-2 text-xs text-yellow-700">
+                  <p className="font-medium mb-1">Gợi ý tối ưu:</p>
+                  <ul className="list-disc list-inside space-y-0.5 ml-2">
+                    <li>Nén ảnh PNG/JPG (sử dụng TinyPNG, ImageOptim)</li>
+                    <li>Chuyển audio sang MP3 với bitrate thấp hơn (64-128kbps)</li>
+                    <li>Xóa các file không sử dụng (fonts, assets dư thừa)</li>
+                    <li>Minify JavaScript và CSS</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ZIP Structure Info */}
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -510,60 +589,17 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
         </div>
       </div>
 
-      {/* Manifest Form */}
+      {/* Manifest Form - Simplified */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Thông tin Game</h3>
+        <h3 className="text-lg font-bold text-slate-900 mb-1">Thông tin phiên bản</h3>
+        <p className="text-sm text-slate-500 mb-4">
+          Chỉ cần nhập số phiên bản. Các thông tin khác đã được điền từ bước trước.
+        </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="max-w-md space-y-4">
+          {/* Version Input */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Game ID <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={manifest.gameId}
-              onChange={(e) => {
-                const newGameId = e.target.value;
-                setManifest({ ...manifest, gameId: newGameId });
-                // Debounce duplicate check
-                if (newGameId && newGameId.length >= 3) {
-                  setTimeout(() => checkDuplicateGameId(newGameId), 500);
-                }
-              }}
-              placeholder="com.iruka.my-game"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            <p className="text-xs text-slate-500 mt-1">Định dạng: chữ thường, số, dấu chấm, gạch ngang</p>
-            
-            {/* Duplicate check status */}
-            {duplicateCheck.message && (
-              <div className={`mt-2 p-2 rounded text-xs ${
-                duplicateCheck.checking 
-                  ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                  : duplicateCheck.exists
-                  ? 'bg-orange-50 text-orange-700 border border-orange-200'
-                  : 'bg-green-50 text-green-700 border border-green-200'
-              }`}>
-                <div className="flex items-center gap-2">
-                  {duplicateCheck.checking ? (
-                    <div className="w-3 h-3 border border-yellow-600 border-t-transparent rounded-full animate-spin" />
-                  ) : duplicateCheck.exists ? (
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                  <span>{duplicateCheck.message}</span>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
               Version <span className="text-red-500">*</span>
             </label>
             <input
@@ -571,67 +607,159 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
               value={manifest.version}
               onChange={(e) => setManifest({ ...manifest, version: e.target.value })}
               placeholder="1.0.0"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              pattern="^\d+\.\d+\.\d+$"
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             />
-            <p className="text-xs text-slate-500 mt-1">Định dạng SemVer: X.Y.Z</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Độ khó <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={manifest.difficulty}
-              onChange={(e) => setManifest({ ...manifest, difficulty: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              required
-            >
-              <option value="">Chọn độ khó</option>
-              {DIFFICULTY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-slate-500 mt-1">Độ khó phù hợp với trình độ học sinh</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Độ tuổi mục tiêu
-            </label>
-            <input
-              type="text"
-              value={manifest.targetAge}
-              readOnly
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-600"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              Tự động tính từ lớp {meta.grade} (có thể thay đổi sau)
+            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              Định dạng SemVer: X.Y.Z (VD: 1.0.0, 1.2.3)
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Runtime</label>
-            <select
-              value={manifest.runtime}
-              onChange={(e) => setManifest({ ...manifest, runtime: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="HTML5">HTML5</option>
-              <option value="Unity">Unity WebGL</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Entry Point</label>
-            <input
-              type="text"
-              value={manifest.entryPoint}
-              onChange={(e) => setManifest({ ...manifest, entryPoint: e.target.value })}
-              placeholder="index.html"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
+          {/* Game ID Error & Edit */}
+          {gameIdError && (
+            <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl">
+              <div className="flex items-start gap-3 mb-3">
+                <svg className="w-5 h-5 text-red-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-red-900 mb-1">Game ID đã tồn tại</h4>
+                  <p className="text-sm text-red-700">{gameIdError}</p>
+                </div>
+              </div>
+
+              {isEditingGameId ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-red-900 mb-2">
+                      Nhập Game ID mới:
+                    </label>
+                    <input
+                      type="text"
+                      value={editedGameId}
+                      onChange={(e) => setEditedGameId(e.target.value)}
+                      placeholder="com.iruka.my-new-game"
+                      pattern="^[a-z0-9.-]+$"
+                      className="w-full px-3 py-2.5 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 font-mono text-sm"
+                    />
+                    <p className="text-xs text-red-600 mt-1.5">
+                      Chỉ được dùng chữ thường, số, dấu chấm và gạch ngang
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!editedGameId || editedGameId === manifest.gameId) {
+                          return;
+                        }
+                        setManifest({ ...manifest, gameId: editedGameId });
+                        setGameIdError('');
+                        setIsEditingGameId(false);
+                      }}
+                      disabled={!editedGameId || editedGameId === manifest.gameId}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-all"
+                    >
+                      Cập nhật Game ID
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingGameId(false);
+                        setGameIdError('');
+                        setEditedGameId(manifest.gameId);
+                      }}
+                      className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium text-sm transition-all"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingGameId(true)}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-all"
+                >
+                  Sửa Game ID
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Advanced Settings - Collapsed */}
+          <details className="group">
+            <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900 select-none">
+              <svg className="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Cài đặt nâng cao (tùy chọn)
+            </summary>
+            
+            <div className="mt-4 pl-6 space-y-4 border-l-2 border-slate-200">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Runtime
+                </label>
+                <select
+                  value={manifest.runtime}
+                  onChange={(e) => setManifest({ ...manifest, runtime: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                >
+                  <option value="HTML5">HTML5</option>
+                  <option value="Unity">Unity WebGL</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  {sdkDetected && `Tự động phát hiện: ${sdkDetected}`}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Entry Point
+                </label>
+                <input
+                  type="text"
+                  value={manifest.entryPoint}
+                  onChange={(e) => setManifest({ ...manifest, entryPoint: e.target.value })}
+                  placeholder="index.html"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  File HTML chính để khởi chạy game
+                </p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        {/* Summary of metadata from previous step */}
+        <div className="mt-6 pt-6 border-t border-slate-200">
+          <h4 className="text-sm font-semibold text-slate-700 mb-3">Thông tin từ bước trước:</h4>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Game ID:</span>
+              <code className="px-2 py-0.5 bg-slate-100 rounded text-slate-900 font-mono text-xs">
+                {manifest.gameId}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Lớp:</span>
+              <span className="font-medium text-slate-900">{meta.grade}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Môn:</span>
+              <span className="font-medium text-slate-900">{meta.subject}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Độ khó:</span>
+              <span className="font-medium text-slate-900">
+                {meta.level === '1' ? '🌱 Làm quen' : meta.level === '2' ? '⭐ Tiến bộ' : '🔥 Thử thách'}
+              </span>
+            </div>
           </div>
         </div>
       </div>

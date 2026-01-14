@@ -94,6 +94,7 @@ interface LayoutContextValue {
   isMobile: boolean;
   isTablet: boolean;
   isDesktop: boolean;
+  width: number;
 }
 
 const LayoutContext = React.createContext<LayoutContextValue | null>(null);

@@ -80,7 +80,7 @@ export function TopBar({ onToggleMinimize, isMinimized }: TopBarProps) {
   }
 
   return (
-    <div className="sticky top-0 z-40 bg-white border-b border-slate-200 px-8 py-3 flex items-center justify-between">
+    <div className="hidden lg:flex sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-8 py-3 items-center justify-between">
       {/* Left side - Minimize button */}
       <div className="flex items-center gap-3">
         {onToggleMinimize && (

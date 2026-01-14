@@ -1,70 +1,68 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBreakpointFromWidth, type Breakpoint } from '@/lib/responsive/breakpoints';
+import type { Breakpoint } from '@/lib/responsive/breakpoints';
+import { getBreakpointFromWidth } from '@/lib/responsive/breakpoints';
 
-/**
- * Hook for detecting current responsive breakpoint
- * 
- * Returns the current breakpoint based on window width:
- * - mobile: ≤767px (monitoring and quick actions)
- * - tablet: 768px-1199px (review and basic QC)
- * - desktop: ≥1200px (full management)
- */
-export function useBreakpoint(): {
+interface BreakpointState {
   breakpoint: Breakpoint;
   isMobile: boolean;
   isTablet: boolean;
   isDesktop: boolean;
   width: number;
-} {
-  const [windowWidth, setWindowWidth] = useState<number>(0);
-  const [breakpoint, setBreakpoint] = useState<Breakpoint>('desktop');
+}
+
+export function useBreakpoint(): BreakpointState {
+  const [state, setState] = useState<BreakpointState>({
+    breakpoint: 'desktop',
+    isMobile: false,
+    isTablet: false,
+    isDesktop: true,
+    width: 1024,
+  });
 
   useEffect(() => {
-    // Set initial width
-    const updateWidth = () => {
+    const handleResize = () => {
       const width = window.innerWidth;
-      setWindowWidth(width);
-      setBreakpoint(getBreakpointFromWidth(width));
+      const breakpoint = getBreakpointFromWidth(width);
+
+      setState({
+        breakpoint,
+        isMobile: breakpoint === 'mobile',
+        isTablet: breakpoint === 'tablet',
+        isDesktop: breakpoint === 'desktop',
+        width,
+      });
     };
 
-    // Set initial value
-    updateWidth();
+    // Initial check
+    handleResize();
 
     // Add event listener
-    window.addEventListener('resize', updateWidth);
+    window.addEventListener('resize', handleResize);
 
     // Cleanup
-    return () => window.removeEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  return {
-    breakpoint,
-    isMobile: breakpoint === 'mobile',
-    isTablet: breakpoint === 'tablet',
-    isDesktop: breakpoint === 'desktop',
-    width: windowWidth
-  };
+  return state;
 }
 
-/**
- * Hook for checking if current breakpoint matches specific breakpoint(s)
- */
-export function useBreakpointMatch(targetBreakpoints: Breakpoint | Breakpoint[]): boolean {
-  const { breakpoint } = useBreakpoint();
-  
-  if (Array.isArray(targetBreakpoints)) {
-    return targetBreakpoints.includes(breakpoint);
-  }
-  
-  return breakpoint === targetBreakpoints;
-}
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
 
-/**
- * Hook for getting responsive values based on current breakpoint
- */
-export function useResponsiveValue<T>(values: Record<Breakpoint, T>): T {
-  const { breakpoint } = useBreakpoint();
-  return values[breakpoint];
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+
+  return matches;
 }
