@@ -2,8 +2,6 @@
 
 import { OrientationLock } from "@/components/OrientationLock";
 import { GameToolbar } from "@/components/game/GameToolbar";
-import { MobileGameControls } from "@/components/game/MobileGameControls";
-import { FullscreenToggle } from "@/components/game/FullscreenToggle";
 import { GameLoadingOverlay } from "@/components/game/GameLoadingOverlay";
 import { GameErrorOverlay } from "@/components/game/GameErrorOverlay";
 import { GameIframe } from "@/components/game/GameIframe";
@@ -45,7 +43,6 @@ export function GamePlayer({
     handleIframeLoad,
     handleIframeError,
     handleRetry,
-    setShowToolbarInFullscreen,
   } = useGamePlayer(gameUrl);
 
   return (
@@ -65,15 +62,8 @@ export function GamePlayer({
             isFullscreen={isFullscreen}
             showInFullscreen={showToolbarInFullscreen}
             onFullscreenToggle={handleFullscreenToggle}
+            onRefresh={handleRetry}
           />
-
-          {/* Fullscreen Toolbar Toggle Button */}
-          {isFullscreen && (
-            <FullscreenToggle
-              showToolbar={showToolbarInFullscreen}
-              onToggle={() => setShowToolbarInFullscreen(!showToolbarInFullscreen)}
-            />
-          )}
 
           {/* Game Frame Container */}
           <div className="relative w-full h-full">
@@ -100,14 +90,6 @@ export function GamePlayer({
               onError={handleIframeError}
             />
           </div>
-
-          {/* Mobile Controls */}
-          {deviceType === 'mobile' && (
-            <MobileGameControls
-              isFullscreen={isFullscreen}
-              onFullscreenToggle={handleFullscreenToggle}
-            />
-          )}
         </GameContainer>
       </OrientationLock>
 

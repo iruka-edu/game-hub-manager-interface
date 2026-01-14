@@ -5,6 +5,7 @@ import { useFullscreen } from './useFullscreen';
 import { useHideAddressBar } from './useHideAddressBar';
 import { useViewportHeight } from './useViewportHeight';
 import { DeviceType } from '@/types/game';
+import { ResponsiveControlManager } from '@/lib/responsive-control-manager';
 
 export function useGamePlayer(gameUrl: string) {
   const [showToolbarInFullscreen, setShowToolbarInFullscreen] = useState(false);
@@ -24,22 +25,33 @@ export function useGamePlayer(gameUrl: string) {
   useHideAddressBar();
   const { cssHeight, supportsSvh } = useViewportHeight();
 
-  // Detect device type
+  // Enhanced device type detection using ResponsiveControlManager
   useEffect(() => {
+    const controlManager = ResponsiveControlManager.getInstance();
+    
     const updateDeviceType = () => {
       const width = window.innerWidth;
-      if (width < 640) {
-        setDeviceType('mobile');
-      } else if (width < 1024) {
-        setDeviceType('tablet');
-      } else {
-        setDeviceType('desktop');
-      }
+      const height = window.innerHeight;
+      const userAgent = navigator.userAgent;
+      
+      // Use enhanced device detection
+      const detectedType = controlManager.detectDeviceType(width, height, userAgent);
+      setDeviceType(detectedType);
     };
 
     updateDeviceType();
+    
+    // Listen for both resize and orientation change events
     window.addEventListener('resize', updateDeviceType);
-    return () => window.removeEventListener('resize', updateDeviceType);
+    window.addEventListener('orientationchange', () => {
+      // Delay to ensure dimensions are updated after orientation change
+      setTimeout(updateDeviceType, 100);
+    });
+    
+    return () => {
+      window.removeEventListener('resize', updateDeviceType);
+      window.removeEventListener('orientationchange', updateDeviceType);
+    };
   }, []);
 
   // Handle fullscreen toggle
@@ -124,9 +136,13 @@ export function useGamePlayer(gameUrl: string) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen, toggleFullscreen]);
 
-  // Auto-hide toolbar in fullscreen
+  // Auto-hide toolbar in fullscreen with device-specific timing
   useEffect(() => {
     if (!isFullscreen) return;
+
+    const controlManager = ResponsiveControlManager.getInstance();
+    const deviceConfig = controlManager.getDeviceConfig(deviceType);
+    const autoHideDelay = deviceConfig.fullscreen.autoHideDelay;
 
     let hideTimeout: NodeJS.Timeout;
     
@@ -135,7 +151,7 @@ export function useGamePlayer(gameUrl: string) {
       clearTimeout(hideTimeout);
       hideTimeout = setTimeout(() => {
         setShowToolbarInFullscreen(false);
-      }, 3000);
+      }, autoHideDelay);
     };
 
     const handleMouseMove = () => showToolbar();
@@ -152,7 +168,7 @@ export function useGamePlayer(gameUrl: string) {
       document.removeEventListener('touchstart', handleTouchStart);
       clearTimeout(hideTimeout);
     };
-  }, [isFullscreen]);
+  }, [isFullscreen, deviceType]);
 
   // Prevent zoom on double tap for mobile
   useEffect(() => {
