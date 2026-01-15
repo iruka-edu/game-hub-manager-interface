@@ -7,6 +7,16 @@ import {
   ResponsiveContainer,
 } from "@/components/layout/ResponsiveLayout";
 import { AdaptiveActionBar } from "@/components/actions/AdaptiveActionBar";
+import {
+  SUBJECT_MAP,
+  GRADE_MAP,
+  GAME_TYPE_MAP,
+  TEXTBOOK_MAP,
+  PRIORITY_MAP,
+  DIFFICULTY_MAP,
+  SKILL_MAP,
+  THEME_MAP,
+} from "@/lib/game-constants";
 
 export interface UploadFormData {
   gameId: string;
@@ -435,14 +445,11 @@ function ManifestEditor({
               required
             >
               <option value="">Select Subject</option>
-              <option value="math">Mathematics</option>
-              <option value="vietnamese">Vietnamese</option>
-              <option value="english">English</option>
-              <option value="science">Science</option>
-              <option value="logic">Logic</option>
-              <option value="art">Art</option>
-              <option value="music">Music</option>
-              <option value="pe">Physical Education</option>
+              {Object.entries(SUBJECT_MAP).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -457,20 +464,11 @@ function ManifestEditor({
               required
             >
               <option value="">Select Grade</option>
-              <option value="pre-k">Pre-K</option>
-              <option value="k">Kindergarten</option>
-              <option value="1">Grade 1</option>
-              <option value="2">Grade 2</option>
-              <option value="3">Grade 3</option>
-              <option value="4">Grade 4</option>
-              <option value="5">Grade 5</option>
-              <option value="6">Grade 6</option>
-              <option value="7">Grade 7</option>
-              <option value="8">Grade 8</option>
-              <option value="9">Grade 9</option>
-              <option value="10">Grade 10</option>
-              <option value="11">Grade 11</option>
-              <option value="12">Grade 12</option>
+              {Object.entries(GRADE_MAP).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -487,12 +485,11 @@ function ManifestEditor({
               required
             >
               <option value="">Select Game Type</option>
-              <option value="quiz">Quiz</option>
-              <option value="drag_drop">Drag & Drop</option>
-              <option value="trace">Trace</option>
-              <option value="classify">Classify</option>
-              <option value="memory">Memory</option>
-              <option value="custom">Custom</option>
+              {Object.entries(GAME_TYPE_MAP).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -544,9 +541,11 @@ function ManifestEditor({
               }
             >
               <option value="">Select Textbook</option>
-              <option value="Canh Dieu">Cánh Diều</option>
-              <option value="Ket Noi Tri Thuc">Kết Nối Tri Thức</option>
-              <option value="Chan Troi Sang Tao">Chân Trời Sáng Tạo</option>
+              {Object.entries(TEXTBOOK_MAP).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -576,9 +575,11 @@ function ManifestEditor({
               })
             }
           >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
+            {Object.entries(PRIORITY_MAP).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -651,12 +652,13 @@ function ManifestEditor({
               onFormChange({ ...formData, skills: selectedOptions });
             }}
           >
-            <option value="1">Tô màu cơ bản</option>
-            <option value="2">Tô theo mẫu - Theo gợi ý</option>
-            <option value="3">Nhận diện hình & Chi tiết qua tô</option>
-            <option value="4">Điều khiển nét & tay</option>
-            <option value="5">Hoàn thiện hình/ Bổ sung nhẹ</option>
-            <option value="6">Tạo hình theo chủ đề</option>
+            {Object.entries(SKILL_MAP)
+              .filter(([key]) => /^\d+$/.test(key))
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
           </select>
           <small className="gh-form-help">
             Giữ Ctrl (Windows) hoặc Cmd (Mac) để chọn nhiều kỹ năng
@@ -688,14 +690,13 @@ function ManifestEditor({
               onFormChange({ ...formData, themes: selectedOptions });
             }}
           >
-            <option value="1">Động vật</option>
-            <option value="2">Xe cộ</option>
-            <option value="3">Đồ chơi</option>
-            <option value="4">Âm nhạc</option>
-            <option value="5">Trái cây</option>
-            <option value="6">Rau củ</option>
-            <option value="7">Thiên nhiên – hoa lá</option>
-            <option value="8">Ngữ cảnh đời sống gần gũi</option>
+            {Object.entries(THEME_MAP)
+              .filter(([key]) => /^\d+$/.test(key))
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
           </select>
           <small className="gh-form-help">
             Giữ Ctrl (Windows) hoặc Cmd (Mac) để chọn nhiều chủ đề
@@ -754,34 +755,12 @@ function GamePreview({ formData }: { formData: UploadFormData }) {
 
   const getSkillText = (skills?: string[]) => {
     if (!skills || skills.length === 0) return "Not set";
-
-    const skillMap: Record<string, string> = {
-      "1": "Tô màu cơ bản",
-      "2": "Tô theo mẫu - Theo gợi ý",
-      "3": "Nhận diện hình & Chi tiết qua tô",
-      "4": "Điều khiển nét & tay",
-      "5": "Hoàn thiện hình/ Bổ sung nhẹ",
-      "6": "Tạo hình theo chủ đề",
-    };
-
-    return skills.map((skill) => skillMap[skill] || skill).join(", ");
+    return skills.map((skill) => SKILL_MAP[skill] || skill).join(", ");
   };
 
   const getThemeText = (themes?: string[]) => {
     if (!themes || themes.length === 0) return "Not set";
-
-    const themeMap: Record<string, string> = {
-      "1": "Động vật",
-      "2": "Xe cộ",
-      "3": "Đồ chơi",
-      "4": "Âm nhạc",
-      "5": "Trái cây",
-      "6": "Rau củ",
-      "7": "Thiên nhiên – hoa lá",
-      "8": "Ngữ cảnh đời sống gần gũi",
-    };
-
-    return themes.map((theme) => themeMap[theme] || theme).join(", ");
+    return themes.map((theme) => THEME_MAP[theme] || theme).join(", ");
   };
 
   const completeness = getMetadataCompleteness();
