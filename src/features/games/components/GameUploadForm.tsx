@@ -468,18 +468,42 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <h4 className="text-sm font-medium text-blue-900 mb-1">Tự động phát hiện cấu trúc ZIP</h4>
+              <h4 className="text-sm font-medium text-blue-900 mb-1">🔍 Tự động phát hiện cấu trúc ZIP & SDK</h4>
               <p className="text-sm text-blue-700">
                 Hệ thống sẽ tự động tìm thư mục chứa <code className="bg-blue-100 px-1 rounded">index.html</code> và coi đó là root của game. 
                 Các thư mục như <code className="bg-blue-100 px-1 rounded">build/</code>, <code className="bg-blue-100 px-1 rounded">dist/</code>, 
                 <code className="bg-blue-100 px-1 rounded">src/</code> sẽ được xử lý tự động.
               </p>
               {sdkDetected && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-sm font-medium text-green-700">SDK phát hiện:</span>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
-                    {sdkDetected}
-                  </span>
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-semibold text-green-800">SDK đã được phát hiện tự động!</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-green-700">Loại SDK:</span>
+                    <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium border border-green-300">
+                      🎮 {sdkDetected}
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 mt-2">
+                    Runtime đã được tự động cài đặt thành "{manifest.runtime}" dựa trên SDK phát hiện.
+                  </p>
+                </div>
+              )}
+              {!sdkDetected && uploadedFile && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span className="text-sm font-medium text-yellow-800">Đang phân tích SDK...</span>
+                  </div>
+                  <p className="text-xs text-yellow-700">
+                    Hệ thống đang phân tích file để xác định loại SDK. Vui lòng đợi một chút.
+                  </p>
                 </div>
               )}
             </div>

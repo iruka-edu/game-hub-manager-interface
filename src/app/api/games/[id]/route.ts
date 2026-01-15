@@ -287,6 +287,37 @@ export async function DELETE(
     const isOwner = game.ownerId === user._id.toString();
     const isAdmin = user.roles.includes('admin');
 
+    // Admin soft delete - check this FIRST before dev draft delete
+    // This allows admins to delete any game regardless of ownership
+    if (isAdmin && hasPermissionString(user, 'games:delete_soft')) {
+      const body = await request.json().catch(() => ({}));
+      const reason = body.reason || 'admin_soft_delete';
+
+      await gameRepo.delete(gameId);
+      
+      await AuditLogger.log({
+        actor: {
+          user,
+          ip: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || undefined,
+        },
+        action: 'GAME_SOFT_DELETE',
+        target: {
+          entity: 'GAME',
+          id: gameId,
+        },
+        metadata: {
+          deleteType: 'admin_soft_delete',
+          reason,
+        },
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Game soft deleted successfully' 
+      }, { status: 200 });
+    }
+
     // Check if dev can delete own draft
     if (isOwner && hasPermissionString(user, 'games:delete_own_draft')) {
       // Check if game has only draft versions (never submitted to QC)
@@ -322,36 +353,6 @@ export async function DELETE(
       return NextResponse.json({ 
         success: true, 
         message: 'Draft game deleted successfully' 
-      }, { status: 200 });
-    }
-
-    // Admin soft delete
-    if (isAdmin && hasPermissionString(user, 'games:delete_soft')) {
-      const body = await request.json().catch(() => ({}));
-      const reason = body.reason || 'admin_soft_delete';
-
-      await gameRepo.delete(gameId);
-      
-      await AuditLogger.log({
-        actor: {
-          user,
-          ip: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent') || undefined,
-        },
-        action: 'GAME_SOFT_DELETE',
-        target: {
-          entity: 'GAME',
-          id: gameId,
-        },
-        metadata: {
-          deleteType: 'admin_soft_delete',
-          reason,
-        },
-      });
-
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Game soft deleted successfully' 
       }, { status: 200 });
     }
 

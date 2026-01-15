@@ -393,12 +393,12 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
       {(game.thumbnailDesktop || game.thumbnailMobile || game.metadata?.thumbnailUrl) && (
         <div className="mb-8">
           <h4 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-200">
-            Hình ảnh
+            Thumbnail (Ảnh preview)
           </h4>
           <div className="grid grid-cols-2 gap-4">
             {(game.thumbnailDesktop || game.metadata?.thumbnailUrl) && (
               <div>
-                <dt className="text-sm text-slate-500 mb-2">Desktop Thumbnail</dt>
+                <dt className="text-sm text-slate-500 mb-2">Desktop (308×211)</dt>
                 <dd>
                   <img 
                     src={game.thumbnailDesktop || game.metadata?.thumbnailUrl} 
@@ -410,7 +410,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
             )}
             {game.thumbnailMobile && (
               <div>
-                <dt className="text-sm text-slate-500 mb-2">Mobile Thumbnail</dt>
+                <dt className="text-sm text-slate-500 mb-2">Mobile (343×170)</dt>
                 <dd>
                   <img 
                     src={game.thumbnailMobile} 

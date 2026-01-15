@@ -36,24 +36,29 @@ export function ConsoleLayoutClient({
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-slate-50">
       {/* Desktop Sidebar - hidden on mobile */}
       <Sidebar user={user} isMinimized={isMinimized} />
       
-      {/* Mobile Navigation */}
+      {/* Mobile Navigation - includes mobile header */}
       <MobileNav user={user} />
       
       {/* Main Content */}
       <div
-        className={`flex-1 transition-[margin] duration-300 ml-0 ${
+        className={`flex-1 flex flex-col transition-[margin] duration-300 ${
           isMinimized ? "lg:ml-[80px]" : "lg:ml-[260px]"
         }`}
       >
+        {/* Desktop TopBar */}
         <TopBar
           onToggleMinimize={handleToggleMinimize}
           isMinimized={isMinimized}
         />
-        <main className="p-4 sm:p-6 pt-16 lg:pt-6">{children}</main>
+        
+        {/* Main Content Area - with proper spacing for mobile header */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pt-20 lg:pt-6">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -72,85 +72,85 @@ export default async function ConsoleDashboard() {
   const isCEO = hasRole('ceo');
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Xin chào, {user.name || user.email}!</p>
+    <div className="space-y-6 sm:space-y-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Dashboard</h1>
+        <p className="text-slate-500 mt-1 text-sm sm:text-base">Xin chào, {user.name || user.email}!</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Stats Grid - Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {(isDev || isAdmin) && (
-          <Link href="/console/my-games" className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Link href="/console/my-games" className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.myGames}</p>
-                <p className="text-sm text-slate-500">Game của tôi</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.myGames}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Game của tôi</p>
               </div>
             </div>
           </Link>
         )}
 
         {(isQC || isAdmin) && (
-          <Link href="/console/qc-inbox" className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Link href="/console/qc-inbox" className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-yellow-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                 </svg>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.pendingQC}</p>
-                <p className="text-sm text-slate-500">Chờ QC</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.pendingQC}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Chờ QC</p>
               </div>
             </div>
           </Link>
         )}
 
         {(isCTO || isCEO || isAdmin) && (
-          <Link href="/console/approval" className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Link href="/console/approval" className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.pendingApproval}</p>
-                <p className="text-sm text-slate-500">Chờ duyệt</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.pendingApproval}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Chờ duyệt</p>
               </div>
             </div>
           </Link>
         )}
 
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
               </svg>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{stats.published}</p>
-              <p className="text-sm text-slate-500">Đã xuất bản</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.published}</p>
+              <p className="text-xs sm:text-sm text-slate-500">Đã xuất bản</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Thao tác nhanh</h2>
-        <div className="flex flex-wrap gap-3">
+      {/* Quick Actions - Responsive */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">Thao tác nhanh</h2>
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
           {(isDev || isAdmin) && (
             <Link
               href="/console/my-games"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm sm:text-base font-medium"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -160,7 +160,7 @@ export default async function ConsoleDashboard() {
           )}
           <Link
             href="/console/library"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm sm:text-base font-medium"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
