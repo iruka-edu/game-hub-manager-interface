@@ -1,10 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Spinner } from '@/components/ui/Spinner';
 import type { QCTestReport } from '@/lib/MiniGameQCService';
 
 interface ComprehensiveQCTesterProps {
@@ -102,13 +98,31 @@ export function ComprehensiveQCTester({
   };
 
   const getResultBadge = (result: 'PASS' | 'FAIL' | 'WARNING') => {
-    const variants = {
-      PASS: 'success' as const,
-      FAIL: 'destructive' as const,
-      WARNING: 'warning' as const
+    const colors = {
+      PASS: 'bg-green-100 text-green-800 border-green-200',
+      FAIL: 'bg-red-100 text-red-800 border-red-200',
+      WARNING: 'bg-yellow-100 text-yellow-800 border-yellow-200'
     };
     
-    return <Badge variant={variants[result]}>{result}</Badge>;
+    return (
+      <span className={`px-2 py-1 text-xs font-semibold rounded border ${colors[result]}`}>
+        {result}
+      </span>
+    );
+  };
+
+  const getBadge = (variant: 'success' | 'destructive' | 'secondary', text: string) => {
+    const colors = {
+      success: 'bg-green-100 text-green-800 border-green-200',
+      destructive: 'bg-red-100 text-red-800 border-red-200',
+      secondary: 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+    
+    return (
+      <span className={`px-2 py-1 text-xs font-semibold rounded border ${colors[variant]}`}>
+        {text}
+      </span>
+    );
   };
 
   const formatBytes = (bytes: number) => {
@@ -118,7 +132,7 @@ export function ComprehensiveQCTester({
   return (
     <div className="space-y-6">
       {/* Test Configuration */}
-      <Card className="p-6">
+      <div className="bg-white rounded-xl border border-slate-200 p-6">
         <h3 className="text-lg font-semibold mb-4">🧪 Comprehensive QC Test Configuration</h3>
         
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -264,44 +278,52 @@ export function ComprehensiveQCTester({
           </label>
         </div>
 
-        <Button
+        <button
           onClick={runComprehensiveTest}
           disabled={isRunning}
-          className="w-full"
+          className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
         >
           {isRunning ? (
             <>
-              <Spinner className="mr-2" />
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
               Running Comprehensive QC Test...
             </>
           ) : (
             '🚀 Run Comprehensive QC Test'
           )}
-        </Button>
-      </Card>
+        </button>
+      </div>
 
       {/* Progress */}
       {progress && (
-        <Card className="p-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center">
-            {isRunning && <Spinner className="mr-2" />}
+            {isRunning && (
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
             <span className="text-sm text-gray-600">{progress}</span>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Error */}
       {error && (
-        <Card className="p-4 border-red-200 bg-red-50">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
           <div className="text-red-800">
             <strong>❌ Test Failed:</strong> {error}
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Test Results */}
       {testReport && (
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">📊 Test Results</h3>
             {getResultBadge(testReport.overallResult)}
@@ -338,29 +360,21 @@ export function ComprehensiveQCTester({
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
                   <span>QA-01 Handshake</span>
-                  <Badge variant={testReport.qaResults.qa01.pass ? 'success' : 'destructive'}>
-                    {testReport.qaResults.qa01.pass ? 'PASS' : 'FAIL'}
-                  </Badge>
+                  {getBadge(testReport.qaResults.qa01.pass ? 'success' : 'destructive', testReport.qaResults.qa01.pass ? 'PASS' : 'FAIL')}
                 </div>
                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
                   <span>QA-02 Converter</span>
-                  <Badge variant={testReport.qaResults.qa02.pass ? 'success' : 'destructive'}>
-                    {testReport.qaResults.qa02.pass ? 'PASS' : 'FAIL'}
-                  </Badge>
+                  {getBadge(testReport.qaResults.qa02.pass ? 'success' : 'destructive', testReport.qaResults.qa02.pass ? 'PASS' : 'FAIL')}
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
                   <span>QA-03 iOS Pack</span>
-                  <Badge variant={!testReport.qaResults.qa03.auto.assetError ? 'success' : 'destructive'}>
-                    {!testReport.qaResults.qa03.auto.assetError ? 'PASS' : 'FAIL'}
-                  </Badge>
+                  {getBadge(!testReport.qaResults.qa03.auto.assetError ? 'success' : 'destructive', !testReport.qaResults.qa03.auto.assetError ? 'PASS' : 'FAIL')}
                 </div>
                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
                   <span>QA-04 Idempotency</span>
-                  <Badge variant={testReport.qaResults.qa04.pass ? 'success' : 'destructive'}>
-                    {testReport.qaResults.qa04.pass ? 'PASS' : 'FAIL'}
-                  </Badge>
+                  {getBadge(testReport.qaResults.qa04.pass ? 'success' : 'destructive', testReport.qaResults.qa04.pass ? 'PASS' : 'FAIL')}
                 </div>
               </div>
             </div>
@@ -400,16 +414,14 @@ export function ComprehensiveQCTester({
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium capitalize">{device}</span>
                     {result.tested ? (
-                      <Badge variant={result.passed ? 'success' : 'destructive'}>
-                        {result.passed ? 'PASS' : 'FAIL'}
-                      </Badge>
+                      getBadge(result.passed ? 'success' : 'destructive', result.passed ? 'PASS' : 'FAIL')
                     ) : (
-                      <Badge variant="secondary">SKIPPED</Badge>
+                      getBadge('secondary', 'SKIPPED')
                     )}
                   </div>
                   {result.issues.length > 0 && (
                     <div className="text-xs text-red-600">
-                      {result.issues.map((issue, index) => (
+                      {result.issues.map((issue: string, index: number) => (
                         <div key={index}>• {issue}</div>
                       ))}
                     </div>
@@ -428,7 +440,7 @@ export function ComprehensiveQCTester({
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
                   <h5 className="font-medium text-red-800 mb-2">❌ Critical Issues</h5>
                   <ul className="text-sm text-red-700 space-y-1">
-                    {testReport.criticalIssues.map((issue, index) => (
+                    {testReport.criticalIssues.map((issue: string, index: number) => (
                       <li key={index}>• {issue}</li>
                     ))}
                   </ul>
@@ -439,7 +451,7 @@ export function ComprehensiveQCTester({
                 <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
                   <h5 className="font-medium text-yellow-800 mb-2">⚠️ Warnings</h5>
                   <ul className="text-sm text-yellow-700 space-y-1">
-                    {testReport.warnings.map((warning, index) => (
+                    {testReport.warnings.map((warning: string, index: number) => (
                       <li key={index}>• {warning}</li>
                     ))}
                   </ul>
@@ -450,7 +462,7 @@ export function ComprehensiveQCTester({
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded">
                   <h5 className="font-medium text-blue-800 mb-2">💡 Recommendations</h5>
                   <ul className="text-sm text-blue-700 space-y-1">
-                    {testReport.recommendations.map((rec, index) => (
+                    {testReport.recommendations.map((rec: string, index: number) => (
                       <li key={index}>• {rec}</li>
                     ))}
                   </ul>
@@ -458,7 +470,7 @@ export function ComprehensiveQCTester({
               )}
             </div>
           )}
-        </Card>
+        </div>
       )}
     </div>
   );

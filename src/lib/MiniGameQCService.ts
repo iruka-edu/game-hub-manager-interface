@@ -350,7 +350,7 @@ export class MiniGameQCService {
     Object.entries(deviceCompatibility).forEach(([device, result]) => {
       if (result.tested && !result.passed) {
         criticalIssues.push(`${device} compatibility test failed`);
-        result.issues.forEach(issue => warnings.push(`${device}: ${issue}`));
+        result.issues.forEach((issue:any) => warnings.push(`${device}: ${issue}`));
       }
     });
 

@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { MiniGameQCService, type QCTestSuite, type QCTestReport } from '@/lib/MiniGameQCService';
 import { GameRepository } from '@/models/Game';
-import { GameVersionRepository } from '@/models/GameVersion';
+import { GameVersionRepository, type QASummary } from '@/models/GameVersion';
 import { QCReportRepository } from '@/models/QcReport';
 import { UserRepository } from '@/models/User';
 import { verifySession } from '@/lib/session';
@@ -82,22 +82,12 @@ export async function POST(request: NextRequest) {
     // Construct game URL
     const gameUrl = `https://storage.googleapis.com/iruka-edu-mini-game/games/${gameId}/${version.version}/index.html`;
 
-    // Prepare manifest if available
-    const manifest = version.manifest ? {
-      runtime: version.manifest.runtime || 'iframe-html',
-      capabilities: version.manifest.capabilities || [],
-      entryUrl: gameUrl,
-      iconUrl: version.manifest.iconUrl,
-      version: version.version,
-      minHubVersion: version.manifest.minHubVersion || '1.0.0'
-    } : undefined;
-
     // Prepare test suite
     const testSuite: QCTestSuite = {
       gameId,
       versionId,
       gameUrl,
-      manifest,
+      manifest: undefined, // GameVersion doesn't have manifest field
       testConfig: {
         userId: user._id.toString(),
         timeout: testConfig?.timeout || 120000,
@@ -126,7 +116,7 @@ export async function POST(request: NextRequest) {
     const qcReportRepo = await QCReportRepository.getInstance();
     
     // Build QA summary for the report
-    const qaSummary = {
+    const qaSummary: QASummary = {
       overall: testReport.overallResult === 'PASS' ? 'pass' : 'fail',
       categories: {
         sdk: {
