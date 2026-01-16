@@ -36,7 +36,7 @@ const nextConfig = {
   },
 
   // Webpack configuration for compatibility
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, webpack }) => {
     // Handle MongoDB driver for server-side only
     if (!isServer) {
       config.resolve.fallback = {
@@ -47,13 +47,49 @@ const nextConfig = {
         dns: false,
         child_process: false,
         process: false,
+        electron: false,
       };
     }
+
+    // Ignore Playwright and related packages completely
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      playwright: false,
+      "playwright-core": false,
+      electron: false,
+    };
+
+    // Ignore Playwright assets that can't be bundled
+    config.module = config.module || {};
+    config.module.rules = config.module.rules || [];
+    config.module.rules.push({
+      test: /\.ttf$/,
+      type: "asset/resource",
+    });
+    config.module.rules.push({
+      test: /playwright-core.*\.(html|css)$/,
+      type: "asset/resource",
+    });
+
+    // Ignore specific problematic modules
+    config.plugins = config.plugins || [];
+    config.plugins.push(
+      new webpack.IgnorePlugin({
+        resourceRegExp: /^(playwright|playwright-core|electron)$/,
+      })
+    );
+
     return config;
   },
 
   // Mark server-only packages as external
-  serverExternalPackages: ["mongodb", "@google-cloud/storage"],
+  serverExternalPackages: [
+    "mongodb",
+    "@google-cloud/storage",
+    "playwright",
+    "playwright-core",
+    "@iruka-edu/mini-game-sdk",
+  ],
 
   // Configure headers for security
   async headers() {

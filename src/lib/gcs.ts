@@ -282,6 +282,109 @@ export const uploadGameFiles = async (
 };
 
 /**
+ * Extract ZIP file that's already uploaded to GCS
+ * Downloads ZIP from GCS, extracts it, and uploads extracted files
+ * @param storagePath - Base path in GCS (e.g., "games/my-game/1.0.0")
+ * @param zipFileName - Name of the ZIP file in GCS
+ * @returns Extraction result with URL and file list
+ */
+export const extractZipFromGCS = async (
+  storagePath: string,
+  zipFileName: string
+): Promise<{ url: string; files: string[] }> => {
+  const JSZip = (await import('jszip')).default;
+  
+  try {
+    // Download ZIP from GCS
+    const zipPath = `${storagePath}/${zipFileName}`;
+    console.log(`[GCS] Downloading ZIP from ${zipPath}...`);
+    
+    const [buffer] = await bucket.file(zipPath).download();
+    
+    // Load ZIP file
+    const zip = await JSZip.loadAsync(buffer);
+    const uploadedFiles: string[] = [];
+    const uploadItems: UploadItem[] = [];
+
+    // Find the root directory containing index.html
+    let rootPath = '';
+    const allFiles = Object.keys(zip.files);
+    
+    const indexHtmlPaths = allFiles.filter(path => 
+      path.toLowerCase().endsWith('index.html') && !zip.files[path].dir
+    );
+    
+    if (indexHtmlPaths.length === 0) {
+      throw new Error('Không tìm thấy file index.html trong ZIP');
+    }
+    
+    const indexPath = indexHtmlPaths[0];
+    const pathParts = indexPath.split('/');
+    
+    if (pathParts.length > 1) {
+      rootPath = pathParts.slice(0, -1).join('/') + '/';
+      console.log(`[GCS] Tìm thấy index.html tại: ${indexPath}, sử dụng root: ${rootPath}`);
+    } else {
+      rootPath = '';
+      console.log(`[GCS] index.html ở root của ZIP`);
+    }
+
+    // Extract files
+    for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
+      if (zipEntry.dir) continue;
+      if (rootPath && !relativePath.startsWith(rootPath)) continue;
+
+      const content = await zipEntry.async('nodebuffer');
+      const contentType = getContentType(relativePath);
+      const isHtml = relativePath.endsWith('.html') || relativePath.endsWith('.htm');
+      const fileRelativePath = rootPath ? relativePath.substring(rootPath.length) : relativePath;
+      const destination = `${storagePath}/${fileRelativePath}`;
+      
+      uploadItems.push({
+        destination,
+        buffer: content,
+        contentType,
+        isHtml,
+      });
+      
+      uploadedFiles.push(fileRelativePath);
+    }
+
+    if (uploadItems.length === 0) {
+      throw new Error('Không có file nào để upload sau khi xác định root directory');
+    }
+
+    console.log(`[GCS] Đang tải lên ${uploadItems.length} file đã extract...`);
+    
+    const results = await uploadBufferBatch(uploadItems, 5, (completed, total, currentFile) => {
+      console.log(`[GCS] Tiến độ: ${completed}/${total} - ${currentFile}`);
+    });
+
+    const errors = results.filter(r => !r.success);
+    if (errors.length > 0) {
+      console.error('[GCS] Một số file tải lên thất bại:', errors);
+      throw new Error(`Tải lên thất bại cho ${errors.length} file`);
+    }
+
+    // Delete the original ZIP file
+    console.log(`[GCS] Xóa file ZIP gốc: ${zipPath}`);
+    await bucket.file(zipPath).delete();
+
+    console.log(`[GCS] Extract thành công ${uploadedFiles.length} file`);
+
+    const entryUrl = constructFileUrl(storagePath, 'index.html', CDN_BASE);
+    
+    return {
+      url: entryUrl,
+      files: uploadedFiles,
+    };
+  } catch (error: any) {
+    console.error('[GCS] Lỗi extract ZIP:', error);
+    throw new Error(`Lỗi extract ZIP: ${error.message}`);
+  }
+};
+
+/**
  * Get content type based on file extension
  */
 function getContentType(filePath: string): string {

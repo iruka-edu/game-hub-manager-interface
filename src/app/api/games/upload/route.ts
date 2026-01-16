@@ -7,8 +7,9 @@ import { GameVersionRepository } from "@/models/GameVersion";
 import { uploadGameFiles, deleteFiles, CDN_BASE } from "@/lib/gcs";
 import { ObjectId } from "mongodb";
 
-// Max file size: 100MB
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// Max file size for direct upload: 4MB (Vercel serverless limit)
+// For larger files, use /api/games/upload-url for signed URL upload
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
 /**
  * POST /api/games/upload
@@ -85,9 +86,9 @@ export async function POST(request: Request) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         {
-          error: `File too large. Max size is ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+          error: `File quá lớn. Tối đa ${MAX_FILE_SIZE / 1024 / 1024}MB cho upload trực tiếp. Sử dụng upload-url endpoint cho file lớn hơn.`,
         },
-        { status: 400 }
+        { status: 413 }
       );
     }
 
@@ -147,9 +148,26 @@ export async function POST(request: Request) {
     }
 
     // Upload to GCS
-    const uploadResult = await uploadGameFiles(buffer, storagePath, file.name);
-
-    console.log(`[Upload] Upload complete. Entry URL: ${uploadResult.url}`);
+    let uploadResult;
+    try {
+      uploadResult = await uploadGameFiles(buffer, storagePath, file.name);
+      console.log(`[Upload] Upload complete. Entry URL: ${uploadResult.url}`);
+    } catch (uploadError: any) {
+      console.error(`[Upload] GCS upload failed:`, uploadError);
+      
+      // Rollback: Delete game if it was just created (no existing version)
+      if (!existingVersion) {
+        console.log(`[Upload] Rolling back - deleting game ${game._id}`);
+        try {
+          await gameRepo.delete(game._id.toString());
+          console.log(`[Upload] Rollback successful - game deleted`);
+        } catch (rollbackError) {
+          console.error(`[Upload] Rollback failed:`, rollbackError);
+        }
+      }
+      
+      throw new Error(`Upload lên GCS thất bại: ${uploadError.message}`);
+    }
 
     // Create or update version record
     let gameVersion;

@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { MiniGameQCService, type QCTestSuite, type QCTestReport } from '@/lib/MiniGameQCService';
+import type { QCTestSuite, QCTestReport } from '@/lib/MiniGameQCService';
 import { GameRepository } from '@/models/Game';
 import { GameVersionRepository, type QASummary } from '@/models/GameVersion';
 import { QCReportRepository } from '@/models/QcReport';
@@ -108,6 +108,9 @@ export async function POST(request: NextRequest) {
     };
 
     console.log(`🧪 Starting comprehensive QC test for ${gameId} v${version.version}`);
+
+    // Import server-only MiniGameQCService
+    const { MiniGameQCService } = await import('@/lib/MiniGameQCService.server');
 
     // Run comprehensive QC test suite
     const testReport: QCTestReport = await MiniGameQCService.runQCTestSuite(testSuite);
