@@ -50,6 +50,9 @@ export interface QATestResults {
     duplicateAttemptId: boolean;
     backendRecordCount: number;
     consistencyCheck: boolean;
+    rawResult: object;  // Add rawResult property
+    eventsTimeline: GameEvent[];  // Add eventsTimeline property
+    testDurationts: number;
   };
   rawResult: object;
   eventsTimeline: GameEvent[];

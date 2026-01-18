@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Iruka GameHub Simulator</title>
+    <style>
+      :root{ --b:#ddd; --bg:#0b1020; --fg:#d7e1ff; --muted:#666; }
+      *{ box-sizing:border-box; }
+      body{ margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+      header{
+        position:sticky; top:0; z-index:10;
+        display:flex; gap:8px; align-items:center;
+        padding:10px 12px; border-bottom:1px solid var(--b); background:#fff;
+      }
+      input, select, button, textarea{ font:inherit; }
+      input, select{ padding:8px 10px; border:1px solid #ccc; border-radius:10px; }
+      button{ padding:8px 12px; border:1px solid #ccc; border-radius:10px; background:#fff; cursor:pointer; }
+      button:active{ transform: translateY(1px); }
+      main{ height: calc(100vh - 56px); display:grid; grid-template-columns: 1fr 520px; }
+      #stageWrap{ position:relative; background:#000; }
+      iframe{ width:100%; height:100%; border:0; background:#000; display:block; }
+      aside{ border-left:1px solid var(--b); padding:12px; overflow:auto; background:#fafafa; }
+      .card{ background:#fff; border:1px solid var(--b); border-radius:14px; padding:10px; margin-bottom:10px; }
+      .card h3{ margin:0 0 8px 0; font-size:14px; }
+      .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+      .muted{ color:var(--muted); font-size:12px; line-height:1.4; }
+      textarea{ width:100%; min-height:150px; padding:10px; border:1px solid #ccc; border-radius:12px; }
+      pre{ margin:0; background: var(--bg); color: var(--fg); padding:10px; border-radius:14px; overflow:auto; min-height:220px; }
+      code.k{ background:#f3f3f3; padding:2px 6px; border-radius:8px; }
+      .kv{ font-size:12px; display:grid; grid-template-columns: 140px 1fr; gap:6px; }
+      .ok{ color:#0a7a2f; }
+      .bad{ color:#b30000; }
+      .pill{ font-size:12px; padding:2px 10px; border:1px solid #ccc; border-radius:999px; }
+
+      /* overlays */
+      .overlay{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,0.6); z-index:50; }
+      .overlay.show{ display:flex; }
+      .modal{
+        width:min(560px, 92vw);
+        background:#fff; border-radius:18px; padding:14px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+      }
+      .modal h2{ margin:0 0 8px 0; font-size:18px; }
+      .modal p{ margin:0 0 10px 0; white-space:pre-wrap; }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <span class="pill">GameHub</span>
+      <input id="url" style="flex:1" />
+      <button id="loadBtn">Load</button>
+      <button id="reloadBtn">Reload</button>
+
+      <select id="originMode">
+        <option value="any">Origin: *</option>
+        <option value="lock">Origin: lock</option>
+      </select>
+      <input id="allowedOrigin" style="width:220px" placeholder="http://localhost:5173" />
+    </header>
+
+    <main>
+      <div id="stageWrap">
+        <iframe id="gameFrame" title="Game iframe"></iframe>
+
+        <div id="loadingOverlay" class="overlay">
+          <div class="modal">
+            <h2>Hub Loading…</h2>
+            <p class="muted">Mô phỏng overlay loading của hub.</p>
+            <div class="row">
+              <button id="loadingOffBtn">Tắt</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="rotateOverlay" class="overlay">
+          <div class="modal">
+            <h2>Xoay màn hình</h2>
+            <p class="muted">Mô phỏng rotate overlay của hub.</p>
+            <div class="row">
+              <button id="rotateOffBtn">Tắt</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="resultOverlay" class="overlay">
+          <div class="modal">
+            <h2 id="resultTitle">Kết quả</h2>
+            <p id="resultBody"></p>
+            <div class="row">
+              <button id="resultCloseBtn">Đóng</button>
+              <button id="resultReplayBtn">Replay → game</button>
+              <button id="resultNextBtn">Next → game</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h3>Hub status</h3>
+          <div class="kv">
+            <div>channel</div><div><code class="k" id="ch">iruka/game</code></div>
+            <div>version</div><div><code class="k" id="ver">1.0.0</code></div>
+            <div>sessionId</div>
+            <div class="row">
+              <code class="k" id="sid"></code>
+              <button id="regenSidBtn">New</button>
+            </div>
+            <div>iframe origin</div><div><code class="k" id="iframeOrigin">-</code></div>
+            <div>pending</div><div><code class="k" id="pendingCount">0</code></div>
+            <div>last requestId</div><div><code class="k" id="lastReq">-</code></div>
+            <div>last status</div><div id="lastStatus" class="muted">-</div>
+            <div>hub score</div><div><code class="k" id="hubScore">0</code></div>
+            <div>hub time</div><div><code class="k" id="hubTime">00:00.0</code></div>
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <label class="muted"><input id="autoInit" type="checkbox" checked /> auto INIT</label>
+            <label class="muted"><input id="autoStart" type="checkbox" /> auto START</label>
+            <label class="muted"><input id="strictEnv" type="checkbox" checked /> strict envelope</label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Hub → Game commands</h3>
+          <div class="row">
+            <button id="btnInit">INIT</button>
+            <button id="btnStart">START</button>
+            <button id="btnPause">PAUSE</button>
+            <button id="btnResume">RESUME</button>
+            <button id="btnQuit">QUIT</button>
+            <button id="btnResize">RESIZE now</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button id="btnShowLoading">Hub loading ON</button>
+            <button id="btnShowRotate">Hub rotate ON</button>
+            <button id="btnShowResultWin">Hub result WIN</button>
+            <button id="btnShowResultLose">Hub result LOSE</button>
+          </div>
+          <div class="muted" style="margin-top:8px">
+            “AssetManager/AudioManager/Score/Timer” của bạn nằm trong game; hub sẽ kích bằng
+            <code class="k">SET_STATE</code> (tuỳ bạn map). Bên dưới có preset.
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>SET_STATE (Hub → Game)</h3>
+          <div class="row" style="margin-bottom:8px">
+            <select id="statePreset" style="flex:1">
+              <option value="custom">Custom JSON</option>
+              <option value="audio_unlock">Preset: audio unlock</option>
+              <option value="audio_play_click">Preset: audio play click</option>
+              <option value="score_add_10">Preset: score +10</option>
+              <option value="timer_start">Preset: timer start</option>
+              <option value="timer_reset">Preset: timer reset</option>
+              <option value="result_win">Preset: result win</option>
+            </select>
+            <button id="btnApplyPreset">Apply</button>
+            <button id="btnSendSetState">Send SET_STATE</button>
+          </div>
+          <textarea id="setStateJson"></textarea>
+          <div class="muted">
+            Preset dùng namespace <code class="k">__hub</code> để bạn dễ route trong game:
+            ví dụ <code class="k">{ "__hub": { "audio": { "cmd":"unlock" } } }</code>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Mock SAVE/LOAD (Game → Hub)</h3>
+          <div class="row">
+            <button id="btnWipe">Wipe</button>
+            <button id="btnDump">Dump</button>
+          </div>
+          <div class="muted" style="margin-top:8px">
+            - Game gửi <code class="k">REQUEST_SAVE</code>: Hub lưu localStorage theo sessionId.<br/>
+            - Game gửi <code class="k">REQUEST_LOAD</code>: Hub trả về <code class="k">SET_STATE</code> payload <code class="k">__hub.loadResult</code>.
+          </div>
+          <pre id="storageView" style="min-height:120px"></pre>
+        </div>
+
+        <div class="card">
+          <h3>Log (newest first)</h3>
+          <div class="row" style="margin-bottom:8px">
+            <button id="btnClearLog">Clear</button>
+            <button id="btnExportLog">Export log.json</button>
+          </div>
+          <pre id="log"></pre>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+        // ===== SDK Protocol constants (theo format mới) =====
+        const SDK_VERSION = "1.0.0";
+        const MAX_MESSAGE_BYTES = 16 * 1024;
+
+        // ===== App config =====
+        const DEFAULT_GAME_URL = "http://localhost:5173/"; // 👈 đổi URL game của bạn
+        const STORAGE_PREFIX = "iruka:save:";
+
+        // ===== Defaults để build LaunchContext (bạn sửa cho đúng dự án) =====
+        const HUB_META = {
+            playerId: "player-123",
+            gameId: "game.id",        // 👈 đổi thành id thật nếu có
+            lessonId: "lessonId",     // 👈 đổi nếu cần
+            gameVersion: "1.0.0",
+            locale: "vi-VN",
+            difficulty: "normal",
+            launchToken: "dev-launch-token",
+        };
+
+        const $ = (id) => document.getElementById(id);
+
+        const frame = $("gameFrame");
+        const stageWrap = $("stageWrap");
+        const logEl = $("log");
+        const urlInput = $("url");
+        const originModeEl = $("originMode");
+        const allowedOriginEl = $("allowedOrigin");
+        const strictEnvEl = $("strictEnv");
+
+        const sidEl = $("sid");
+        const iframeOriginEl = $("iframeOrigin");
+        const pendingCountEl = $("pendingCount");
+        const lastReqEl = $("lastReq");
+        const lastStatusEl = $("lastStatus");
+        const hubScoreEl = $("hubScore");
+        const hubTimeEl = $("hubTime");
+
+        const setStateJsonEl = $("setStateJson");
+        const storageViewEl = $("storageView");
+
+        const loadingOverlay = $("loadingOverlay");
+        const rotateOverlay = $("rotateOverlay");
+        const resultOverlay = $("resultOverlay");
+        const resultTitle = $("resultTitle");
+        const resultBody = $("resultBody");
+
+        // ===== UI: update header badges =====
+        $("ch").textContent = "hub";
+        $("ver").textContent = SDK_VERSION;
+
+        const eventLog = [];
+        const HUB_LOG_MAX = 2000; // ✅ tránh phình log khi chạy lâu/loop
+        function now() { return new Date().toISOString(); }
+
+        // ✅ sanitize để tránh circular/too large trong artifacts
+        function safeCloneSmall(v, maxChars = 4000) {
+          try {
+            const json = JSON.stringify(v);
+            if (json.length <= maxChars) return JSON.parse(json);
+            return { truncated: true, preview: json.slice(0, maxChars) + "…" };
+          } catch {
+            return { unserializable: true, preview: String(v) };
+          }
+        }
+
+        function log(dir, msg, extra = {}) {
+            const rec = {
+              t: now(),
+              dir,
+              type: (msg && typeof msg === "object") ? msg.type : undefined,
+              sessionId: (msg && typeof msg === "object") ? msg.sessionId : undefined,
+              msg: safeCloneSmall(msg),
+              extra: safeCloneSmall(extra),
+            };
+            eventLog.unshift(rec);
+            if (eventLog.length > HUB_LOG_MAX) eventLog.length = HUB_LOG_MAX;
+
+            const txt =
+            `[${rec.t}] ${dir}\n` +
+            (typeof msg === "string" ? msg : JSON.stringify(msg, null, 2)) +
+            (Object.keys(extra).length ? ("\n" + JSON.stringify(extra, null, 2)) : "") +
+            "\n\n";
+            logEl.textContent = txt + logEl.textContent;
+            console.log("[HUB]", dir, msg, extra);
+        }
+        function exportLog() {
+            const blob = new Blob([JSON.stringify(eventLog, null, 2)], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "iruka-gamehub-log.json";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function nanoid(len = 16) {
+            const s = "abcdefghijklmnopqrstuvwxyz0123456789";
+            let out = "";
+            for (let i = 0; i < len; i++) out += s[(Math.random() * s.length) | 0];
+            return out;
+        }
+
+        //
+        function isIrukaMsg(m) {
+            return m && typeof m === "object" && m.sdkVersion && m.source && m.sessionId && m.type;
+        }
+
+        // ✅ incoming origin allowlist (khi lock)
+        function isIncomingOriginAllowed(origin) {
+          if (originModeEl.value === "any") return true;
+          const allowed = (allowedOriginEl.value || "").trim();
+          return !!allowed && origin === allowed;
+        }
+
+        // ✅ expose cho Playwright/runner
+        window.__hubTest = {
+            setGameUrl(url) { urlInput.value = url; loadIframe(url); },
+            setOriginAny() { originModeEl.value = "any"; },
+            setOriginLock(origin) { originModeEl.value = "lock"; allowedOriginEl.value = origin; },
+            setAllowedOrigin(origin) { allowedOriginEl.value = origin; },
+            setMeta(patch) { try { Object.assign(HUB_META, patch || {}); } catch {} },
+            setSessionId(sid) { sessionId = String(sid || ""); renderSid(); refreshStorageView(); },
+            sendInit,
+            sendCmd,
+            sendSetState,
+            clearLogs() { eventLog.length = 0; logEl.textContent = ""; },
+            getLogs() { return eventLog.slice(); },
+            dumpArtifacts() {
+              return {
+                meta: {
+                  sdkVersion: SDK_VERSION,
+                  sessionId,
+                  hubMeta: { ...HUB_META },
+                  originMode: originModeEl.value,
+                  allowedOrigin: allowedOriginEl.value || "",
+                  gameUrl: urlInput.value || "",
+                },
+                logs: eventLog.slice(),
+              };
+            }
+        };
+
+
+        // ===== Hub sessionId =====
+        let sessionId = nanoid(18);
+        function renderSid() { sidEl.textContent = sessionId; }
+        renderSid();
+        $("regenSidBtn").onclick = () => { sessionId = nanoid(18); renderSid(); refreshStorageView(); };
+
+        // ===== Envelope helpers (format mới) =====
+        function estimateJsonBytes(v) { try { return JSON.stringify(v).length; } catch { return Infinity; } }
+
+        // MsgEnvelope đúng theo bạn yêu cầu
+        function makeEnvelope({ type, payload }) {
+            const env = {
+            sdkVersion: SDK_VERSION,
+            source: "hub",
+            sessionId: (payload && typeof payload === "object" && payload.sessionId) ? payload.sessionId : sessionId,
+            gameId: (payload && typeof payload === "object" && payload.gameId) ? payload.gameId : HUB_META.gameId,
+            lessonId: (payload && typeof payload === "object" && payload.lessonId) ? payload.lessonId : HUB_META.lessonId,
+            gameVersion: (payload && typeof payload === "object" && payload.gameVersion) ? payload.gameVersion : HUB_META.gameVersion,
+            type,
+            payload
+            };
+
+            const bytes = estimateJsonBytes(env);
+            if (bytes > MAX_MESSAGE_BYTES) {
+            log("HUB", "❌ payload_too_large", { bytes, limit: MAX_MESSAGE_BYTES, type });
+            return null;
+            }
+            return env;
+        }
+
+        // Strict mode: validate theo format mới
+        function isValidEnvelope(v) {
+            if (!v || typeof v !== "object") return false;
+            if (typeof v.sdkVersion !== "string" || !v.sdkVersion) return false;
+            if (typeof v.source !== "string" || !v.source) return false;
+            if (typeof v.sessionId !== "string" || !v.sessionId) return false;
+            if (typeof v.type !== "string" || !v.type) return false;
+            // gameId/lessonId/gameVersion/payload có thể tùy game gửi lên
+            return true;
+        }
+
+        function getPostOrigin() {
+            if (originModeEl.value === "any") return "*";
+            return (allowedOriginEl.value || "").trim() || "*";
+        }
+        function postToGame(env, traceId) {
+            if (!frame.contentWindow) return;
+            const origin = getPostOrigin();
+            frame.contentWindow.postMessage(env, origin);
+            log("HUB → GAME", env, { postOrigin: origin, traceId });
+        }
+
+        // ===== Pending tracking (traceId nội bộ) =====
+        const pending = new Map(); // traceId -> { t0, type }
+        function setPendingUI() { pendingCountEl.textContent = String(pending.size); }
+        function markReq(traceId, type) {
+            pending.set(traceId, { t0: performance.now(), type });
+            setPendingUI();
+            lastReqEl.textContent = traceId;
+            lastStatusEl.className = "muted";
+            lastStatusEl.textContent = `pending (${type})`;
+        }
+        function markRes(traceId, ok, type) {
+            const p = pending.get(traceId);
+            if (p) pending.delete(traceId);
+            setPendingUI();
+            const dt = p ? Math.round(performance.now() - p.t0) : null;
+            lastReqEl.textContent = traceId;
+            lastStatusEl.className = ok ? "ok" : "bad";
+            lastStatusEl.textContent = ok
+            ? `ok (${type})${dt !== null ? ` in ${dt}ms` : ""}`
+            : `fail (${type})${dt !== null ? ` in ${dt}ms` : ""}`;
+        }
+        // Không có requestId từ game => chỉ “best-effort”: nhận msg nào thì clear pending đầu tiên
+        function ackAnyIncoming(inType) {
+            const it = pending.entries().next();
+            if (!it.done) {
+            const [traceId, info] = it.value;
+            markRes(traceId, true, `${info.type} ← ${inType}`);
+            }
+        }
+
+        // ===== Hub score/time (mô phỏng) =====
+        let hubScore = 0;
+        let hubStartAt = performance.now();
+        function fmtTime(ms) {
+            ms = Math.max(0, ms | 0);
+            const s = ms / 1000;
+            const mm = String(Math.floor(s / 60)).padStart(2, "0");
+            const ss = String(Math.floor(s % 60)).padStart(2, "0");
+            const t = String(Math.floor((ms % 1000) / 100));
+            return `${mm}:${ss}.${t}`;
+        }
+        function renderHubHUD() {
+            hubScoreEl.textContent = String(hubScore);
+            hubTimeEl.textContent = fmtTime(performance.now() - hubStartAt);
+        }
+        setInterval(renderHubHUD, 200);
+
+        // ===== Overlays =====
+        function setOverlay(el, on) { el.classList.toggle("show", !!on); }
+        $("loadingOffBtn").onclick = () => setOverlay(loadingOverlay, false);
+        $("rotateOffBtn").onclick = () => setOverlay(rotateOverlay, false);
+        $("resultCloseBtn").onclick = () => setOverlay(resultOverlay, false);
+        $("resultReplayBtn").onclick = () => {
+            sendSetState({ __hub: { nav: "replay" } });
+            setOverlay(resultOverlay, false);
+        };
+        $("resultNextBtn").onclick = () => {
+            sendSetState({ __hub: { nav: "next" } });
+            setOverlay(resultOverlay, false);
+        };
+        function showResult(kind, payload) {
+            resultTitle.textContent = kind === "WIN" ? "Thắng ✅" : "Thua ❌";
+            resultBody.textContent = JSON.stringify(payload, null, 2);
+            setOverlay(resultOverlay, true);
+        }
+
+        // ===== LaunchContext builder (INIT.payload = context) =====
+        function buildLaunchContext() {
+            return {
+            sdkVersion: SDK_VERSION,
+            playerId: HUB_META.playerId || "player-123",
+            sessionId: sessionId,
+            lessonId: HUB_META.lessonId,
+            gameVersion: HUB_META.gameVersion,
+            gameId: HUB_META.gameId,
+            locale: HUB_META.locale, // 'vi-VN'
+            difficulty: HUB_META.difficulty,
+            seed: Math.floor(Math.random() * 1000000),
+            launchToken: HUB_META.launchToken,
+            sizeHint: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                devicePixelRatio: window.devicePixelRatio || 1,
+            },
+            };
+        }
+
+        // ===== Hub commands =====
+        function sendInit() {
+            // payload INIT = context (đúng yêu cầu)
+            const context = buildLaunchContext();
+            const env = makeEnvelope({ type: "INIT", payload: context });
+            if (!env) return;
+            const traceId = nanoid(10);
+            markReq(traceId, "INIT");
+            postToGame(env, traceId);
+        }
+        function sendCmd(type) {
+            const env = makeEnvelope({ type, payload: null });
+            if (!env) return;
+            const traceId = nanoid(10);
+            markReq(traceId, type);
+            postToGame(env, traceId);
+        }
+        function sendResize() {
+            const env = makeEnvelope({
+            type: "RESIZE",
+            payload: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                devicePixelRatio: window.devicePixelRatio || 1,
+            },
+            });
+            if (!env) return;
+            const traceId = nanoid(10);
+            markReq(traceId, "RESIZE");
+            postToGame(env, traceId);
+        }
+        function sendSetState(stateObj) {
+            const env = makeEnvelope({ type: "SET_STATE", payload: stateObj });
+            if (!env) return;
+            const traceId = nanoid(10);
+            markReq(traceId, "SET_STATE");
+            postToGame(env, traceId);
+        }
+
+        // ===== Mock SAVE/LOAD storage =====
+        function storageKey() { return `${STORAGE_PREFIX}${sessionId}`; }
+        function safeParse(s) { try { return JSON.parse(s); } catch { return null; } }
+        function refreshStorageView() {
+            const raw = localStorage.getItem(storageKey());
+            storageViewEl.textContent = JSON.stringify({ key: storageKey(), value: safeParse(raw) }, null, 2);
+        }
+        function wipeStorage() {
+            localStorage.removeItem(storageKey());
+            refreshStorageView();
+            log("HUB", "Wiped storage", { key: storageKey() });
+        }
+        refreshStorageView();
+
+        // ===== Receive from game =====
+        window.addEventListener("message", (ev) => {
+            // console.log("RAW FROM GAME:", ev.origin, ev.data); 
+            const msg = ev.data;
+
+            // ✅ 0) chỉ nhận từ đúng iframe game
+            if (ev.source !== frame.contentWindow) return;
+
+            // ✅ 1) lọc message rác: must match schema + must be from "game"
+            if (!isIrukaMsg(msg)) return;
+            if (msg.source !== "game") return;
+
+            // ✅ 2) origin allowlist khi lock
+            if (!isIncomingOriginAllowed(ev.origin)) return;
+
+            if (strictEnvEl.checked) {
+            if (!isValidEnvelope(msg)) return;
+            } else {
+            if (!msg || typeof msg !== "object" || !msg.type) return;
+            }
+
+            iframeOriginEl.textContent = ev.origin || "-";
+            log("GAME → HUB", msg, { origin: ev.origin });
+
+            // best-effort ack UI
+            ackAnyIncoming(msg.type);
+
+            switch (msg.type) {
+            case "READY": {
+                if ($("autoStart").checked) sendCmd("START");
+                return;
+            }
+            case "LOADING": {
+                const p = msg.payload?.progress;
+                if (typeof p === "number") {
+                if (p < 1) setOverlay(loadingOverlay, true);
+                else setOverlay(loadingOverlay, false);
+                }
+                return;
+            }
+            case "SCORE_UPDATE": {
+                const s = msg.payload?.score;
+                if (typeof s === "number") hubScore = s;
+                renderHubHUD();
+                return;
+            }
+            case "COMPLETE": {
+                showResult("WIN", msg.payload || {});
+                return;
+            }
+            case "ERROR": {
+                showResult("LOSE", msg.payload || {});
+                return;
+            }
+            case "REQUEST_SAVE": {
+                localStorage.setItem(storageKey(), JSON.stringify(msg.payload ?? null));
+                refreshStorageView();
+                sendSetState({ __hub: { saveResult: { ok: true } } });
+                return;
+            }
+            case "REQUEST_LOAD": {
+                const raw = localStorage.getItem(storageKey());
+                const data = safeParse(raw);
+                sendSetState({ __hub: { loadResult: { ok: true, data } } });
+                return;
+            }
+            default:
+                return;
+            }
+        });
+
+        // ===== Resize observer → auto send RESIZE =====
+        const ro = new ResizeObserver(() => sendResize());
+        ro.observe(stageWrap);
+        window.addEventListener("resize", () => sendResize());
+
+        // ===== UI wiring =====
+        urlInput.value = DEFAULT_GAME_URL;
+        allowedOriginEl.value = new URL(DEFAULT_GAME_URL).origin;
+
+        function loadIframe(url) {
+            frame.src = url;
+            log("HUB", `Load iframe: ${url}`);
+            frame.onload = () => {
+            try { allowedOriginEl.value = new URL(url).origin; } catch {}
+            if ($("autoInit").checked) sendInit();
+            };
+        }
+
+        $("loadBtn").onclick = () => loadIframe(urlInput.value.trim());
+        $("reloadBtn").onclick = () => {
+            if (!frame.src) loadIframe(urlInput.value.trim());
+            else {
+            try { frame.contentWindow?.location?.reload(); }
+            catch { frame.src = frame.src; }
+            }
+            log("HUB", "Reload iframe");
+        };
+
+        $("btnInit").onclick = sendInit;
+        $("btnStart").onclick = () => sendCmd("START");
+        $("btnPause").onclick = () => sendCmd("PAUSE");
+        $("btnResume").onclick = () => sendCmd("RESUME");
+        $("btnQuit").onclick = () => sendCmd("QUIT");
+        $("btnResize").onclick = sendResize;
+
+        $("btnShowLoading").onclick = () => setOverlay(loadingOverlay, true);
+        $("btnShowRotate").onclick = () => setOverlay(rotateOverlay, true);
+        $("btnShowResultWin").onclick = () =>
+            showResult("WIN", { score: hubScore, timeMs: Math.round(performance.now() - hubStartAt) });
+        $("btnShowResultLose").onclick = () => showResult("LOSE", { reason: "manual" });
+
+        $("btnWipe").onclick = wipeStorage;
+        $("btnDump").onclick = () => {
+            refreshStorageView();
+            log("HUB", "Storage dump", { storage: safeParse(localStorage.getItem(storageKey())) });
+        };
+
+        $("btnClearLog").onclick = () => (logEl.textContent = "");
+        $("btnExportLog").onclick = exportLog;
+
+        // presets for SET_STATE
+        const presets = {
+            audio_unlock: { __hub: { audio: { cmd: "unlock" } } },
+            audio_play_click: { __hub: { audio: { cmd: "play", key: "click" } } },
+            score_add_10: { __hub: { score: { cmd: "add", delta: 10 } } },
+            timer_start: { __hub: { timer: { cmd: "start" } } },
+            timer_reset: { __hub: { timer: { cmd: "reset" } } },
+            result_win: { __hub: { result: { cmd: "show", kind: "win" } } },
+        };
+
+        function applyPreset() {
+            const k = $("statePreset").value;
+            if (k === "custom") return;
+            setStateJsonEl.value = JSON.stringify(presets[k], null, 2);
+        }
+        $("btnApplyPreset").onclick = applyPreset;
+        $("btnSendSetState").onclick = () => {
+            const obj = safeParse(setStateJsonEl.value);
+            if (!obj) { log("HUB", "❌ JSON invalid in SET_STATE"); return; }
+            sendSetState(obj);
+        };
+
+        setStateJsonEl.value = JSON.stringify(presets.audio_unlock, null, 2);
+
+        // auto load
+        loadIframe(DEFAULT_GAME_URL);
+    </script>
+  </body>
+</html>
