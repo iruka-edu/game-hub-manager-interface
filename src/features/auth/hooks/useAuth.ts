@@ -24,7 +24,11 @@ export function useSession() {
   const query = useQuery({
     queryKey: authKeys.session(),
     queryFn: getSession,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - prevent refetch if data is fresh
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch on every mount
+    refetchOnReconnect: false, // Don't refetch on reconnect
     retry: false,
   });
 
@@ -43,8 +47,14 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: (payload: LoginPayload) => login(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: authKeys.session() });
+    onSuccess: (data) => {
+      // Set query data directly instead of invalidating to prevent extra fetch
+      if (data.success && data.user) {
+        queryClient.setQueryData(authKeys.session(), {
+          user: data.user,
+          isAuthenticated: true,
+        });
+      }
     },
   });
 }
@@ -58,8 +68,15 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => logout(),
     onSuccess: () => {
-      // Clear all queries on logout
-      queryClient.clear();
+      // Set unauthenticated state directly
+      queryClient.setQueryData(authKeys.session(), {
+        user: null,
+        isAuthenticated: false,
+      });
+      // Clear other queries but keep session
+      queryClient.removeQueries({
+        predicate: (query) => !query.queryKey.includes("session"),
+      });
     },
   });
 }

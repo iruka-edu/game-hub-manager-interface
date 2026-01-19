@@ -1,14 +1,66 @@
 /**
  * GCS Management Types
+ * Matching BE_vu_v2.json API schemas
  */
 
-export interface GCSFile {
+/**
+ * GCS File Info
+ * Matches GCSFileInfo schema
+ */
+export interface GCSFileInfo {
   name: string;
   size: number;
+  content_type: string;
   updated: string;
+  public_url: string;
+}
+
+/**
+ * GCS List Response
+ * Matches GCSListResponse schema
+ */
+export interface GCSListResponse {
+  files: GCSFileInfo[];
+  prefix: string;
+  total: number;
+  bucket: string;
+}
+
+/**
+ * GCS Bucket Info Response
+ * Matches GCSBucketInfoResponse schema
+ */
+export interface GCSBucketInfoResponse {
+  bucket_name: string;
+  public_base: string;
+  status: string;
+}
+
+/**
+ * GCS Cleanup Request
+ * Matches GCSCleanupRequest schema
+ */
+export interface GCSCleanupRequest {
+  prefix: string;
+  confirm?: boolean;
+}
+
+/**
+ * GCS Cleanup Response
+ * Matches GCSCleanupResponse schema
+ */
+export interface GCSCleanupResponse {
+  success: boolean;
+  deleted_count: number;
+  prefix: string;
+  message: string;
+}
+
+// Legacy aliases for backward compatibility
+export interface GCSFile extends GCSFileInfo {
   gameId?: string;
   version?: string;
-  inDatabase: boolean;
+  inDatabase?: boolean;
   gameTitle?: string;
   status?: string;
 }
@@ -59,7 +111,11 @@ export interface GCSCacheResponse {
   message?: string;
 }
 
-export type GCSFolderFilter = 'all' | 'orphaned' | 'in-database';
-
-export type GCSSortField = 'gameId' | 'totalSize' | 'lastUpdated' | 'gameTitle' | 'totalFiles';
-export type GCSSortOrder = 'asc' | 'desc';
+export type GCSFolderFilter = "all" | "orphaned" | "in-database";
+export type GCSSortField =
+  | "gameId"
+  | "totalSize"
+  | "lastUpdated"
+  | "gameTitle"
+  | "totalFiles";
+export type GCSSortOrder = "asc" | "desc";

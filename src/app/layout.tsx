@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/global.css";
 import { QueryProvider } from "@/lib/query-client";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 export const metadata: Metadata = {
@@ -11,9 +12,7 @@ export const metadata: Metadata = {
   description:
     "Internal management console for educational mini-games at Iruka Education",
   icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     shortcut: "/favicon.svg",
     apple: "/favicon.svg",
   },
@@ -65,11 +64,13 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-slate-50 text-slate-900 min-h-screen font-sans antialiased">
-        <QueryProvider>{children}</QueryProvider>
-        
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
+
         {/* PWA Install Prompt */}
         <PWAInstallPrompt />
-        
+
         {/* Toast Container */}
         <div
           id="toast-container"

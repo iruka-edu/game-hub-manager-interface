@@ -1,17 +1,22 @@
 /**
  * Axios Configuration with Retry Mechanism
- * Centralized HTTP client for all API calls
+ * Centralized HTTP client for all API calls to external backend
  */
 
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
+import { tokenStorage } from "./token-storage";
+
+// External API base URL from environment
+const BASE_API_URL = process.env.NEXT_PUBLIC_BASE_API_URL || "";
 
 // Create axios instance with default config
 export const apiClient = axios.create({
-  baseURL: process.env.NODE_ENV === "production" ? "" : "http://localhost:3000",
+  baseURL: BASE_API_URL,
   timeout: 30000, // 30 seconds
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Include cookies for refresh token
 });
 
 // Retry configuration
@@ -43,58 +48,158 @@ const shouldRetry = (error: AxiosError): boolean => {
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // Add any auth headers here if needed
-    // For cookie-based auth, cookies are sent automatically
+    const token = tokenStorage.getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
-// Response interceptor with retry logic
+// Refresh token state management
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string | null) => void;
+  reject: (error: any) => void;
+}> = [];
+
+/**
+ * Process the queue of failed requests after refresh
+ */
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Response interceptor with refresh token logic and retry
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     return response;
   },
   async (error: AxiosError) => {
-    const config = error.config as AxiosRequestConfig & {
+    const originalRequest = error.config as AxiosRequestConfig & {
+      _retry?: boolean;
       _retryCount?: number;
     };
 
-    // Initialize retry count
-    if (!config._retryCount) {
-      config._retryCount = 0;
+    if (!originalRequest) {
+      return Promise.reject(error);
     }
 
-    // Check if we should retry
-    if (config._retryCount < MAX_RETRIES && shouldRetry(error)) {
-      config._retryCount++;
+    // Initialize retry count
+    if (!originalRequest._retryCount) {
+      originalRequest._retryCount = 0;
+    }
+
+    // Handle 401 Unauthorized - try to refresh token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // If already refreshing, add to queue
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            if (token) {
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = tokenStorage.getRefreshToken();
+
+        if (!refreshToken) {
+          throw new Error("No refresh token available");
+        }
+
+        // Call refresh token API (use raw axios to avoid interceptor loop)
+        // Backend reads refresh_token from cookie automatically
+        const response = await axios.post(
+          `${BASE_API_URL}/api/v1/auth/refresh`,
+          {}, // Empty body - backend reads refresh_token from cookie
+          { withCredentials: true },
+        );
+
+        const { access_token, refresh_token: newRefreshToken } = response.data;
+
+        // Save new tokens
+        tokenStorage.setToken(access_token);
+        if (newRefreshToken) {
+          tokenStorage.setRefreshToken(newRefreshToken);
+        }
+
+        // Update default header
+        apiClient.defaults.headers.common["Authorization"] =
+          `Bearer ${access_token}`;
+
+        // Process queue with new token
+        processQueue(null, access_token);
+
+        // Retry original request
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${access_token}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed - clear tokens and redirect to login
+        processQueue(refreshError, null);
+        tokenStorage.clearTokens();
+
+        // Redirect to login (client-side only)
+        if (typeof window !== "undefined") {
+          const currentPath = window.location.pathname;
+          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+        }
+
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    // Retry logic for other errors (500, network errors, etc.)
+    if (originalRequest._retryCount < MAX_RETRIES && shouldRetry(error)) {
+      originalRequest._retryCount++;
 
       // Calculate delay with exponential backoff
-      const delay = getRetryDelay(config._retryCount - 1);
+      const delay = getRetryDelay(originalRequest._retryCount - 1);
 
       console.warn(
-        `API request failed, retrying in ${delay}ms (attempt ${config._retryCount}/${MAX_RETRIES}):`,
+        `API request failed, retrying in ${delay}ms (attempt ${originalRequest._retryCount}/${MAX_RETRIES}):`,
         {
-          url: config.url,
-          method: config.method,
+          url: originalRequest.url,
+          method: originalRequest.method,
           status: error.response?.status,
           message: error.message,
-        }
+        },
       );
 
       // Wait before retrying
       await new Promise((resolve) => setTimeout(resolve, delay));
 
       // Retry the request
-      return apiClient(config);
+      return apiClient(originalRequest);
     }
 
     // If we've exhausted retries or shouldn't retry, reject with enhanced error
     const enhancedError = {
       ...error,
       message:
+        (error.response?.data as any)?.detail ||
         (error.response?.data as any)?.error ||
         error.message ||
         "Đã xảy ra lỗi không xác định",
@@ -103,13 +208,13 @@ apiClient.interceptors.response.use(
     };
 
     return Promise.reject(enhancedError);
-  }
+  },
 );
 
 // Utility functions for common HTTP methods
 export const apiGet = async <T = any>(
   url: string,
-  config?: AxiosRequestConfig
+  config?: AxiosRequestConfig,
 ): Promise<T> => {
   const response = await apiClient.get<T>(url, config);
   return response.data;
@@ -118,7 +223,7 @@ export const apiGet = async <T = any>(
 export const apiPost = async <T = any>(
   url: string,
   data?: any,
-  config?: AxiosRequestConfig
+  config?: AxiosRequestConfig,
 ): Promise<T> => {
   const response = await apiClient.post<T>(url, data, config);
   return response.data;
@@ -127,7 +232,7 @@ export const apiPost = async <T = any>(
 export const apiPut = async <T = any>(
   url: string,
   data?: any,
-  config?: AxiosRequestConfig
+  config?: AxiosRequestConfig,
 ): Promise<T> => {
   const response = await apiClient.put<T>(url, data, config);
   return response.data;
@@ -136,7 +241,7 @@ export const apiPut = async <T = any>(
 export const apiPatch = async <T = any>(
   url: string,
   data?: any,
-  config?: AxiosRequestConfig
+  config?: AxiosRequestConfig,
 ): Promise<T> => {
   const response = await apiClient.patch<T>(url, data, config);
   return response.data;
@@ -144,7 +249,7 @@ export const apiPatch = async <T = any>(
 
 export const apiDelete = async <T = any>(
   url: string,
-  config?: AxiosRequestConfig
+  config?: AxiosRequestConfig,
 ): Promise<T> => {
   const response = await apiClient.delete<T>(url, config);
   return response.data;
@@ -156,7 +261,7 @@ export const apiUpload = async <T = any>(
   formData: FormData,
   config?: AxiosRequestConfig & {
     onUploadProgress?: (progressEvent: any) => void;
-  }
+  },
 ): Promise<T> => {
   const response = await apiClient.post<T>(url, formData, {
     ...config,

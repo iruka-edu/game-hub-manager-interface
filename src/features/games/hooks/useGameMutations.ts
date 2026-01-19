@@ -1,26 +1,42 @@
-"use client";
-
-/**
- * useGameMutations Hook
- * React Query mutations for game CRUD operations
- */
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  createGame,
   updateGame,
   deleteGame,
   submitToQC,
   updateSelfQA,
   approveGame,
+  rejectGame,
   publishGame,
-  qcPass,
-  qcFail,
+  qcReview,
+  uploadBuild,
+  uploadThumbnail,
 } from "../api/gameMutations";
 import { gamesKeys } from "./useGames";
-import type { UpdateGamePayload } from "../types";
+import type {
+  CreateGamePayload,
+  UpdateGamePayload,
+  SelfQAChecklist,
+  QCReviewPayload,
+  SelfQAResponse,
+} from "../types";
 
 /**
- * Hook for updating game metadata
+ * Hook for creating a game
+ */
+export function useCreateGame() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateGamePayload) => createGame(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Hook for updating a game
  */
 export function useUpdateGame() {
   const queryClient = useQueryClient();
@@ -34,7 +50,6 @@ export function useUpdateGame() {
       payload: UpdateGamePayload;
     }) => updateGame(gameId, payload),
     onSuccess: (_, { gameId }) => {
-      // Invalidate both list and detail
       queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
     },
@@ -48,8 +63,7 @@ export function useDeleteGame() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ gameId, reason }: { gameId: string; reason?: string }) =>
-      deleteGame(gameId, reason),
+    mutationFn: (gameId: string) => deleteGame(gameId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
     },
@@ -57,11 +71,10 @@ export function useDeleteGame() {
 }
 
 /**
- * Hook for submitting game to QC
+ * Hook for submitting a game to QC
  */
 export function useSubmitToQC() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (gameId: string) => submitToQC(gameId),
     onSuccess: (_, gameId) => {
@@ -83,7 +96,7 @@ export function useUpdateSelfQA() {
       checklist,
     }: {
       gameId: string;
-      checklist: Array<{ id: string; checked: boolean }>;
+      checklist: SelfQAChecklist;
     }) => updateSelfQA(gameId, checklist),
     onSuccess: (_, { gameId }) => {
       queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
@@ -96,10 +109,43 @@ export function useUpdateSelfQA() {
  */
 export function useApproveGame() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: (gameId: string) => approveGame(gameId),
-    onSuccess: (_, gameId) => {
+    mutationFn: ({
+      gameId,
+      payload,
+    }: {
+      gameId: string;
+      payload?: { note?: string; decision?: "approve" };
+    }) =>
+      approveGame(gameId, {
+        decision: "approve",
+        ...payload,
+      }),
+    onSuccess: (_, { gameId }) => {
+      queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
+    },
+  });
+}
+
+/**
+ * Hook for rejecting a game
+ */
+export function useRejectGame() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      gameId,
+      payload,
+    }: {
+      gameId: string;
+      payload?: { note?: string; decision?: "reject" };
+    }) =>
+      rejectGame(gameId, {
+        decision: "reject",
+        ...payload,
+      }),
+    onSuccess: (_, { gameId }) => {
       queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
     },
@@ -111,25 +157,9 @@ export function useApproveGame() {
  */
 export function usePublishGame() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: (gameId: string) => publishGame(gameId),
-    onSuccess: (_, gameId) => {
-      queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
-    },
-  });
-}
-
-/**
- * Hook for QC Pass
- */
-export function useQCPass() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ gameId, note }: { gameId: string; note?: string }) =>
-      qcPass(gameId, note),
+    mutationFn: (payload: { gameId: string; payload: any }) =>
+      publishGame(payload.gameId, payload.payload),
     onSuccess: (_, { gameId }) => {
       queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
@@ -138,24 +168,109 @@ export function useQCPass() {
 }
 
 /**
- * Hook for QC Fail
+ * Hook for uploading game build
  */
-export function useQCFail() {
+export function useUploadBuild() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
+      formData,
+      onUploadProgress,
+    }: {
+      formData: FormData;
+      onUploadProgress?: (progressEvent: any) => void;
+    }) => uploadBuild(formData, onUploadProgress),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Hook for QC Review (Pass/Fail) - wrapper around qcReview API
+ */
+export function useQCPass() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
       gameId,
-      note,
-      severity,
+      versionId,
+      notes,
+      qaSummary,
+      reviewerName,
     }: {
       gameId: string;
-      note: string;
-      severity?: "low" | "medium" | "high";
-    }) => qcFail(gameId, note, severity),
+      versionId: string;
+      notes?: string;
+      qaSummary?: Record<string, any> | null;
+      reviewerName?: string | null;
+    }) =>
+      qcReview(gameId, {
+        versionId,
+        decision: "pass",
+        notes,
+        qaSummary,
+        reviewerName,
+      }),
     onSuccess: (_, { gameId }) => {
       queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
+    },
+  });
+}
+
+export function useQCFail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      gameId,
+      versionId,
+      notes,
+      qaSummary,
+      reviewerName,
+    }: {
+      gameId: string;
+      versionId: string;
+      notes?: string;
+      qaSummary?: Record<string, any> | null;
+      reviewerName?: string | null;
+    }) =>
+      qcReview(gameId, {
+        versionId,
+        decision: "fail",
+        notes,
+        qaSummary,
+        reviewerName,
+      }),
+    onSuccess: (_, { gameId }) => {
+      queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
+    },
+  });
+}
+
+/**
+ * Hook for uploading game thumbnails
+ */
+export function useUploadThumbnail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      formData,
+      onUploadProgress,
+    }: {
+      formData: FormData;
+      onUploadProgress?: (progressEvent: any) => void;
+    }) => uploadThumbnail(formData, onUploadProgress),
+    onSuccess: (_, { formData }) => {
+      // Try to get gameId from formData to invalidate detail
+      const gameId = formData.get("mongoGameId") as string;
+      queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
+      if (gameId) {
+        queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
+      }
     },
   });
 }

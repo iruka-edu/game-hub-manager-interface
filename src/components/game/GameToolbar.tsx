@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { SerializedGame, SerializedVersion } from '@/types/game';
-import { ResponsiveControlManager } from '@/lib/responsive-control-manager';
-import { useEffect, useState } from 'react';
+import { SerializedGame, SerializedVersion } from "@/features/games/types";
+import { ResponsiveControlManager } from "@/lib/responsive-control-manager";
+import { useEffect, useState } from "react";
 
 interface UnifiedGameToolbarProps {
   game: SerializedGame;
   version: SerializedVersion | null;
   gameId: string;
-  deviceType: 'mobile' | 'tablet' | 'desktop';
+  deviceType: "mobile" | "tablet" | "desktop";
   isFullscreen: boolean;
   showInFullscreen: boolean;
   onFullscreenToggle: () => void;
@@ -40,44 +40,68 @@ export function GameToolbar({
       setScreenHeight(height);
       setIsLandscape(width > height);
     };
-    
+
     updateScreenDimensions();
-    window.addEventListener('resize', updateScreenDimensions);
-    window.addEventListener('orientationchange', updateScreenDimensions);
-    
+    window.addEventListener("resize", updateScreenDimensions);
+    window.addEventListener("orientationchange", updateScreenDimensions);
+
     return () => {
-      window.removeEventListener('resize', updateScreenDimensions);
-      window.removeEventListener('orientationchange', updateScreenDimensions);
+      window.removeEventListener("resize", updateScreenDimensions);
+      window.removeEventListener("orientationchange", updateScreenDimensions);
     };
   }, []);
 
   const layoutConfig = controlManager.getLayoutConfig(deviceType, screenWidth);
   const buttonConfig = controlManager.getButtonConfig(deviceType);
   const spacingConfig = controlManager.getSpacingConfig(deviceType);
-  
+
   // Get responsive configurations
-  const toolbarHeight = controlManager.getOptimalToolbarHeight(deviceType, isLandscape);
-  const titleFontSize = controlManager.getResponsiveFontSize(deviceType, 'title');
-  const versionFontSize = controlManager.getResponsiveFontSize(deviceType, 'version');
-  const buttonFontSize = controlManager.getResponsiveFontSize(deviceType, 'button');
+  const toolbarHeight = controlManager.getOptimalToolbarHeight(
+    deviceType,
+    isLandscape,
+  );
+  const titleFontSize = controlManager.getResponsiveFontSize(
+    deviceType,
+    "title",
+  );
+  const versionFontSize = controlManager.getResponsiveFontSize(
+    deviceType,
+    "version",
+  );
+  const buttonFontSize = controlManager.getResponsiveFontSize(
+    deviceType,
+    "button",
+  );
   const animationDuration = controlManager.getAnimationDuration(deviceType);
-  
-  const toolbarClasses = controlManager.getToolbarClasses(deviceType, isFullscreen, showInFullscreen);
-  const buttonClasses = controlManager.getButtonClasses(deviceType, 'secondary');
-  const primaryButtonClasses = controlManager.getButtonClasses(deviceType, 'primary');
-  const infoButtonClasses = controlManager.getButtonClasses(deviceType, 'info');
+
+  const toolbarClasses = controlManager.getToolbarClasses(
+    deviceType,
+    isFullscreen,
+    showInFullscreen,
+  );
+  const buttonClasses = controlManager.getButtonClasses(
+    deviceType,
+    "secondary",
+  );
+  const primaryButtonClasses = controlManager.getButtonClasses(
+    deviceType,
+    "primary",
+  );
+  const infoButtonClasses = controlManager.getButtonClasses(deviceType, "info");
   const iconClasses = controlManager.getIconClasses(deviceType);
   return (
-    <div 
+    <div
       className={toolbarClasses}
-      style={{ 
+      style={{
         height: toolbarHeight,
         transition: `transform ${animationDuration}ms ease-in-out`,
       }}
     >
       <div className="flex items-center justify-between h-full">
         {/* Left side - Navigation and Game Info */}
-        <div className={`flex items-center min-w-0 flex-1 ${spacingConfig.gap}`}>
+        <div
+          className={`flex items-center min-w-0 flex-1 ${spacingConfig.gap}`}
+        >
           {/* Back to Console */}
           <a
             href="/console"
@@ -98,17 +122,19 @@ export function GameToolbar({
             </svg>
             {layoutConfig.showFullText && <span>Console</span>}
           </a>
-          
+
           {/* Separator */}
           {layoutConfig.showFullText && (
             <span className="text-slate-300">•</span>
           )}
-          
+
           {/* Game Title */}
-          <h1 className={`font-semibold text-slate-900 truncate ${titleFontSize}`}>
+          <h1
+            className={`font-semibold text-slate-900 truncate ${titleFontSize}`}
+          >
             {game.title}
           </h1>
-          
+
           {/* Version Info */}
           {version && (
             <>
@@ -127,22 +153,22 @@ export function GameToolbar({
           {/* Device Indicator */}
           {layoutConfig.showDeviceIndicator && (
             <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
-              <svg
-                className="w-3 h-3"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z"
                   clipRule="evenodd"
                 />
               </svg>
-              {deviceType === 'mobile' ? 'Mobile' : deviceType === 'tablet' ? 'Tablet' : 'Desktop'}
+              {deviceType === "mobile"
+                ? "Mobile"
+                : deviceType === "tablet"
+                  ? "Tablet"
+                  : "Desktop"}
               {/* Show orientation indicator on mobile/tablet */}
-              {(deviceType === 'mobile' || deviceType === 'tablet') && (
+              {(deviceType === "mobile" || deviceType === "tablet") && (
                 <span className="text-xs opacity-75">
-                  {isLandscape ? '⟷' : '↕'}
+                  {isLandscape ? "⟷" : "↕"}
                 </span>
               )}
             </div>

@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ReuploadModal } from "./ReuploadModal";
+import {
+  useSubmitToQC,
+  useApproveGame,
+  useRejectGame,
+  usePublishGame,
+} from "@/features/games";
 
 interface GameActionsProps {
-  gameId: string; // Mongo ID used for existing actions
-  gameSlug: string; // Slug for upload API
-  version?: string; // Current version for upload API
+  gameId: string; // Internal ID for hooks
+  gameSlug: string; // Slug for upload API / display
+  version?: string; // Current version
   canEdit: boolean;
   canSubmitQC: boolean;
   canReview: boolean;
@@ -27,51 +33,27 @@ export function GameActions({
   canPublish,
   isSelfQaComplete,
 }: GameActionsProps) {
-  const [loading, setLoading] = useState<string | null>(null);
   const [isReuploadOpen, setIsReuploadOpen] = useState(false);
 
-  const handleAction = async (action: string) => {
-    setLoading(action);
-    try {
-      const response = await fetch(`/api/games/${gameId}/${action}`, {
-        method: "POST",
-      });
+  const submitQC = useSubmitToQC();
+  const approveGame = useApproveGame();
+  const rejectGame = useRejectGame();
+  const publishGame = usePublishGame();
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Action failed");
-      }
+  const handleSubmitQC = () => {
+    submitQC.mutate(gameId);
+  };
 
-      window.location.reload();
-    } catch (error: any) {
-      alert(error.message || "Có lỗi xảy ra");
-    } finally {
-      setLoading(null);
+  const handleApproveDecision = (decision: "approve" | "reject") => {
+    if (decision === "approve") {
+      approveGame.mutate(gameId);
+    } else {
+      rejectGame.mutate(gameId);
     }
   };
 
-  const handleApproveDecision = async (decision: "approve" | "reject") => {
-    setLoading(decision);
-    try {
-      const response = await fetch(`/api/games/${gameId}/approve`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ decision }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Action failed");
-      }
-
-      window.location.reload();
-    } catch (error: any) {
-      alert(error.message || "Có lỗi xảy ra");
-    } finally {
-      setLoading(null);
-    }
+  const handlePublish = () => {
+    publishGame.mutate({ gameId, payload: {} });
   };
 
   return (
@@ -111,12 +93,12 @@ export function GameActions({
 
         {canSubmitQC && (
           <button
-            onClick={() => handleAction("submit-qc")}
-            disabled={!isSelfQaComplete || loading === "submit-qc"}
+            onClick={handleSubmitQC}
+            disabled={!isSelfQaComplete || submitQC.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title={!isSelfQaComplete ? "Hoàn thành Self-QA trước khi gửi" : ""}
           >
-            {loading === "submit-qc" ? "Đang gửi..." : "Gửi QC"}
+            {submitQC.isPending ? "Đang gửi..." : "Gửi QC"}
           </button>
         )}
 
@@ -133,28 +115,28 @@ export function GameActions({
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleApproveDecision("reject")}
-              disabled={loading === "reject" || loading === "approve"}
+              disabled={rejectGame.isPending || approveGame.isPending}
               className="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
             >
-              {loading === "reject" ? "Đang xử lý..." : "Từ chối"}
+              {rejectGame.isPending ? "Đang xử lý..." : "Từ chối"}
             </button>
             <button
               onClick={() => handleApproveDecision("approve")}
-              disabled={loading === "approve" || loading === "reject"}
+              disabled={approveGame.isPending || rejectGame.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
             >
-              {loading === "approve" ? "Đang duyệt..." : "Duyệt"}
+              {approveGame.isPending ? "Đang duyệt..." : "Duyệt"}
             </button>
           </div>
         )}
 
         {canPublish && (
           <button
-            onClick={() => handleAction("publish")}
-            disabled={loading === "publish"}
+            onClick={handlePublish}
+            disabled={publishGame.isPending}
             className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
           >
-            {loading === "publish" ? "Đang xuất bản..." : "Xuất bản"}
+            {publishGame.isPending ? "Đang xuất bản..." : "Xuất bản"}
           </button>
         )}
       </div>

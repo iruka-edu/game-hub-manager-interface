@@ -1,111 +1,147 @@
-import { cookies } from 'next/headers';
-import { verifySession } from '@/lib/session';
-import { UserRepository } from '@/models/User';
-import { GameRepository } from '@/models/Game';
-import { GameVersionRepository } from '@/models/GameVersion';
-import Link from 'next/link';
+"use client";
 
-interface DashboardStats {
-  totalGames: number;
-  myGames: number;
-  pendingQC: number;
-  pendingApproval: number;
-  published: number;
-}
+import { useMemo } from "react";
+import Link from "next/link";
+import { useSession } from "@/features/auth";
+import { useGames } from "@/features/games";
 
-async function getDashboardStats(userId: string, roles: string[]): Promise<DashboardStats> {
-  const gameRepo = await GameRepository.getInstance();
-  const versionRepo = await GameVersionRepository.getInstance();
-  
-  const allGames = await gameRepo.findAll();
-  
-  // Count games by status
-  let pendingQC = 0;
-  let pendingApproval = 0;
-  let published = 0;
-  
-  for (const game of allGames) {
-    if (game.latestVersionId) {
-      const version = await versionRepo.findById(game.latestVersionId.toString());
-      if (version) {
-        if (version.status === 'uploaded') pendingQC++;
-        if (version.status === 'qc_passed') pendingApproval++;
-        if (version.status === 'published') published++;
+export default function ConsoleDashboard() {
+  // Note: Route protection is handled by Middleware, no need for useEffect redirect
+  const { user, isLoading: sessionLoading } = useSession();
+  const { games, allGames, isLoading: gamesLoading } = useGames();
+
+  // Compute stats from games
+  const stats = useMemo(() => {
+    const myGames = games.length;
+    let pendingQC = 0;
+    let pendingApproval = 0;
+    let published = 0;
+
+    // Note: Current API returns GameListItem which doesn't have version status
+    // We approximate using live_version_id presence
+    games.forEach((game) => {
+      if (game.live_version_id) {
+        published++;
       }
-    }
-  }
-  
-  const myGames = allGames.filter(g => g.ownerId === userId).length;
-  
-  return {
-    totalGames: allGames.length,
-    myGames,
-    pendingQC,
-    pendingApproval,
-    published,
-  };
-}
+    });
 
-export default async function ConsoleDashboard() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('iruka_session');
-  const session = verifySession(sessionCookie?.value || '');
-  
-  if (!session) {
-    return null;
+    // For a proper implementation, we'd need an API that returns version status
+    // For now, show what we can compute
+    return {
+      totalGames: allGames.length,
+      myGames,
+      pendingQC,
+      pendingApproval,
+      published,
+    };
+  }, [games, allGames]);
+
+  const hasRole = (role: string) =>
+    (user?.roles as string[] | undefined)?.includes(role) ?? false;
+  const isAdmin = hasRole("admin");
+  const isDev = hasRole("dev");
+  const isQC = hasRole("qc");
+  const isCTO = hasRole("cto");
+  const isCEO = hasRole("ceo");
+
+  // Loading state
+  if (sessionLoading || gamesLoading) {
+    return (
+      <div className="space-y-6 sm:space-y-8">
+        <div className="mb-6 sm:mb-8">
+          <div className="h-8 bg-slate-200 rounded w-32 animate-pulse"></div>
+          <div className="h-4 bg-slate-200 rounded w-48 mt-2 animate-pulse"></div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6"
+            >
+              <div className="h-12 bg-slate-200 rounded animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  const userRepo = await UserRepository.getInstance();
-  const user = await userRepo.findById(session.userId);
-  
   if (!user) {
+    // This should not happen since Middleware protects the route
     return null;
   }
-
-  const stats = await getDashboardStats(session.userId, user.roles);
-  
-  const hasRole = (role: string) => user.roles.includes(role as any);
-  const isAdmin = hasRole('admin');
-  const isDev = hasRole('dev');
-  const isQC = hasRole('qc');
-  const isCTO = hasRole('cto');
-  const isCEO = hasRole('ceo');
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1 text-sm sm:text-base">Xin chào, {user.name || user.email}!</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+          Dashboard
+        </h1>
+        <p className="text-slate-500 mt-1 text-sm sm:text-base">
+          Xin chào, {user.name || user.email}!
+        </p>
       </div>
 
       {/* Stats Grid - Responsive */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {(isDev || isAdmin) && (
-          <Link href="/console/my-games" className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow">
+          <Link
+            href="/console/my-games"
+            className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow"
+          >
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                <svg
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.myGames}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Game của tôi</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">
+                  {stats.myGames}
+                </p>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  Game của tôi
+                </p>
               </div>
             </div>
           </Link>
         )}
 
         {(isQC || isAdmin) && (
-          <Link href="/console/qc-inbox" className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow">
+          <Link
+            href="/console/qc-inbox"
+            className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow"
+          >
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-yellow-100 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                <svg
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                  />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.pendingQC}</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">
+                  {stats.pendingQC}
+                </p>
                 <p className="text-xs sm:text-sm text-slate-500">Chờ QC</p>
               </div>
             </div>
@@ -113,15 +149,30 @@ export default async function ConsoleDashboard() {
         )}
 
         {(isCTO || isCEO || isAdmin) && (
-          <Link href="/console/approval" className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow">
+          <Link
+            href="/console/approval"
+            className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-md transition-shadow"
+          >
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.pendingApproval}</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">
+                  {stats.pendingApproval}
+                </p>
                 <p className="text-xs sm:text-sm text-slate-500">Chờ duyệt</p>
               </div>
             </div>
@@ -131,12 +182,24 @@ export default async function ConsoleDashboard() {
         <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+              <svg
+                className="w-5 h-5 sm:w-6 sm:h-6 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.published}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">
+                {stats.published}
+              </p>
               <p className="text-xs sm:text-sm text-slate-500">Đã xuất bản</p>
             </div>
           </div>
@@ -145,15 +208,27 @@ export default async function ConsoleDashboard() {
 
       {/* Quick Actions - Responsive */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
-        <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">Thao tác nhanh</h2>
+        <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">
+          Thao tác nhanh
+        </h2>
         <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
           {(isDev || isAdmin) && (
             <Link
               href="/console/my-games"
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm sm:text-base font-medium"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               Tạo game mới
             </Link>
@@ -162,8 +237,18 @@ export default async function ConsoleDashboard() {
             href="/console/library"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-white text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm sm:text-base font-medium"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+              />
             </svg>
             Xem thư viện
           </Link>

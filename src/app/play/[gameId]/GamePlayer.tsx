@@ -6,10 +6,9 @@ import { GameLoadingOverlay } from "@/components/game/GameLoadingOverlay";
 import { GameErrorOverlay } from "@/components/game/GameErrorOverlay";
 import { GameIframe } from "@/components/game/GameIframe";
 import { GameContainer } from "@/components/game/GameContainer";
-import { GameStyles } from "@/components/game/GameStyles";
 import { FullscreenExitButton } from "@/components/game/FullscreenExitButton";
 import { useGamePlayer } from "@/hooks/useGamePlayer";
-import { SerializedGame, SerializedVersion } from "@/types/game";
+import { SerializedGame, SerializedVersion } from "@/features/games/types";
 
 interface GamePlayerProps {
   game: SerializedGame;
@@ -34,11 +33,11 @@ export function GamePlayer({
     deviceType,
     cssHeight,
     supportsSvh,
-    
+
     // Refs
     iframeRef,
     containerRef,
-    
+
     // Handlers
     handleFullscreenToggle,
     handleIframeLoad,
@@ -86,13 +85,15 @@ export function GamePlayer({
             />
 
             {/* Error Overlay */}
-            <GameErrorOverlay
-              hasError={loadError}
-              onRetry={handleRetry}
-            />
+            <GameErrorOverlay hasError={loadError} onRetry={handleRetry} />
 
             {/* Game Iframe */}
+            {/* UPDATE: Thêm key={gameUrl} 
+                Điều này đảm bảo React sẽ unmount/remount iframe khi URL thay đổi,
+                giúp tránh lỗi cache hoặc trạng thái cũ của game.
+            */}
             <GameIframe
+              key={gameUrl}
               ref={iframeRef}
               src={gameUrl}
               title={game.title}
@@ -105,7 +106,6 @@ export function GamePlayer({
       </OrientationLock>
 
       {/* Game Styles */}
-      <GameStyles />
     </>
   );
 }
