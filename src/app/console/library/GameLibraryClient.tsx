@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useDeleteGame } from "@/features/games";
 
 interface SerializedGame extends Record<string, unknown> {
   _id: string;
@@ -81,7 +82,7 @@ export function GameLibraryClient({
 
   // Selection state
   const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
@@ -90,6 +91,8 @@ export function GameLibraryClient({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [gamesToDelete, setGamesToDelete] = useState<GameWithVersion[]>([]);
+
+  const deleteGameMutation = useDeleteGame();
 
   // Check if user is admin
   const isAdmin =
@@ -154,7 +157,7 @@ export function GameLibraryClient({
       // Only draft versions can be deleted by owner
       return latestVersion.status === "draft";
     },
-    [isAdmin, currentUserId]
+    [isAdmin, currentUserId],
   );
 
   // Handle selection toggle
@@ -188,7 +191,7 @@ export function GameLibraryClient({
     return filteredGames.filter(
       (item) =>
         selectedGameIds.has(item.game._id) &&
-        canDeleteGame(item.game, item.latestVersion)
+        canDeleteGame(item.game, item.latestVersion),
     );
   }, [filteredGames, selectedGameIds, canDeleteGame]);
 
@@ -204,7 +207,7 @@ export function GameLibraryClient({
     (item: GameWithVersion) => {
       openDeleteModal([item]);
     },
-    [openDeleteModal]
+    [openDeleteModal],
   );
 
   // Delete selected games
@@ -223,29 +226,20 @@ export function GameLibraryClient({
     setDeleteError(null);
 
     try {
-      // Delete games sequentially
-      for (const item of gamesToDelete) {
-        const response = await fetch(`/api/games/${item.game._id}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason: "user_deleted" }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(
-            data.error || `Không thể xóa game: ${item.game.title}`
-          );
-        }
-      }
+      // Delete games in parallel
+      await Promise.all(
+        gamesToDelete.map((item) =>
+          deleteGameMutation.mutateAsync(item.game._id),
+        ),
+      );
 
       // Success - close modal and refresh
       setShowDeleteModal(false);
       setSelectedGameIds(new Set());
       setIsSelectionMode(false);
       router.refresh();
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
+    } catch (err: any) {
+      setDeleteError(err.message || "Đã có lỗi xảy ra");
     } finally {
       setDeleteLoading(false);
     }
@@ -273,7 +267,7 @@ export function GameLibraryClient({
               Chọn tất cả (
               {
                 filteredGames.filter((item) =>
-                  canDeleteGame(item.game, item.latestVersion)
+                  canDeleteGame(item.game, item.latestVersion),
                 ).length
               }
               )
@@ -448,7 +442,7 @@ export function GameLibraryClient({
 
               {/* Thumbnail */}
               <div
-                className={`aspect-[308/211] bg-slate-100 rounded-t-xl overflow-hidden ${
+                className={`aspect-308/211 bg-slate-100 rounded-t-xl overflow-hidden ${
                   isSelectionMode ? "cursor-pointer" : ""
                 }`}
                 onClick={() =>
@@ -543,7 +537,7 @@ export function GameLibraryClient({
                     <div>
                       Cập nhật:{" "}
                       {new Date(latestVersion.updatedAt).toLocaleDateString(
-                        "vi-VN"
+                        "vi-VN",
                       )}
                     </div>
                   </div>
@@ -637,7 +631,7 @@ export function GameLibraryClient({
             <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full relative z-10">
               <div className="bg-white px-6 pt-6 pb-4">
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <div className="shrink-0 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                     <svg
                       className="w-6 h-6 text-red-600"
                       fill="none"

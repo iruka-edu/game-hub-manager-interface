@@ -5,8 +5,12 @@
  * React Query hook for fetching notifications
  */
 
-import { useQuery } from "@tanstack/react-query";
-import { getNotifications } from "../api/getNotifications";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+} from "../api/getNotifications";
 
 /**
  * Query key factory for notifications
@@ -23,7 +27,7 @@ export const notificationsKeys = {
 export function useNotifications() {
   const query = useQuery({
     queryKey: notificationsKeys.list(),
-    queryFn: getNotifications,
+    queryFn: () => getNotifications(),
     staleTime: 30 * 1000, // 30 seconds
     refetchInterval: 60 * 1000, // Refetch every minute for real-time updates
   });
@@ -31,6 +35,35 @@ export function useNotifications() {
   return {
     ...query,
     notifications: query.data?.notifications ?? [],
-    unreadCount: query.data?.unreadCount ?? 0,
+    unreadCount: query.data?.unread_count ?? 0, // Use snake_case
+    total: query.data?.total ?? 0,
   };
+}
+
+/**
+ * Hook to mark notification as read
+ */
+export function useMarkAsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (notificationId: string) => markAsRead(notificationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationsKeys.list() });
+    },
+  });
+}
+
+/**
+ * Hook to mark all notifications as read
+ */
+export function useMarkAllAsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => markAllAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationsKeys.list() });
+    },
+  });
 }

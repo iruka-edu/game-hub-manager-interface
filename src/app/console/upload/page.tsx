@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ResponsiveUploadPage } from "@/features/upload/components/ResponsiveUploadPage";
+import { uploadWithMetadata } from "@/features/games/api/gameMutations";
 import type { UploadFormData } from "@/features/upload/components/ResponsiveUploadPage";
 
 export default function UploadPage() {
@@ -44,28 +45,16 @@ export default function UploadPage() {
           skills: data.skills,
           themes: data.themes,
           linkGithub: data.linkGithub,
-        })
+        }),
       );
 
-      const response = await fetch("/api/games/upload-with-metadata", {
-        method: "POST",
-        body: formData,
-      });
+      // Use external API via features
+      await uploadWithMetadata(formData);
 
-      const result = await response.json();
+      console.log("Upload successful");
 
-      if (!response.ok) {
-        throw new Error(result.error || "Upload failed");
-      }
-
-      console.log("Upload successful:", result);
-
-      // Navigate to game detail page
-      if (result.game?._id) {
-        router.push(`/console/games/${result.game._id}`);
-      } else {
-        router.push("/console/my-games");
-      }
+      // Navigate to my-games page after successful upload
+      router.push("/console/my-games");
     } catch (error) {
       console.error("Upload error:", error);
       throw error;

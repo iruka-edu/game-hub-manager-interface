@@ -33,7 +33,7 @@ export async function getMongoClient(): Promise<MongoConnection> {
     } catch (error) {
       console.warn(
         "[MongoDB] Cached connection is stale, reconnecting...",
-        error
+        error,
       );
       cachedConnection = null;
     }
@@ -70,7 +70,7 @@ async function connectToMongo(): Promise<MongoConnection> {
 
   if (!uri) {
     const error = new Error(
-      "[MongoDB] IRUKA_MONGODB_URI environment variable is not set"
+      "[MongoDB] IRUKA_MONGODB_URI environment variable is not set",
     );
     console.error(error.message);
     throw error;
@@ -104,8 +104,8 @@ async function connectToMongo(): Promise<MongoConnection> {
         new Promise((_, reject) =>
           setTimeout(
             () => reject(new Error("Connection timeout after 15 seconds")),
-            15000
-          )
+            15000,
+          ),
         ),
       ]);
 
@@ -119,7 +119,7 @@ async function connectToMongo(): Promise<MongoConnection> {
       // Only log once to avoid spam
       if (!hasLoggedConnection) {
         console.log(
-          `[MongoDB] Connected successfully on attempt ${attempt} with connection pooling`
+          `[MongoDB] Connected successfully on attempt ${attempt} with connection pooling`,
         );
         hasLoggedConnection = true;
       }
@@ -128,7 +128,7 @@ async function connectToMongo(): Promise<MongoConnection> {
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(
-        `[MongoDB] Connection attempt ${attempt} failed: ${lastError.message}`
+        `[MongoDB] Connection attempt ${attempt} failed: ${lastError.message}`,
       );
 
       // If this is not the last attempt, wait before retrying
@@ -142,7 +142,7 @@ async function connectToMongo(): Promise<MongoConnection> {
 
   // All attempts failed
   const finalError = new Error(
-    `[MongoDB] Failed to connect after ${maxRetries} attempts. Last error: ${lastError?.message}`
+    `[MongoDB] Failed to connect after ${maxRetries} attempts. Last error: ${lastError?.message}`,
   );
   console.error(finalError.message);
   throw finalError;

@@ -5,6 +5,7 @@
  */
 
 import { create } from "zustand";
+import { useShallow } from "zustand/shallow";
 import type { ActionType } from "@/lib/audit-types";
 import type { AuditLogFilters } from "../types";
 
@@ -67,11 +68,13 @@ export const useAuditLogFilters = () =>
   useAuditLogStore((state) => state.filters);
 
 export const useAuditLogFilterActions = () =>
-  useAuditLogStore((state) => ({
-    setPage: state.setPage,
-    setLimit: state.setLimit,
-    setUserId: state.setUserId,
-    setAction: state.setAction,
-    setTargetId: state.setTargetId,
-    resetFilters: state.resetFilters,
-  }));
+  useAuditLogStore(
+    useShallow((state) => ({
+      setPage: state.setPage,
+      setLimit: state.setLimit,
+      setUserId: state.setUserId,
+      setAction: state.setAction,
+      setTargetId: state.setTargetId,
+      resetFilters: state.resetFilters,
+    })),
+  );

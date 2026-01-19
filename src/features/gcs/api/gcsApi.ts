@@ -1,98 +1,220 @@
-import { apiGet, apiPost, apiDelete } from "@/lib/api-fetch";
+/**
+ * GCS API Functions
+ * Calling external API at NEXT_PUBLIC_BASE_API_URL
+ */
+
+import {
+  externalApiGet,
+  externalApiPost,
+  externalApiDelete,
+  externalApiUpload,
+} from "@/lib/external-api";
 import type {
+  GCSListResponse,
+  GCSBucketInfoResponse,
+  GCSCleanupRequest,
+  GCSCleanupResponse,
   GCSFoldersResponse,
-  GCSDeleteResponse,
-  GCSCacheResponse,
+  GCSGameFolder,
+  GCSFile,
+  GCSStats,
 } from "../types";
 
 /**
- * Get GCS folders list
- * GET /api/gcs/files
+ * List GCS files
+ * GET /api/v1/gcs/files
  */
-export async function getGCSFolders(): Promise<GCSFoldersResponse> {
-  return apiGet<GCSFoldersResponse>("/api/gcs/files");
-}
-
-/**
- * Delete GCS file or directory
- * DELETE /api/gcs/files/[...path]
- */
-export async function deleteGCSFile(
-  filePath: string
-): Promise<GCSDeleteResponse> {
-  // Encode the file path for URL
-  const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
-  return apiDelete<GCSDeleteResponse>(`/api/gcs/files/${encodedPath}`);
-}
-
-/**
- * Get cached GCS data
- * GET /api/gcs/cache?type=folders
- */
-export async function getGCSCache(
-  type: string = "folders"
-): Promise<GCSCacheResponse> {
-  return apiGet<GCSCacheResponse>("/api/gcs/cache", { type });
-}
-
-/**
- * Set GCS cache
- * POST /api/gcs/cache
- */
-export async function setGCSCache(
-  data: any,
-  type: string = "folders",
-  ttl?: number
-): Promise<{ success: boolean; message: string }> {
-  return apiPost<{ success: boolean; message: string }>("/api/gcs/cache", {
-    type,
-    data,
-    ttl,
+export async function listGCSFiles(
+  prefix?: string,
+  limit?: number
+): Promise<GCSListResponse> {
+  return externalApiGet<GCSListResponse>("/api/v1/gcs/files", {
+    prefix: prefix ?? "",
+    limit: limit ?? 100,
   });
 }
 
 /**
- * Clear GCS cache
- * DELETE /api/gcs/cache?type=folders
+ * Get GCS file (returns URL or redirects)
+ * GET /api/v1/gcs/files/{path}
  */
-export async function clearGCSCache(
-  type?: string
-): Promise<{ success: boolean; message: string }> {
-  const params = type ? { type } : {};
-  return apiDelete<{ success: boolean; message: string }>(
-    "/api/gcs/cache",
-    params
+export async function getGCSFile(
+  path: string,
+  redirect: boolean = true
+): Promise<{ url: string } | void> {
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  return externalApiGet(`/api/v1/gcs/files/${encodedPath}`, { redirect });
+}
+
+/**
+ * Upload file to GCS
+ * POST /api/v1/gcs/files?path=...
+ */
+export async function uploadGCSFile(
+  destinationPath: string,
+  file: File,
+  onUploadProgress?: (progressEvent: any) => void
+): Promise<void> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  await externalApiUpload(
+    `/api/v1/gcs/files?path=${encodeURIComponent(destinationPath)}`,
+    formData,
+    onUploadProgress
   );
 }
 
 /**
- * Get GCS folders with caching
- * First try cache, then fetch from API if needed
+ * Delete GCS file
+ * DELETE /api/v1/gcs/files?path=...
+ */
+export async function deleteGCSFile(path: string): Promise<void> {
+  await externalApiDelete<void>("/api/v1/gcs/files", { path });
+}
+
+/**
+ * Get GCS bucket cache/info
+ * GET /api/v1/gcs/cache
+ */
+export async function getGCSCacheInfo(): Promise<GCSBucketInfoResponse> {
+  return externalApiGet<GCSBucketInfoResponse>("/api/v1/gcs/cache");
+}
+
+/**
+ * Cleanup GCS files by prefix
+ * POST /api/v1/gcs/cleanup
+ */
+export async function cleanupGCS(
+  request: GCSCleanupRequest
+): Promise<GCSCleanupResponse> {
+  return externalApiPost<GCSCleanupResponse>("/api/v1/gcs/cleanup", request);
+}
+
+/**
+ * Transform flat file list to folder structure (for legacy component compatibility)
+ */
+function transformFilesToFolders(files: GCSListResponse["files"]): {
+  folders: GCSGameFolder[];
+  stats: GCSStats;
+} {
+  // Group files by gameId (first path segment after 'games/')
+  const folderMap = new Map<string, GCSGameFolder>();
+
+  let totalSize = 0;
+  const versionSet = new Map<string, Set<string>>();
+
+  for (const file of files) {
+    // Parse path: games/{gameId}/{version}/...
+    const parts = file.name.split("/");
+    if (parts.length < 3 || parts[0] !== "games") continue;
+
+    const gameId = parts[1];
+    const version = parts[2];
+
+    if (!folderMap.has(gameId)) {
+      folderMap.set(gameId, {
+        gameId,
+        gameTitle: undefined,
+        inDatabase: false, // Will be updated by component if available
+        totalFiles: 0,
+        totalSize: 0,
+        versions: [],
+        lastUpdated: file.updated,
+        files: [],
+      });
+      versionSet.set(gameId, new Set());
+    }
+
+    const folder = folderMap.get(gameId)!;
+    folder.totalFiles += 1;
+    folder.totalSize += file.size;
+    totalSize += file.size;
+
+    // Track versions
+    if (version && !versionSet.get(gameId)!.has(version)) {
+      versionSet.get(gameId)!.add(version);
+      folder.versions.push(version);
+    }
+
+    // Update last updated if newer
+    if (new Date(file.updated) > new Date(folder.lastUpdated)) {
+      folder.lastUpdated = file.updated;
+    }
+
+    // Add file to folder
+    const gcsFile: GCSFile = {
+      name: file.name,
+      size: file.size,
+      content_type: file.content_type,
+      updated: file.updated,
+      public_url: file.public_url,
+      version: version,
+      inDatabase: false,
+    };
+    folder.files.push(gcsFile);
+  }
+
+  const folders = Array.from(folderMap.values());
+  const stats: GCSStats = {
+    totalFolders: folders.length,
+    totalFiles: files.length,
+    totalSize,
+    inDatabase: 0, // Component will update this
+    orphaned: folders.length, // Component will update this
+  };
+
+  return { folders, stats };
+}
+
+/**
+ * Get GCS folders with caching - returns legacy format for component compatibility
  */
 export async function getGCSFoldersWithCache(): Promise<GCSFoldersResponse> {
-  try {
-    // Try to get from cache first
-    const cacheResponse = await getGCSCache("folders");
+  const response = await listGCSFiles("games/", 1000);
+  const { folders, stats } = transformFilesToFolders(response.files);
 
-    if (cacheResponse.success && cacheResponse.cached && cacheResponse.data) {
-      console.log("GCS folders loaded from cache");
-      return cacheResponse.data;
-    }
-  } catch (error) {
-    console.warn("Failed to get cache, fetching fresh data:", error);
-  }
+  return {
+    success: true,
+    folders,
+    stats,
+  };
+}
 
-  // Fetch fresh data
-  console.log("Fetching fresh GCS folders data");
-  const freshData = await getGCSFolders();
+// Legacy function aliases for backward compatibility
 
-  // Cache the fresh data (fire and forget)
-  try {
-    await setGCSCache(freshData, "folders");
-    console.log("GCS folders data cached successfully");
-  } catch (error) {
-    console.warn("Failed to cache GCS folders data:", error);
-  }
+/**
+ * Get GCS folders list (legacy - wraps listGCSFiles)
+ */
+export async function getGCSFolders(): Promise<GCSFoldersResponse> {
+  return getGCSFoldersWithCache();
+}
 
-  return freshData;
+/**
+ * Get GCS cache (legacy - wraps getGCSCacheInfo)
+ */
+export async function getGCSCache(): Promise<GCSBucketInfoResponse> {
+  return getGCSCacheInfo();
+}
+
+/**
+ * Clear GCS cache (legacy - no-op for external API)
+ */
+export async function clearGCSCache(
+  _type?: string
+): Promise<{ success: boolean; message: string }> {
+  // Cache is now handled client-side, this is a no-op
+  return { success: true, message: "Cache cleared" };
+}
+
+/**
+ * Set GCS cache (legacy - no-op for external API)
+ */
+export async function setGCSCache(
+  _data: any,
+  _type?: string,
+  _ttl?: number
+): Promise<{ success: boolean; message: string }> {
+  // Cache is now handled client-side, this is a no-op
+  return { success: true, message: "Cache set" };
 }

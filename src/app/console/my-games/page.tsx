@@ -1,240 +1,112 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { verifySession } from '@/lib/session';
-import { getUserRepository, getGameRepository, getGameVersionRepository } from '@/lib/repository-manager';
-import type { Game } from '@/models/Game';
-import type { GameVersion } from '@/models/GameVersion';
-import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { GameTable } from '@/components/tables/GameTable';
-import { GameFilters } from '@/components/filters/GameFilters';
-import { GCSManagement } from '@/features/gcs/components/GCSManagement';
-import Link from 'next/link';
+"use client";
 
-// Serialized types for client components (ObjectId converted to string)
-interface SerializedGame {
-  _id: string;
-  gameId: string;
-  title: string;
-  description?: string;
-  thumbnailDesktop?: string;
-  thumbnailMobile?: string;
-  ownerId: string;
-  teamId?: string;
-  latestVersionId?: string;
-  liveVersionId?: string;
-  subject?: string;
-  grade?: string;
-  unit?: string;
-  gameType?: string;
-  priority?: string;
-  tags?: string[];
-  disabled: boolean;
-  rolloutPercentage: number;
-  publishedAt?: string;
-  isDeleted: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useMemo } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "@/features/auth";
+import { useGames } from "@/features/games";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { GCSManagement } from "@/features/gcs/components/GCSManagement";
 
-interface SerializedGameVersion {
-  _id: string;
-  gameId: string;
-  version: string;
-  storagePath: string;
-  entryFile: string;
-  buildSize?: number;
-  status: string;
-  isDeleted: boolean;
-  selfQAChecklist?: {
-    testedDevices: boolean;
-    testedAudio: boolean;
-    gameplayComplete: boolean;
-    contentVerified: boolean;
-    note?: string;
-  };
-  releaseNote?: string;
-  submittedBy: string;
-  submittedAt?: string;
-  lastCodeUpdateAt?: string;
-  lastCodeUpdateBy?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Status configurations
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Nháp",
+  qc_failed: "QC cần sửa",
+  uploaded: "Đang chờ QC",
+  qc_processing: "Đang QC",
+  qc_passed: "QC đạt - Chờ duyệt",
+  approved: "Đã duyệt - Chờ xuất bản",
+  published: "Đã xuất bản",
+};
 
-export interface SerializedGameWithVersion {
-  game: SerializedGame;
-  latestVersion: SerializedGameVersion | null;
-  liveVersion: SerializedGameVersion | null;
-}
+const STATUS_COLORS: Record<string, string> = {
+  draft: "bg-slate-100 text-slate-700",
+  uploaded: "bg-blue-100 text-blue-700",
+  qc_processing: "bg-yellow-100 text-yellow-700",
+  qc_passed: "bg-green-100 text-green-700",
+  qc_failed: "bg-red-100 text-red-700",
+  approved: "bg-purple-100 text-purple-700",
+  published: "bg-emerald-100 text-emerald-700",
+};
 
-// Internal type for database operations
-interface GameWithVersion {
-  game: Game;
-  latestVersion: GameVersion | null;
-  liveVersion: GameVersion | null;
-}
+export default function MyGamesPage() {
+  const searchParams = useSearchParams();
+  // Note: Middleware handles auth redirect, no need for useEffect
+  const { user, isLoading: sessionLoading } = useSession();
+  const { games, isLoading: gamesLoading, isError } = useGames();
 
-// Serialize Game for client components
-function serializeGame(game: Game): SerializedGame {
-  return {
-    _id: game._id.toString(),
-    gameId: game.gameId,
-    title: game.title,
-    description: game.description,
-    thumbnailDesktop: game.thumbnailDesktop,
-    thumbnailMobile: game.thumbnailMobile,
-    ownerId: game.ownerId,
-    teamId: game.teamId,
-    latestVersionId: game.latestVersionId?.toString(),
-    liveVersionId: game.liveVersionId?.toString(),
-    subject: game.subject,
-    grade: game.grade,
-    unit: game.unit,
-    gameType: game.gameType,
-    priority: game.priority,
-    tags: game.tags,
-    disabled: game.disabled,
-    rolloutPercentage: game.rolloutPercentage,
-    publishedAt: game.publishedAt?.toISOString(),
-    isDeleted: game.isDeleted,
-    createdAt: game.createdAt.toISOString(),
-    updatedAt: game.updatedAt.toISOString(),
-  };
-}
+  const statusFilter = searchParams.get("status") || "";
+  const currentTab = searchParams.get("tab") || "games";
 
-// Serialize GameVersion for client components
-function serializeGameVersion(version: GameVersion): SerializedGameVersion {
-  return {
-    _id: version._id.toString(),
-    gameId: version.gameId.toString(),
-    version: version.version,
-    storagePath: version.storagePath,
-    entryFile: version.entryFile,
-    buildSize: version.buildSize,
-    status: version.status,
-    isDeleted: version.isDeleted,
-    selfQAChecklist: version.selfQAChecklist,
-    releaseNote: version.releaseNote,
-    submittedBy: version.submittedBy.toString(),
-    submittedAt: version.submittedAt?.toISOString(),
-    lastCodeUpdateAt: version.lastCodeUpdateAt?.toISOString(),
-    lastCodeUpdateBy: version.lastCodeUpdateBy?.toString(),
-    createdAt: version.createdAt.toISOString(),
-    updatedAt: version.updatedAt.toISOString(),
-  };
-}
+  // Note: useGames hook defaults to mine=true via store's initialFilters
 
-// Serialize GameWithVersion for client components
-function serializeGameWithVersion(gwv: GameWithVersion): SerializedGameWithVersion {
-  return {
-    game: serializeGame(gwv.game),
-    latestVersion: gwv.latestVersion ? serializeGameVersion(gwv.latestVersion) : null,
-    liveVersion: gwv.liveVersion ? serializeGameVersion(gwv.liveVersion) : null,
-  };
-}
+  const hasRole = (role: string) =>
+    (user?.roles as string[] | undefined)?.includes(role) ?? false;
+  const isAdmin = hasRole("admin");
 
-interface Props {
-  searchParams: Promise<{ status?: string; tab?: string }>;
-}
+  // Group games by status
+  const groupedGames = useMemo(() => {
+    const groups: Record<string, typeof games> = {
+      draft: [],
+      qc_failed: [],
+      uploaded: [],
+      qc_processing: [],
+      qc_passed: [],
+      approved: [],
+      published: [],
+    };
 
-async function getGamesWithVersions(userId: string): Promise<GameWithVersion[]> {
-  // Use cached repositories for better performance
-  const [gameRepo, versionRepo] = await Promise.all([
-    getGameRepository(),
-    getGameVersionRepository()
-  ]);
-  
-  const rawGames = await gameRepo.findByOwnerId(userId);
+    games.forEach((game) => {
+      // Note: We need to fetch version status from game detail
+      // For now, just show all games without grouping
+      const status = game.live_version_id ? "published" : "draft";
+      if (groups[status]) {
+        groups[status].push(game);
+      }
+    });
 
-  const gamesWithVersions: GameWithVersion[] = await Promise.all(
-    rawGames.map(async (game) => {
-      const [latestVersion, liveVersion] = await Promise.all([
-        game.latestVersionId
-          ? versionRepo.findById(game.latestVersionId.toString())
-          : versionRepo.getLatestVersion(game._id.toString()),
-        game.liveVersionId
-          ? versionRepo.findById(game.liveVersionId.toString())
-          : Promise.resolve(null)
-      ]);
-      
-      return { game, latestVersion, liveVersion };
-    })
-  );
+    return groups;
+  }, [games]);
 
-  return gamesWithVersions;
-}
-
-function groupGamesByStatus(games: SerializedGameWithVersion[]): Record<string, SerializedGameWithVersion[]> {
-  return {
-    draft: games.filter(g => g.latestVersion?.status === 'draft'),
-    qc_failed: games.filter(g => g.latestVersion?.status === 'qc_failed'),
-    uploaded: games.filter(g => g.latestVersion?.status === 'uploaded'),
-    qc_processing: games.filter(g => g.latestVersion?.status === 'qc_processing'),
-    qc_passed: games.filter(g => g.latestVersion?.status === 'qc_passed'),
-    approved: games.filter(g => g.latestVersion?.status === 'approved'),
-    published: games.filter(g => g.latestVersion?.status === 'published'),
-  };
-}
-
-export default async function MyGamesPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('iruka_session');
-
-  if (!sessionCookie?.value) {
-    redirect('/login?redirect=/console/my-games');
-  }
-
-  const session = verifySession(sessionCookie.value);
-  if (!session) {
-    redirect('/login?redirect=/console/my-games');
-  }
-
-  const userRepo = await getUserRepository();
-  const user = await userRepo.findById(session.userId);
-
-  if (!user) {
-    redirect('/login?redirect=/console/my-games');
-  }
-
-  // Role check - only dev and admin
-  const hasRole = (role: string) => user.roles?.includes(role as any) ?? false;
-  if (!hasRole('dev') && !hasRole('admin')) {
-    redirect('/console?error=unauthorized');
-  }
-
-  const statusFilter = params.status || '';
-  const currentTab = params.tab || 'games';
-
-  const gamesWithVersions = await getGamesWithVersions(session.userId);
-  
-  // Serialize for client components (convert ObjectId to string)
-  const serializedGames = gamesWithVersions.map(serializeGameWithVersion);
-  const groupedGames = groupGamesByStatus(serializedGames);
-
-  // Apply status filter
-  const filteredGames = statusFilter
-    ? serializedGames.filter(g => g.latestVersion?.status === statusFilter)
-    : serializedGames;
-
-  const statusLabels: Record<string, string> = {
-    draft: 'Nháp',
-    qc_failed: 'QC cần sửa',
-    uploaded: 'Đang chờ QC',
-    qc_processing: 'Đang QC',
-    qc_passed: 'QC đạt - Chờ duyệt',
-    approved: 'Đã duyệt - Chờ xuất bản',
-    published: 'Đã xuất bản',
-  };
+  // Filter games
+  const filteredGames = useMemo(() => {
+    if (!statusFilter) return games;
+    return groupedGames[statusFilter] || [];
+  }, [games, groupedGames, statusFilter]);
 
   const breadcrumbItems = [
-    { label: 'Console', href: '/console' },
-    { label: 'Game của tôi' },
+    { label: "Console", href: "/console" },
+    { label: "Game của tôi" },
   ];
 
-  const enableBulkActions = hasRole('dev') || hasRole('admin');
-  const isAdmin = hasRole('admin');
+  // Loading state
+  if (sessionLoading || gamesLoading) {
+    return (
+      <div className="p-8">
+        <Breadcrumb items={breadcrumbItems} />
+        <div className="animate-pulse space-y-4 mt-8">
+          <div className="h-8 bg-slate-200 rounded w-1/4"></div>
+          <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+          <div className="h-64 bg-slate-200 rounded mt-8"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (isError) {
+    return (
+      <div className="p-8">
+        <Breadcrumb items={breadcrumbItems} />
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 mt-8">
+          <p className="text-red-700">
+            Không thể tải dữ liệu. Vui lòng thử lại sau.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -244,14 +116,26 @@ export default async function MyGamesPage({ searchParams }: Props) {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Game của tôi</h1>
-          <p className="text-slate-500 mt-1">Quản lý các game bạn đang phát triển</p>
+          <p className="text-slate-500 mt-1">
+            Quản lý các game bạn đang phát triển
+          </p>
         </div>
         <Link
           href="/upload"
           className="btn-primary flex items-center gap-2 min-h-[40px] px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
           </svg>
           Tạo game mới
         </Link>
@@ -262,27 +146,47 @@ export default async function MyGamesPage({ searchParams }: Props) {
         <Link
           href="/console/my-games?tab=games"
           className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-            currentTab === 'games'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+            currentTab === "games"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
           }`}
         >
-          <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          <svg
+            className="w-4 h-4 mr-2 inline"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            />
           </svg>
           Danh sách game
         </Link>
-        {hasRole('admin') && (
+        {isAdmin && (
           <Link
             href="/console/my-games?tab=gcs"
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              currentTab === 'gcs'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+              currentTab === "gcs"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
             }`}
           >
-            <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+            <svg
+              className="w-4 h-4 mr-2 inline"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+              />
             </svg>
             Quản lý GCS
           </Link>
@@ -290,39 +194,133 @@ export default async function MyGamesPage({ searchParams }: Props) {
       </div>
 
       {/* Games Tab Content */}
-      {currentTab === 'games' && (
+      {currentTab === "games" && (
         <>
-          <GameFilters
-            statusFilter={statusFilter}
-            groupedGames={groupedGames}
-            totalCount={serializedGames.length}
-          />
+          {/* Status Filter Pills */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <Link
+              href="/console/my-games?tab=games"
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                !statusFilter
+                  ? "bg-indigo-100 text-indigo-700"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              Tất cả ({games.length})
+            </Link>
+            {Object.entries(STATUS_LABELS).map(([status, label]) => {
+              const count = groupedGames[status]?.length || 0;
+              if (count === 0) return null;
+              return (
+                <Link
+                  key={status}
+                  href={`/console/my-games?tab=games&status=${status}`}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    statusFilter === status
+                      ? STATUS_COLORS[status] || "bg-indigo-100 text-indigo-700"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {label} ({count})
+                </Link>
+              );
+            })}
+          </div>
 
           {filteredGames.length > 0 ? (
-            <GameTable games={filteredGames} showBulkActions={enableBulkActions} />
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">
+                      Game
+                    </th>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">
+                      Trạng thái
+                    </th>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-slate-700">
+                      Ngày tạo
+                    </th>
+                    <th className="text-right px-6 py-4 text-sm font-semibold text-slate-700">
+                      Thao tác
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredGames.map((game) => {
+                    const status = game.live_version_id ? "published" : "draft";
+                    return (
+                      <tr
+                        key={game.id}
+                        className="hover:bg-slate-50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <Link
+                            href={`/console/games/${game.id}`}
+                            className="block"
+                          >
+                            <p className="font-medium text-slate-900 hover:text-indigo-600">
+                              {game.title}
+                            </p>
+                            <p className="text-sm text-slate-500">
+                              {game.game_id}
+                            </p>
+                          </Link>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              STATUS_COLORS[status] ||
+                              "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {STATUS_LABELS[status] || status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {new Date(game.created_at).toLocaleDateString(
+                            "vi-VN",
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Link
+                            href={`/console/games/${game.id}`}
+                            className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                          >
+                            Chi tiết
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <EmptyState
               title={
                 statusFilter
-                  ? `Không có game nào ở trạng thái "${statusLabels[statusFilter]}"`
-                  : 'Bạn chưa có game nào'
+                  ? `Không có game nào ở trạng thái "${STATUS_LABELS[statusFilter]}"`
+                  : "Bạn chưa có game nào"
               }
               description={
                 statusFilter
-                  ? 'Thử chọn bộ lọc khác hoặc tạo game mới'
-                  : 'Bắt đầu bằng cách tạo game đầu tiên của bạn'
+                  ? "Thử chọn bộ lọc khác hoặc tạo game mới"
+                  : "Bắt đầu bằng cách tạo game đầu tiên của bạn"
               }
               icon="game"
-              action={statusFilter ? undefined : { label: 'Tạo game đầu tiên', href: '/upload' }}
+              action={
+                statusFilter
+                  ? undefined
+                  : { label: "Tạo game đầu tiên", href: "/upload" }
+              }
             />
           )}
         </>
       )}
 
       {/* GCS Management Tab */}
-      {currentTab === 'gcs' && (
-        <GCSManagement isAdmin={isAdmin} />
-      )}
+      {currentTab === "gcs" && <GCSManagement isAdmin={isAdmin} />}
     </div>
   );
 }

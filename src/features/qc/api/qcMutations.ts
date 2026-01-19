@@ -1,31 +1,32 @@
 /**
  * QC API Functions
+ * Calling external API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { apiPost } from "@/lib/api-fetch";
+import { externalApiPost } from "@/lib/external-api";
 import type {
-  QCDecision,
+  QCDecisionPayload,
   QCDecisionResponse,
-  TestRunResult,
-  TestRunResponse,
+  QCRunPayload,
+  QCRunResponse,
 } from "../types";
 
 /**
  * Submit QC decision (pass/fail)
- * POST /api/qc/decision
+ * POST /api/v1/qc/decision
  */
 export async function submitQCDecision(
-  decision: QCDecision
+  decision: QCDecisionPayload
 ): Promise<QCDecisionResponse> {
-  return apiPost<QCDecisionResponse>("/api/qc/decision", decision);
+  return externalApiPost<QCDecisionResponse>("/api/v1/qc/decision", decision);
 }
 
 /**
  * Submit test run results
- * POST /api/qc/run
+ * POST /api/v1/qc/run
  */
 export async function submitTestRun(
-  testRun: TestRunResult
-): Promise<TestRunResponse> {
-  return apiPost<TestRunResponse>("/api/qc/run", testRun);
+  testRun: QCRunPayload
+): Promise<QCRunResponse> {
+  return externalApiPost<QCRunResponse>("/api/v1/qc/run", testRun);
 }

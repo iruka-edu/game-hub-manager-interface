@@ -1,43 +1,52 @@
 /**
  * Games API - Get Games
- * Pure functions for fetching games data
+ * Pure functions for fetching games data from external API
  */
 
-import { apiGet } from "@/lib/api-fetch";
-import type {
-  GamesListResponse,
-  GameFilters,
-  GameDetailResponse,
-} from "../types";
+import { externalApiGet } from "@/lib/external-api";
+import type { GamesListResponse, GameDetailResponse } from "../types";
 
 export interface GetGamesParams {
-  status?: string;
-  ownerId?: string;
-  subject?: string;
-  grade?: string;
-  isDeleted?: boolean;
+  skip?: number;
+  limit?: number;
+  mine?: boolean;
+  include_deleted?: boolean;
 }
 
 /**
  * Fetch games list with optional filters
- * GET /api/games/list
+ * GET /api/v1/games/list
  */
 export async function getGames(
   params?: GetGamesParams
 ): Promise<GamesListResponse> {
-  return apiGet<GamesListResponse>("/api/games/list", {
-    status: params?.status,
-    ownerId: params?.ownerId,
-    subject: params?.subject,
-    grade: params?.grade,
-    isDeleted: params?.isDeleted ? "true" : undefined,
+  return externalApiGet<GamesListResponse>("/api/v1/games/list", {
+    skip: params?.skip,
+    limit: params?.limit,
+    mine: params?.mine,
+    include_deleted: params?.include_deleted,
   });
 }
 
 /**
  * Fetch single game detail
- * GET /api/games/:id
+ * GET /api/v1/games/{game_id}
  */
 export async function getGameById(gameId: string): Promise<GameDetailResponse> {
-  return apiGet<GameDetailResponse>(`/api/games/${gameId}`);
+  return externalApiGet<GameDetailResponse>(`/api/v1/games/${gameId}`);
+}
+
+/**
+ * Check if gameId is duplicate
+ * GET /api/v1/games/check-duplicate
+ */
+export async function checkDuplicateGameId(
+  gameId: string
+): Promise<{ duplicate: boolean }> {
+  return externalApiGet<{ duplicate: boolean }>(
+    "/api/v1/games/check-duplicate",
+    {
+      gameId,
+    }
+  );
 }

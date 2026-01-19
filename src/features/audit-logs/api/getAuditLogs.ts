@@ -2,17 +2,17 @@
  * Audit Logs API Functions
  */
 
-import { apiGet } from "@/lib/api-fetch";
+import { externalApiGet } from "@/lib/external-api";
 import type { AuditLogsResponse, AuditLogsParams } from "../types";
 
 /**
  * Fetch audit logs with pagination and filters
- * GET /api/audit-logs
+ * GET /api/v1/audit-logs
  */
 export async function getAuditLogs(
-  params?: AuditLogsParams
+  params?: AuditLogsParams,
 ): Promise<AuditLogsResponse> {
-  return apiGet<AuditLogsResponse>("/api/audit-logs", {
+  return externalApiGet<AuditLogsResponse>("/api/v1/audit-logs", {
     page: params?.page,
     limit: params?.limit,
     userId: params?.userId,

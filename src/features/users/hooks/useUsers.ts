@@ -34,13 +34,16 @@ export function useUsers() {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  // API returns User[] directly (UsersListResponse)
+  const users = query.data ?? [];
+
   // Client-side filtering (since API doesn't support filtering params)
-  const filteredUsers = query.data?.users.filter((user: User) => {
+  const filteredUsers = users.filter((user: User) => {
     // Search filter
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       const matchesSearch =
-        user.name.toLowerCase().includes(searchLower) ||
+        user.full_name.toLowerCase().includes(searchLower) ||
         user.email.toLowerCase().includes(searchLower);
       if (!matchesSearch) return false;
     }
@@ -50,10 +53,10 @@ export function useUsers() {
       if (!user.roles.includes(filters.roleFilter)) return false;
     }
 
-    // Status filter
+    // Status filter - use snake_case is_active
     if (filters.statusFilter !== "all") {
       const isActive = filters.statusFilter === "active";
-      if (user.isActive !== isActive) return false;
+      if (user.is_active !== isActive) return false;
     }
 
     return true;
@@ -61,7 +64,7 @@ export function useUsers() {
 
   return {
     ...query,
-    users: filteredUsers ?? [],
-    allUsers: query.data?.users ?? [],
+    users: filteredUsers,
+    allUsers: users,
   };
 }

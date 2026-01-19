@@ -8,7 +8,6 @@ import {
   deleteGCSFile,
   clearGCSCache,
 } from "../api/gcsApi";
-import type { GCSDeleteResponse } from "../types";
 
 // Query keys
 export const gcsKeys = {
@@ -39,14 +38,14 @@ export function useDeleteGCSFile() {
 
   return useMutation({
     mutationFn: (filePath: string) => deleteGCSFile(filePath),
-    onSuccess: (data: GCSDeleteResponse) => {
+    onSuccess: () => {
       // Invalidate and refetch GCS folders
       queryClient.invalidateQueries({ queryKey: gcsKeys.folders() });
 
       // Clear cache since data changed
       clearGCSCache("folders").catch(console.warn);
 
-      console.log("GCS file deleted:", data.message);
+      console.log("GCS file deleted successfully");
     },
     onError: (error) => {
       console.error("Failed to delete GCS file:", error);

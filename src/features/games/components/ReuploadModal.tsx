@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useUploadBuild } from "@/features/games";
 
 interface ReuploadModalProps {
   isOpen: boolean;
@@ -18,12 +18,12 @@ export function ReuploadModal({
   mongoGameId,
   version,
 }: ReuploadModalProps) {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const { mutate: upload, isPending, isSuccess } = useUploadBuild();
 
   if (!isOpen) return null;
 
@@ -40,40 +40,43 @@ export function ReuploadModal({
     setError("");
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!file) return;
 
-    setUploading(true);
     setError("");
+    setUploadProgress(0);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("gameId", gameId);
-      formData.append("version", version);
-      formData.append("mongoGameId", mongoGameId);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("gameId", gameId);
+    formData.append("version", version);
+    formData.append("mongoGameId", mongoGameId);
 
-      const response = await fetch("/api/games/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Upload thất bại");
-      }
-
-      setSuccess(true);
-      setTimeout(() => {
-        onClose();
-        router.refresh(); // Refresh content
-      }, 1500);
-    } catch (err: any) {
-      setError(err.message || "Có lỗi xảy ra");
-    } finally {
-      setUploading(false);
-    }
+    upload(
+      {
+        formData,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total,
+            );
+            setUploadProgress(percentCompleted);
+          }
+        },
+      },
+      {
+        onSuccess: () => {
+          setUploadProgress(100);
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+        },
+        onError: (err: any) => {
+          setError(err.message || "Có lỗi xảy ra");
+          setUploadProgress(0);
+        },
+      },
+    );
   };
 
   return (
@@ -103,7 +106,7 @@ export function ReuploadModal({
           </button>
         </div>
 
-        {success ? (
+        {isSuccess ? (
           <div className="text-center py-8">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
@@ -195,12 +198,23 @@ export function ReuploadModal({
 
             {error && <div className="text-sm text-red-600 px-1">{error}</div>}
 
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="w-full bg-slate-200 rounded-full h-2.5">
+                <div
+                  className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            )}
+
             <button
               onClick={handleUpload}
-              disabled={!file || uploading}
+              disabled={!file || isPending}
               className="w-full py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
             >
-              {uploading ? "Đang upload..." : "Upload & Thay thế"}
+              {isPending
+                ? `Đang upload ${uploadProgress}%...`
+                : "Upload & Thay thế"}
             </button>
           </div>
         )}

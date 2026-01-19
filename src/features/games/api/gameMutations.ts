@@ -1,97 +1,165 @@
 /**
  * Games Mutation API Functions
- * API functions for create, update, delete games
+ * API functions for create, update, delete games via external API
  */
 
-import { apiPost, apiPut, apiDelete } from "@/lib/api-fetch";
-import type { GameResponse, UpdateGamePayload } from "../types";
+import {
+  externalApiPost,
+  externalApiPut,
+  externalApiDelete,
+  externalApiUpload,
+} from "@/lib/external-api";
+import type {
+  Game,
+  GameCreateResponse,
+  CreateGamePayload,
+  UpdateGamePayload,
+  ApprovePayload,
+  PublishPayload,
+  SelfQAChecklist,
+  QCReviewPayload,
+  SelfQAResponse,
+} from "../types";
+
+/**
+ * Create a new game
+ * POST /api/v1/games/create
+ */
+export async function createGame(
+  payload: CreateGamePayload,
+): Promise<GameCreateResponse> {
+  return externalApiPost<GameCreateResponse>("/api/v1/games/create", payload);
+}
 
 /**
  * Update game metadata
- * PUT /api/games/:id
+ * PUT /api/v1/games/{game_id}
  */
 export async function updateGame(
   gameId: string,
-  payload: UpdateGamePayload
-): Promise<GameResponse> {
-  return apiPut<GameResponse>(`/api/games/${gameId}`, payload);
+  payload: UpdateGamePayload,
+): Promise<Game> {
+  return externalApiPut<Game>(`/api/v1/games/${gameId}`, payload);
 }
 
 /**
  * Soft delete a game
- * DELETE /api/games/:id
+ * DELETE /api/v1/games/{game_id}
  */
 export async function deleteGame(
   gameId: string,
-  reason?: string
-): Promise<{ success: boolean; message: string }> {
-  return apiDelete<{ success: boolean; message: string }>(
-    `/api/games/${gameId}`,
-    reason ? { reason } : undefined
-  );
+  reason?: string,
+): Promise<void> {
+  await externalApiDelete<void>(`/api/v1/games/${gameId}`, { reason });
 }
 
 /**
  * Submit game to QC
- * POST /api/games/:id/submit-qc
+ * POST /api/v1/games/{game_id}/submit-qc
  */
-export async function submitToQC(gameId: string): Promise<GameResponse> {
-  return apiPost<GameResponse>(`/api/games/${gameId}/submit-qc`);
+export async function submitToQC(gameId: string): Promise<void> {
+  await externalApiPost<void>(`/api/v1/games/${gameId}/submit-qc`);
 }
 
 /**
- * Self QA update
- * PUT /api/games/:id/self-qa
+ * Update Self QA checklist
+ * POST /api/v1/games/{game_id}/self-qa
  */
 export async function updateSelfQA(
   gameId: string,
-  checklist: Array<{ id: string; checked: boolean }>
-): Promise<GameResponse> {
-  return apiPut<GameResponse>(`/api/games/${gameId}/self-qa`, { checklist });
+  checklist: SelfQAChecklist,
+): Promise<SelfQAResponse> {
+  return externalApiPost<SelfQAResponse>(
+    `/api/v1/games/${gameId}/self-qa`,
+    checklist,
+  );
+}
+
+/**
+ * QC Review (pass/fail)
+ * POST /api/v1/games/{game_id}/qc-review
+ */
+export async function qcReview(
+  gameId: string,
+  payload: QCReviewPayload,
+): Promise<void> {
+  await externalApiPost<void>(`/api/v1/games/${gameId}/qc-review`, payload);
 }
 
 /**
  * Approve game
- * POST /api/games/:id/approve
+ * POST /api/v1/release/{game_id}/approve
  */
-export async function approveGame(gameId: string): Promise<GameResponse> {
-  return apiPost<GameResponse>(`/api/games/${gameId}/approve`);
+export async function approveGame(
+  gameId: string,
+  payload: ApprovePayload,
+): Promise<void> {
+  await externalApiPost<void>(`/api/v1/release/${gameId}/approve`, payload);
+}
+
+/**
+ * Reject game
+ * POST /api/v1/release/{game_id}/reject
+ */
+export async function rejectGame(
+  gameId: string,
+  payload: ApprovePayload,
+): Promise<void> {
+  await externalApiPost<void>(`/api/v1/release/${gameId}/reject`, payload);
 }
 
 /**
  * Publish game
- * POST /api/games/:id/publish
+ * POST /api/v1/release/{game_id}/publish
  */
-export async function publishGame(gameId: string): Promise<GameResponse> {
-  return apiPost<GameResponse>(`/api/games/${gameId}/publish`);
+export async function publishGame(
+  gameId: string,
+  payload?: PublishPayload,
+): Promise<void> {
+  await externalApiPost<void>(`/api/v1/release/${gameId}/publish`, payload);
 }
 
 /**
- * QC Review - Pass
- * POST /api/games/:id/qc-review
+ * Upload game build
+ * POST /api/v1/games/upload
  */
-export async function qcPass(
-  gameId: string,
-  note?: string
-): Promise<GameResponse> {
-  return apiPost<GameResponse>(`/api/games/${gameId}/qc-review`, {
-    result: "pass",
-    note,
-  });
+export async function uploadBuild(
+  formData: FormData,
+  onUploadProgress?: (progressEvent: any) => void,
+): Promise<void> {
+  await externalApiUpload<void>(
+    "/api/v1/games/upload",
+    formData,
+    onUploadProgress,
+  );
 }
 
 /**
- * QC Review - Fail
- * POST /api/games/:id/qc-review
+ * Upload thumbnail
+ * POST /api/v1/games/upload-thumbnail
  */
-export async function qcFail(
-  gameId: string,
-  note: string,
-  severity?: "low" | "medium" | "high"
-): Promise<GameResponse> {
-  return apiPost<GameResponse>(`/api/games/${gameId}/qc-review`, {
-    result: "fail",
-    note,
-    severity,
-  });
+export async function uploadThumbnail(
+  formData: FormData,
+  onUploadProgress?: (progressEvent: any) => void,
+): Promise<void> {
+  await externalApiUpload<void>(
+    "/api/v1/games/upload-thumbnail",
+    formData,
+    onUploadProgress,
+  );
+}
+
+/**
+ * Upload game with metadata (combined upload)
+ * POST /api/v1/games/upload-with-metadata
+ */
+export async function uploadWithMetadata(
+  formData: FormData,
+  onUploadProgress?: (progressEvent: any) => void,
+): Promise<void> {
+  await externalApiUpload<void>(
+    "/api/v1/games/upload-with-metadata",
+    formData,
+    onUploadProgress,
+  );
 }

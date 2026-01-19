@@ -1,8 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  createGame,
+  uploadBuild,
+  uploadThumbnail,
+} from "@/features/games/api/gameMutations";
 
 interface GameMeta {
   grade: string;
@@ -36,25 +41,25 @@ interface ThumbnailData {
 
 // Grade to age mapping based on Vietnamese education system
 const GRADE_AGE_MAPPING = {
-  '1': '6-7 tuổi',
-  '2': '7-8 tuổi', 
-  '3': '8-9 tuổi',
-  '4': '9-10 tuổi',
-  '5': '10-11 tuổi',
-  '6': '11-12 tuổi',
-  '7': '12-13 tuổi',
-  '8': '13-14 tuổi',
-  '9': '14-15 tuổi',
-  '10': '15-16 tuổi',
-  '11': '16-17 tuổi',
-  '12': '17-18 tuổi',
+  "1": "6-7 tuổi",
+  "2": "7-8 tuổi",
+  "3": "8-9 tuổi",
+  "4": "9-10 tuổi",
+  "5": "10-11 tuổi",
+  "6": "11-12 tuổi",
+  "7": "12-13 tuổi",
+  "8": "13-14 tuổi",
+  "9": "14-15 tuổi",
+  "10": "15-16 tuổi",
+  "11": "16-17 tuổi",
+  "12": "17-18 tuổi",
 } as const;
 
 const DIFFICULTY_OPTIONS = [
-  { value: 'easy', label: 'Dễ - Phù hợp học sinh yếu' },
-  { value: 'medium', label: 'Trung bình - Phù hợp học sinh khá' },
-  { value: 'hard', label: 'Khó - Phù hợp học sinh giỏi' },
-  { value: 'expert', label: 'Rất khó - Thử thách cao' },
+  { value: "easy", label: "Dễ - Phù hợp học sinh yếu" },
+  { value: "medium", label: "Trung bình - Phù hợp học sinh khá" },
+  { value: "hard", label: "Khó - Phù hợp học sinh giỏi" },
+  { value: "expert", label: "Rất khó - Thử thách cao" },
 ] as const;
 
 export function GameUploadForm({ meta }: GameUploadFormProps) {
@@ -65,31 +70,39 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
   // ZIP file state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [fileSizeWarning, setFileSizeWarning] = useState<string>('');
-  
+  const [fileSizeWarning, setFileSizeWarning] = useState<string>("");
+
   // Thumbnail states
-  const [desktopThumbnail, setDesktopThumbnail] = useState<ThumbnailData>({ file: null, preview: null });
-  const [mobileThumbnail, setMobileThumbnail] = useState<ThumbnailData>({ file: null, preview: null });
-  
+  const [desktopThumbnail, setDesktopThumbnail] = useState<ThumbnailData>({
+    file: null,
+    preview: null,
+  });
+  const [mobileThumbnail, setMobileThumbnail] = useState<ThumbnailData>({
+    file: null,
+    preview: null,
+  });
+
   // Upload state
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStep, setUploadStep] = useState('');
-  const [error, setError] = useState('');
+  const [uploadStep, setUploadStep] = useState("");
+  const [error, setError] = useState("");
 
   const [manifest, setManifest] = useState<ManifestData>({
-    gameId: meta.backendGameId || 'my-awesome-game',
-    version: '1.0.0',
-    runtime: 'HTML5',
-    entryPoint: 'index.html',
-    difficulty: meta.level || '', // Use level from meta (1/2/3)
-    targetAge: GRADE_AGE_MAPPING[meta.grade as keyof typeof GRADE_AGE_MAPPING] || 'Chưa xác định',
+    gameId: meta.backendGameId || "my-awesome-game",
+    version: "1.0.0",
+    runtime: "HTML5",
+    entryPoint: "index.html",
+    difficulty: meta.level || "", // Use level from meta (1/2/3)
+    targetAge:
+      GRADE_AGE_MAPPING[meta.grade as keyof typeof GRADE_AGE_MAPPING] ||
+      "Chưa xác định",
   });
 
   // Game ID edit mode
   const [isEditingGameId, setIsEditingGameId] = useState(false);
-  const [editedGameId, setEditedGameId] = useState(meta.backendGameId || '');
-  const [gameIdError, setGameIdError] = useState('');
+  const [editedGameId, setEditedGameId] = useState(meta.backendGameId || "");
+  const [gameIdError, setGameIdError] = useState("");
 
   // Auto-detect SDK and check for duplicates
   const [sdkDetected, setSdkDetected] = useState<string | null>(null);
@@ -97,7 +110,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
     checking: boolean;
     exists: boolean;
     message: string;
-  }>({ checking: false, exists: false, message: '' });
+  }>({ checking: false, exists: false, message: "" });
 
   // Auto-detect SDK when ZIP file is selected
   const detectSDK = async (file: File) => {
@@ -105,97 +118,103 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
       // This is a simplified SDK detection - in real implementation,
       // you would analyze the ZIP contents
       const fileName = file.name.toLowerCase();
-      
-      if (fileName.includes('unity') || fileName.includes('webgl')) {
-        setSdkDetected('Unity WebGL');
-        setManifest(prev => ({ ...prev, runtime: 'Unity' }));
-      } else if (fileName.includes('construct') || fileName.includes('c3')) {
-        setSdkDetected('Construct 3');
-        setManifest(prev => ({ ...prev, runtime: 'HTML5' }));
-      } else if (fileName.includes('phaser')) {
-        setSdkDetected('Phaser');
-        setManifest(prev => ({ ...prev, runtime: 'HTML5' }));
+
+      if (fileName.includes("unity") || fileName.includes("webgl")) {
+        setSdkDetected("Unity WebGL");
+        setManifest((prev) => ({ ...prev, runtime: "Unity" }));
+      } else if (fileName.includes("construct") || fileName.includes("c3")) {
+        setSdkDetected("Construct 3");
+        setManifest((prev) => ({ ...prev, runtime: "HTML5" }));
+      } else if (fileName.includes("phaser")) {
+        setSdkDetected("Phaser");
+        setManifest((prev) => ({ ...prev, runtime: "HTML5" }));
       } else {
-        setSdkDetected('HTML5 Generic');
-        setManifest(prev => ({ ...prev, runtime: 'HTML5' }));
+        setSdkDetected("HTML5 Generic");
+        setManifest((prev) => ({ ...prev, runtime: "HTML5" }));
       }
     } catch (error) {
-      console.warn('SDK detection failed:', error);
-      setSdkDetected('Unknown');
+      console.warn("SDK detection failed:", error);
+      setSdkDetected("Unknown");
     }
   };
 
   // Check for duplicate gameId
   const checkDuplicateGameId = async (gameId: string) => {
     if (!gameId || gameId.length < 3) return;
-    
-    setDuplicateCheck({ checking: true, exists: false, message: 'Đang kiểm tra...' });
-    
+
+    setDuplicateCheck({
+      checking: true,
+      exists: false,
+      message: "Đang kiểm tra...",
+    });
+
     try {
-      const response = await fetch(`/api/games/check-duplicate?gameId=${encodeURIComponent(gameId)}`);
+      const response = await fetch(
+        `/api/games/check-duplicate?gameId=${encodeURIComponent(gameId)}`,
+      );
       const data = await response.json();
-      
+
       if (data.exists) {
         setDuplicateCheck({
           checking: false,
           exists: true,
-          message: `Game ID "${gameId}" đã tồn tại. Bạn có thể upload version mới hoặc chọn ID khác.`
+          message: `Game ID "${gameId}" đã tồn tại. Bạn có thể upload version mới hoặc chọn ID khác.`,
         });
       } else {
         setDuplicateCheck({
           checking: false,
           exists: false,
-          message: `Game ID "${gameId}" có thể sử dụng.`
+          message: `Game ID "${gameId}" có thể sử dụng.`,
         });
       }
     } catch (error) {
       setDuplicateCheck({
         checking: false,
         exists: false,
-        message: 'Không thể kiểm tra duplicate. Vui lòng thử lại.'
+        message: "Không thể kiểm tra duplicate. Vui lòng thử lại.",
       });
     }
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return "0 B";
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
   // Handle ZIP file selection with SDK detection
   const handleFileSelect = async (file: File) => {
-    if (!file.name.endsWith('.zip')) {
-      setError('Vui lòng chọn file ZIP');
+    if (!file.name.endsWith(".zip")) {
+      setError("Vui lòng chọn file ZIP");
       return;
     }
     if (file.size > 100 * 1024 * 1024) {
-      setError('File quá lớn. Tối đa 100MB');
+      setError("File quá lớn. Tối đa 100MB");
       return;
     }
-    
+
     // Check file size and show warning if > 4MB
     const sizeMB = file.size / (1024 * 1024);
     if (sizeMB > 4) {
       setFileSizeWarning(
         `File có dung lượng ${sizeMB.toFixed(1)}MB, lớn hơn khuyến nghị (3-4MB). ` +
-        `Điều này có thể ảnh hưởng đến tốc độ tải game cho học sinh. ` +
-        `Bạn vẫn có thể upload nhưng nên tối ưu lại game để giảm dung lượng.`
+          `Điều này có thể ảnh hưởng đến tốc độ tải game cho học sinh. ` +
+          `Bạn vẫn có thể upload nhưng nên tối ưu lại game để giảm dung lượng.`,
       );
     } else if (sizeMB > 3) {
       setFileSizeWarning(
         `File có dung lượng ${sizeMB.toFixed(1)}MB, gần đạt giới hạn khuyến nghị (3-4MB). ` +
-        `Nên kiểm tra và tối ưu nếu có thể.`
+          `Nên kiểm tra và tối ưu nếu có thể.`,
       );
     } else {
-      setFileSizeWarning('');
+      setFileSizeWarning("");
     }
-    
+
     setUploadedFile(file);
-    setError('');
-    
+    setError("");
+
     // Auto-detect SDK
     await detectSDK(file);
   };
@@ -209,33 +228,35 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
   };
 
   // Handle thumbnail selection
-  const handleThumbnailSelect = (file: File, type: 'desktop' | 'mobile') => {
-    if (!file.type.startsWith('image/')) {
-      setError('Vui lòng chọn file ảnh (PNG, JPG, WebP)');
+  const handleThumbnailSelect = (file: File, type: "desktop" | "mobile") => {
+    if (!file.type.startsWith("image/")) {
+      setError("Vui lòng chọn file ảnh (PNG, JPG, WebP)");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError('Ảnh quá lớn. Tối đa 5MB');
+      setError("Ảnh quá lớn. Tối đa 5MB");
       return;
     }
 
     // Create preview URL
     const preview = URL.createObjectURL(file);
-    
-    if (type === 'desktop') {
+
+    if (type === "desktop") {
       // Revoke old preview URL
-      if (desktopThumbnail.preview) URL.revokeObjectURL(desktopThumbnail.preview);
+      if (desktopThumbnail.preview)
+        URL.revokeObjectURL(desktopThumbnail.preview);
       setDesktopThumbnail({ file, preview });
     } else {
       if (mobileThumbnail.preview) URL.revokeObjectURL(mobileThumbnail.preview);
       setMobileThumbnail({ file, preview });
     }
-    setError('');
+    setError("");
   };
 
-  const removeThumbnail = (type: 'desktop' | 'mobile') => {
-    if (type === 'desktop') {
-      if (desktopThumbnail.preview) URL.revokeObjectURL(desktopThumbnail.preview);
+  const removeThumbnail = (type: "desktop" | "mobile") => {
+    if (type === "desktop") {
+      if (desktopThumbnail.preview)
+        URL.revokeObjectURL(desktopThumbnail.preview);
       setDesktopThumbnail({ file: null, preview: null });
     } else {
       if (mobileThumbnail.preview) URL.revokeObjectURL(mobileThumbnail.preview);
@@ -245,120 +266,113 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
   const handlePublish = async () => {
     if (!uploadedFile) {
-      setError('Vui lòng chọn file ZIP game');
+      setError("Vui lòng chọn file ZIP game");
       return;
     }
 
     setUploading(true);
-    setError('');
-    setGameIdError('');
+    setError("");
+    setGameIdError("");
     setUploadProgress(0);
 
     try {
-      // Step 1: Create game record
-      setUploadStep('Đang tạo game...');
-      const createResponse = await fetch('/api/games/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: manifest.gameId,
-          gameId: manifest.gameId,
-          subject: meta.subject,
-          grade: meta.grade,
-          lessonNo: parseInt(meta.lessonNo) || 1,
-          textbook: meta.quyenSach || undefined,
-          backendGameId: meta.backendGameId,
-          level: meta.level,
-          skills: meta.skills,
-          themes: meta.themes,
-          linkGithub: meta.linkGithub,
-          gameType: 'html5',
-          description: `Game được tải lên từ ${meta.linkGithub}`,
-          runtime: manifest.runtime,
-        }),
-      });
+      // Step 1: Create game record using API function
+      setUploadStep("Đang tạo game...");
 
+      const createPayload = {
+        title: manifest.gameId,
+        gameId: manifest.gameId,
+        description: `Game được tải lên từ ${meta.linkGithub}`,
+        githubLink: meta.linkGithub,
+        gameType: "html5",
+        priority: "medium",
+        lessonIds: [meta.lessonNo],
+        skillIds: meta.skills,
+        themeIds: meta.themes,
+        levelId: meta.level,
+        tags: [],
+        version: manifest.version,
+        entryFile: manifest.entryPoint,
+      };
+
+      const createData = await createGame(createPayload);
       setUploadProgress(15);
 
-      const createData = await createResponse.json();
-      
-      // Handle duplicate game ID error
-      if (!createResponse.ok) {
-        if (createData.error?.includes('already exists') || createData.error?.includes('đã tồn tại')) {
-          setGameIdError(`Game ID "${manifest.gameId}" đã tồn tại. Vui lòng chọn ID khác hoặc thêm version mới.`);
-          setIsEditingGameId(true);
-          setUploading(false);
-          setUploadStep('');
-          return;
-        }
-        throw new Error(createData.error || 'Không thể tạo game');
-      }
-
-      const mongoGameId = createData.game?._id || createData.existingGame?._id;
-      if (!mongoGameId) {
-        throw new Error('Không tìm thấy Game ID');
+      const gameId = createData.game?.game_id;
+      if (!gameId) {
+        throw new Error("Không tìm thấy Game ID");
       }
 
       setUploadProgress(25);
 
-      // Step 2: Upload ZIP file to GCS
-      setUploadStep('Đang tải file game lên...');
-      const formData = new FormData();
-      formData.append('file', uploadedFile);
-      formData.append('gameId', manifest.gameId);
-      formData.append('version', manifest.version);
-      formData.append('mongoGameId', mongoGameId);
+      // Step 2: Upload ZIP file using API function
+      setUploadStep("Đang tải file game lên...");
+      const buildFormData = new FormData();
+      buildFormData.append("file", uploadedFile);
+      buildFormData.append("gameId", gameId);
+      buildFormData.append("version", manifest.version);
 
-      const uploadResponse = await fetch('/api/games/upload', {
-        method: 'POST',
-        body: formData,
+      await uploadBuild(buildFormData, (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round(
+            25 + (progressEvent.loaded / progressEvent.total) * 35,
+          );
+          setUploadProgress(percentCompleted);
+        }
       });
 
       setUploadProgress(60);
 
-      const uploadData = await uploadResponse.json();
-      if (!uploadResponse.ok) {
-        throw new Error(uploadData.error || 'Không thể tải file lên');
-      }
-
-      // Step 3: Upload thumbnails (if provided)
+      // Step 3: Upload thumbnails (if provided) using API function
       if (desktopThumbnail.file || mobileThumbnail.file) {
-        setUploadStep('Đang tải thumbnail...');
-        
+        setUploadStep("Đang tải thumbnail...");
+
         const thumbFormData = new FormData();
-        thumbFormData.append('mongoGameId', mongoGameId);
-        
+        thumbFormData.append("gameId", gameId);
+
         if (desktopThumbnail.file) {
-          thumbFormData.append('thumbnailDesktop', desktopThumbnail.file);
+          thumbFormData.append("thumbnailDesktop", desktopThumbnail.file);
         }
         if (mobileThumbnail.file) {
-          thumbFormData.append('thumbnailMobile', mobileThumbnail.file);
+          thumbFormData.append("thumbnailMobile", mobileThumbnail.file);
         }
 
-        const thumbResponse = await fetch('/api/games/upload-thumbnail', {
-          method: 'POST',
-          body: thumbFormData,
-        });
-
-        setUploadProgress(90);
-
-        if (!thumbResponse.ok) {
-          const thumbData = await thumbResponse.json();
-          console.warn('Thumbnail upload warning:', thumbData.error);
+        try {
+          await uploadThumbnail(thumbFormData, (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                60 + (progressEvent.loaded / progressEvent.total) * 30,
+              );
+              setUploadProgress(percentCompleted);
+            }
+          });
+        } catch (thumbError) {
+          console.warn("Thumbnail upload warning:", thumbError);
           // Don't fail the whole upload for thumbnail errors
         }
       }
 
       setUploadProgress(100);
-      setUploadStep('Hoàn thành!');
+      setUploadStep("Hoàn thành!");
 
       // Success - redirect to game detail
       setTimeout(() => {
-        router.push(`/console/games/${mongoGameId}`);
+        router.push(`/console/games/${createData.game?.id}`);
       }, 500);
     } catch (err: any) {
-      setError(err.message || 'Có lỗi xảy ra');
-      setUploadStep('');
+      // Handle duplicate game ID error
+      if (
+        err.message?.includes("already exists") ||
+        err.message?.includes("đã tồn tại")
+      ) {
+        setGameIdError(
+          `Game ID "${manifest.gameId}" đã tồn tại. Vui lòng chọn ID khác hoặc thêm version mới.`,
+        );
+        setIsEditingGameId(true);
+      } else {
+        setError(err.message || "Có lỗi xảy ra");
+      }
+      setUploadStep("");
     } finally {
       setUploading(false);
     }
@@ -372,14 +386,30 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 mb-1">File Game (ZIP)</h3>
-            <p className="text-sm text-slate-500">Tải lên file ZIP chứa game HTML5. Khuyến nghị 3-4MB, tối đa 100MB.</p>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">
+              File Game (ZIP)
+            </h3>
+            <p className="text-sm text-slate-500">
+              Tải lên file ZIP chứa game HTML5. Khuyến nghị 3-4MB, tối đa 100MB.
+            </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-4 h-4 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            <span className="text-xs font-medium text-blue-700">Khuyến nghị: 3-4MB</span>
+            <span className="text-xs font-medium text-blue-700">
+              Khuyến nghị: 3-4MB
+            </span>
           </div>
         </div>
 
@@ -388,39 +418,60 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
           onDragOver={(e) => e.preventDefault()}
           onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-            uploadedFile ? 'border-green-400 bg-green-50' : 'border-slate-300 hover:border-indigo-400 hover:bg-indigo-50'
+            uploadedFile
+              ? "border-green-400 bg-green-50"
+              : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50"
           }`}
         >
           <input
             ref={fileInputRef}
             type="file"
             accept=".zip"
-            onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+            onChange={(e) =>
+              e.target.files?.[0] && handleFileSelect(e.target.files[0])
+            }
             className="hidden"
           />
 
           {uploadedFile ? (
             <div>
-              <svg className="w-12 h-12 mx-auto text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-12 h-12 mx-auto text-green-500 mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
               <p className="font-medium text-slate-900">{uploadedFile.name}</p>
               <div className="flex items-center justify-center gap-2 mt-1">
-                <p className="text-sm text-slate-500">{formatFileSize(uploadedFile.size)}</p>
+                <p className="text-sm text-slate-500">
+                  {formatFileSize(uploadedFile.size)}
+                </p>
                 {uploadedFile.size > 4 * 1024 * 1024 && (
                   <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
                     Lớn hơn khuyến nghị
                   </span>
                 )}
-                {uploadedFile.size > 3 * 1024 * 1024 && uploadedFile.size <= 4 * 1024 * 1024 && (
-                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
-                    Gần giới hạn
-                  </span>
-                )}
+                {uploadedFile.size > 3 * 1024 * 1024 &&
+                  uploadedFile.size <= 4 * 1024 * 1024 && (
+                    <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
+                      Gần giới hạn
+                    </span>
+                  )}
               </div>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); setUploadedFile(null); setFileSizeWarning(''); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUploadedFile(null);
+                  setFileSizeWarning("");
+                }}
                 className="mt-2 text-sm text-red-600 hover:text-red-700"
               >
                 Xóa file
@@ -428,10 +479,22 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             </div>
           ) : (
             <div>
-              <svg className="w-12 h-12 mx-auto text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              <svg
+                className="w-12 h-12 mx-auto text-slate-400 mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
               </svg>
-              <p className="font-medium text-slate-700">Kéo thả file ZIP vào đây</p>
+              <p className="font-medium text-slate-700">
+                Kéo thả file ZIP vào đây
+              </p>
               <p className="text-sm text-slate-500">hoặc click để chọn file</p>
             </div>
           )}
@@ -441,17 +504,31 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
         {fileSizeWarning && (
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
               <div className="flex-1">
-                <h4 className="text-sm font-semibold text-yellow-900 mb-1">⚠️ Cảnh báo dung lượng file</h4>
+                <h4 className="text-sm font-semibold text-yellow-900 mb-1">
+                  ⚠️ Cảnh báo dung lượng file
+                </h4>
                 <p className="text-sm text-yellow-800">{fileSizeWarning}</p>
                 <div className="mt-2 text-xs text-yellow-700">
                   <p className="font-medium mb-1">Gợi ý tối ưu:</p>
                   <ul className="list-disc list-inside space-y-0.5 ml-2">
                     <li>Nén ảnh PNG/JPG (sử dụng TinyPNG, ImageOptim)</li>
-                    <li>Chuyển audio sang MP3 với bitrate thấp hơn (64-128kbps)</li>
+                    <li>
+                      Chuyển audio sang MP3 với bitrate thấp hơn (64-128kbps)
+                    </li>
                     <li>Xóa các file không sử dụng (fonts, assets dư thừa)</li>
                     <li>Minify JavaScript và CSS</li>
                   </ul>
@@ -464,45 +541,89 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
         {/* ZIP Structure Info */}
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-5 h-5 text-blue-600 mt-0.5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <div>
-              <h4 className="text-sm font-medium text-blue-900 mb-1">🔍 Tự động phát hiện cấu trúc ZIP & SDK</h4>
+              <h4 className="text-sm font-medium text-blue-900 mb-1">
+                🔍 Tự động phát hiện cấu trúc ZIP & SDK
+              </h4>
               <p className="text-sm text-blue-700">
-                Hệ thống sẽ tự động tìm thư mục chứa <code className="bg-blue-100 px-1 rounded">index.html</code> và coi đó là root của game. 
-                Các thư mục như <code className="bg-blue-100 px-1 rounded">build/</code>, <code className="bg-blue-100 px-1 rounded">dist/</code>, 
-                <code className="bg-blue-100 px-1 rounded">src/</code> sẽ được xử lý tự động.
+                Hệ thống sẽ tự động tìm thư mục chứa{" "}
+                <code className="bg-blue-100 px-1 rounded">index.html</code> và
+                coi đó là root của game. Các thư mục như{" "}
+                <code className="bg-blue-100 px-1 rounded">build/</code>,{" "}
+                <code className="bg-blue-100 px-1 rounded">dist/</code>,
+                <code className="bg-blue-100 px-1 rounded">src/</code> sẽ được
+                xử lý tự động.
               </p>
               {sdkDetected && (
                 <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-4 h-4 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
-                    <span className="text-sm font-semibold text-green-800">SDK đã được phát hiện tự động!</span>
+                    <span className="text-sm font-semibold text-green-800">
+                      SDK đã được phát hiện tự động!
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-green-700">Loại SDK:</span>
+                    <span className="text-sm font-medium text-green-700">
+                      Loại SDK:
+                    </span>
                     <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium border border-green-300">
                       🎮 {sdkDetected}
                     </span>
                   </div>
                   <p className="text-xs text-green-600 mt-2">
-                    Runtime đã được tự động cài đặt thành "{manifest.runtime}" dựa trên SDK phát hiện.
+                    Runtime đã được tự động cài đặt thành "{manifest.runtime}"
+                    dựa trên SDK phát hiện.
                   </p>
                 </div>
               )}
               {!sdkDetected && uploadedFile && (
                 <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    <svg
+                      className="w-4 h-4 text-yellow-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
                     </svg>
-                    <span className="text-sm font-medium text-yellow-800">Đang phân tích SDK...</span>
+                    <span className="text-sm font-medium text-yellow-800">
+                      Đang phân tích SDK...
+                    </span>
                   </div>
                   <p className="text-xs text-yellow-700">
-                    Hệ thống đang phân tích file để xác định loại SDK. Vui lòng đợi một chút.
+                    Hệ thống đang phân tích file để xác định loại SDK. Vui lòng
+                    đợi một chút.
                   </p>
                 </div>
               )}
@@ -513,8 +634,12 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
       {/* Thumbnails Upload */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-1">Thumbnail (Tùy chọn)</h3>
-        <p className="text-sm text-slate-500 mb-4">Ảnh preview cho game. Hỗ trợ PNG, JPG, WebP. Tối đa 5MB.</p>
+        <h3 className="text-lg font-bold text-slate-900 mb-1">
+          Thumbnail (Tùy chọn)
+        </h3>
+        <p className="text-sm text-slate-500 mb-4">
+          Ảnh preview cho game. Hỗ trợ PNG, JPG, WebP. Tối đa 5MB.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Desktop Thumbnail */}
@@ -525,18 +650,23 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             <div
               onClick={() => desktopThumbRef.current?.click()}
               className={`relative border-2 border-dashed rounded-xl overflow-hidden cursor-pointer transition-colors ${
-                desktopThumbnail.preview ? 'border-green-400' : 'border-slate-300 hover:border-indigo-400'
+                desktopThumbnail.preview
+                  ? "border-green-400"
+                  : "border-slate-300 hover:border-indigo-400"
               }`}
-              style={{ aspectRatio: '308/211' }}
+              style={{ aspectRatio: "308/211" }}
             >
               <input
                 ref={desktopThumbRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => e.target.files?.[0] && handleThumbnailSelect(e.target.files[0], 'desktop')}
+                onChange={(e) =>
+                  e.target.files?.[0] &&
+                  handleThumbnailSelect(e.target.files[0], "desktop")
+                }
                 className="hidden"
               />
-              
+
               {desktopThumbnail.preview ? (
                 <>
                   <Image
@@ -547,7 +677,10 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                   />
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); removeThumbnail('desktop'); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeThumbnail("desktop");
+                    }}
                     className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
                   >
                     ×
@@ -555,8 +688,18 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                 </>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                  <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <svg
+                    className="w-8 h-8 mb-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
                   </svg>
                   <span className="text-xs">308 × 211</span>
                 </div>
@@ -572,18 +715,23 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             <div
               onClick={() => mobileThumbRef.current?.click()}
               className={`relative border-2 border-dashed rounded-xl overflow-hidden cursor-pointer transition-colors ${
-                mobileThumbnail.preview ? 'border-green-400' : 'border-slate-300 hover:border-indigo-400'
+                mobileThumbnail.preview
+                  ? "border-green-400"
+                  : "border-slate-300 hover:border-indigo-400"
               }`}
-              style={{ aspectRatio: '343/170' }}
+              style={{ aspectRatio: "343/170" }}
             >
               <input
                 ref={mobileThumbRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => e.target.files?.[0] && handleThumbnailSelect(e.target.files[0], 'mobile')}
+                onChange={(e) =>
+                  e.target.files?.[0] &&
+                  handleThumbnailSelect(e.target.files[0], "mobile")
+                }
                 className="hidden"
               />
-              
+
               {mobileThumbnail.preview ? (
                 <>
                   <Image
@@ -594,7 +742,10 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                   />
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); removeThumbnail('mobile'); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeThumbnail("mobile");
+                    }}
                     className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
                   >
                     ×
@@ -602,8 +753,18 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                 </>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                  <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <svg
+                    className="w-8 h-8 mb-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
                   </svg>
                   <span className="text-xs">343 × 170</span>
                 </div>
@@ -615,9 +776,12 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
       {/* Manifest Form - Simplified */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-1">Thông tin phiên bản</h3>
+        <h3 className="text-lg font-bold text-slate-900 mb-1">
+          Thông tin phiên bản
+        </h3>
         <p className="text-sm text-slate-500 mb-4">
-          Chỉ cần nhập số phiên bản. Các thông tin khác đã được điền từ bước trước.
+          Chỉ cần nhập số phiên bản. Các thông tin khác đã được điền từ bước
+          trước.
         </p>
 
         <div className="max-w-md space-y-4">
@@ -629,14 +793,24 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             <input
               type="text"
               value={manifest.version}
-              onChange={(e) => setManifest({ ...manifest, version: e.target.value })}
+              onChange={(e) =>
+                setManifest({ ...manifest, version: e.target.value })
+              }
               placeholder="1.0.0"
               pattern="^\d+\.\d+\.\d+$"
               className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             />
             <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              <svg
+                className="w-3.5 h-3.5"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
               </svg>
               Định dạng SemVer: X.Y.Z (VD: 1.0.0, 1.2.3)
             </p>
@@ -646,11 +820,23 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
           {gameIdError && (
             <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl">
               <div className="flex items-start gap-3 mb-3">
-                <svg className="w-5 h-5 text-red-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                <svg
+                  className="w-5 h-5 text-red-600 mt-0.5 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
                 </svg>
                 <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-red-900 mb-1">Game ID đã tồn tại</h4>
+                  <h4 className="text-sm font-semibold text-red-900 mb-1">
+                    Game ID đã tồn tại
+                  </h4>
                   <p className="text-sm text-red-700">{gameIdError}</p>
                 </div>
               </div>
@@ -681,10 +867,12 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                           return;
                         }
                         setManifest({ ...manifest, gameId: editedGameId });
-                        setGameIdError('');
+                        setGameIdError("");
                         setIsEditingGameId(false);
                       }}
-                      disabled={!editedGameId || editedGameId === manifest.gameId}
+                      disabled={
+                        !editedGameId || editedGameId === manifest.gameId
+                      }
                       className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-all"
                     >
                       Cập nhật Game ID
@@ -693,7 +881,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                       type="button"
                       onClick={() => {
                         setIsEditingGameId(false);
-                        setGameIdError('');
+                        setGameIdError("");
                         setEditedGameId(manifest.gameId);
                       }}
                       className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium text-sm transition-all"
@@ -717,12 +905,22 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
           {/* Advanced Settings - Collapsed */}
           <details className="group">
             <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900 select-none">
-              <svg className="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg
+                className="w-4 h-4 transition-transform group-open:rotate-90"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
               Cài đặt nâng cao (tùy chọn)
             </summary>
-            
+
             <div className="mt-4 pl-6 space-y-4 border-l-2 border-slate-200">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -730,7 +928,9 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                 </label>
                 <select
                   value={manifest.runtime}
-                  onChange={(e) => setManifest({ ...manifest, runtime: e.target.value })}
+                  onChange={(e) =>
+                    setManifest({ ...manifest, runtime: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                 >
                   <option value="HTML5">HTML5</option>
@@ -740,7 +940,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                   {sdkDetected && `Tự động phát hiện: ${sdkDetected}`}
                 </p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Entry Point
@@ -748,7 +948,9 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                 <input
                   type="text"
                   value={manifest.entryPoint}
-                  onChange={(e) => setManifest({ ...manifest, entryPoint: e.target.value })}
+                  onChange={(e) =>
+                    setManifest({ ...manifest, entryPoint: e.target.value })
+                  }
                   placeholder="index.html"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
@@ -762,7 +964,9 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
         {/* Summary of metadata from previous step */}
         <div className="mt-6 pt-6 border-t border-slate-200">
-          <h4 className="text-sm font-semibold text-slate-700 mb-3">Thông tin từ bước trước:</h4>
+          <h4 className="text-sm font-semibold text-slate-700 mb-3">
+            Thông tin từ bước trước:
+          </h4>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-slate-500">Game ID:</span>
@@ -781,7 +985,11 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             <div className="flex items-center gap-2">
               <span className="text-slate-500">Độ khó:</span>
               <span className="font-medium text-slate-900">
-                {meta.level === '1' ? '🌱 Làm quen' : meta.level === '2' ? '⭐ Tiến bộ' : '🔥 Thử thách'}
+                {meta.level === "1"
+                  ? "🌱 Làm quen"
+                  : meta.level === "2"
+                    ? "⭐ Tiến bộ"
+                    : "🔥 Thử thách"}
               </span>
             </div>
           </div>
@@ -793,7 +1001,9 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium text-slate-700">{uploadStep}</span>
+            <span className="text-sm font-medium text-slate-700">
+              {uploadStep}
+            </span>
           </div>
           <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
             <div
@@ -801,15 +1011,27 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-xs text-slate-500 mt-2 text-right">{uploadProgress}%</p>
+          <p className="text-xs text-slate-500 mt-2 text-right">
+            {uploadProgress}%
+          </p>
         </div>
       )}
 
       {/* Error */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2">
-          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-5 h-5 shrink-0 mt-0.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           {error}
         </div>
@@ -836,8 +1058,18 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             </>
           ) : (
             <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                />
               </svg>
               Đăng Game
             </>

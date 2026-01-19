@@ -1,15 +1,15 @@
 /**
  * Users API Functions
- * Pure functions for fetching users data
+ * Pure functions for fetching users data from external API
  */
 
-import { apiGet } from "@/lib/api-fetch";
+import { externalApiGet } from "@/lib/external-api";
 import type { UsersListResponse } from "../types";
 
 /**
  * Fetch all users
- * GET /api/users
+ * GET /api/v1/users/
  */
 export async function getUsers(): Promise<UsersListResponse> {
-  return apiGet<UsersListResponse>("/api/users");
+  return externalApiGet<UsersListResponse>("/api/v1/users/");
 }

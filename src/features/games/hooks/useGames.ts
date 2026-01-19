@@ -8,7 +8,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { getGames, type GetGamesParams } from "../api/getGames";
 import { useGameFilters } from "../stores/useGameStore";
-import type { Game } from "../types";
+import type { GameListItem } from "../types";
 
 /**
  * Query key factory for games
@@ -32,13 +32,10 @@ export const gamesKeys = {
 export function useGames() {
   const filters = useGameFilters();
 
-  // Build API params from filters
+  // Build API params - only params supported by external API
   const apiParams: GetGamesParams = {
-    status: filters.status !== "all" ? filters.status : undefined,
-    ownerId: filters.ownerId !== "all" ? filters.ownerId : undefined,
-    subject: filters.subject !== "all" ? filters.subject : undefined,
-    grade: filters.grade !== "all" ? filters.grade : undefined,
-    isDeleted: filters.isDeleted,
+    mine: filters.mine ?? true,
+    include_deleted: filters.includeDeleted ?? false,
   };
 
   const query = useQuery({
@@ -48,23 +45,30 @@ export function useGames() {
     placeholderData: keepPreviousData, // Keep previous data while fetching
   });
 
-  // Client-side search filtering (API doesn't support text search)
-  const filteredGames = query.data?.games.filter((game: Game) => {
+  // Client-side filtering (API doesn't support all filters)
+  const filteredGames = (query.data ?? []).filter((game: GameListItem) => {
+    // Text search
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       const matchesSearch =
         game.title.toLowerCase().includes(searchLower) ||
-        game.gameId.toLowerCase().includes(searchLower) ||
+        game.game_id.toLowerCase().includes(searchLower) ||
         (game.description?.toLowerCase().includes(searchLower) ?? false);
       if (!matchesSearch) return false;
     }
+
+    // Owner filter (client-side)
+    if (filters.ownerId !== "all" && game.owner_id !== filters.ownerId) {
+      return false;
+    }
+
     return true;
   });
 
   return {
     ...query,
-    games: filteredGames ?? [],
-    allGames: query.data?.games ?? [],
+    games: filteredGames,
+    allGames: query.data ?? [],
   };
 }
 
