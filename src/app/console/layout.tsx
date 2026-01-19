@@ -25,10 +25,9 @@ export default function ConsoleLayout({
     ? {
         _id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.full_name,
         roles: user.roles,
         isActive: user.is_active,
-        avatar: user.avatar,
       }
     : null;
 

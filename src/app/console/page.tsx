@@ -78,7 +78,7 @@ export default function ConsoleDashboard() {
           Dashboard
         </h1>
         <p className="text-slate-500 mt-1 text-sm sm:text-base">
-          Xin chào, {user.name || user.email}!
+          Xin chào, {user.full_name || user.email}!
         </p>
       </div>
 

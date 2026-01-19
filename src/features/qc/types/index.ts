@@ -23,9 +23,9 @@ export interface QCRunPayload {
 }
 
 /**
- * QA Test Result Item
+ * QC Item Result
  */
-export interface QATestResultItem {
+export interface QCItemResult {
   id: string;
   name: string;
   passed?: boolean | null;
@@ -34,11 +34,11 @@ export interface QATestResultItem {
 }
 
 /**
- * QA Category Result
+ * QC Category Result
  */
-export interface QACategoryResult {
+export interface QCCategoryResult {
   name: string;
-  tests: QATestResultItem[];
+  tests: QCItemResult[];
 }
 
 /**
@@ -46,7 +46,7 @@ export interface QACategoryResult {
  */
 export interface QATestResult {
   overall?: string | null;
-  categories?: Record<string, QACategoryResult> | null;
+  categories?: Record<string, QCCategoryResult> | null;
   qa01?: {
     pass: boolean;
     init_to_ready_ms?: number | null;

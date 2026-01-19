@@ -46,9 +46,9 @@ export function GameActions({
 
   const handleApproveDecision = (decision: "approve" | "reject") => {
     if (decision === "approve") {
-      approveGame.mutate(gameId);
+      approveGame.mutate({ gameId });
     } else {
-      rejectGame.mutate(gameId);
+      rejectGame.mutate({ gameId });
     }
   };
 
