@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@/models/User";
+import { LogoutButton } from "./LogoutButton";
 
 // Serialized user type for client components
 interface SerializedUser {
@@ -14,8 +15,8 @@ interface SerializedUser {
   avatar?: string;
   teamIds?: string[];
   createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface SidebarProps {
@@ -260,7 +261,7 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
   const getActiveMenu = () => {
     if (pathname === "/console") return "dashboard";
     const match = menuItems.find(
-      (item) => item.href !== "/console" && pathname.startsWith(item.href)
+      (item) => item.href !== "/console" && pathname.startsWith(item.href),
     );
     return match?.id || "dashboard";
   };
@@ -363,49 +364,13 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
                   {userRoleDisplay}
                 </p>
               </div>
-              <a
-                href="/api/auth/logout"
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-                title="Đăng xuất"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
-              </a>
+              <LogoutButton />
             </>
           )}
         </div>
         {isMinimized && (
           <div className="mt-2 flex justify-center">
-            <a
-              href="/api/auth/logout"
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-              title="Đăng xuất"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-            </a>
+            <LogoutButton />
           </div>
         )}
       </div>

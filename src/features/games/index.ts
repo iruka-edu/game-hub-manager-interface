@@ -14,7 +14,10 @@ export {
   useSubmitToQC,
   useUpdateSelfQA,
   useApproveGame,
+  useRejectGame,
   usePublishGame,
+  useUploadBuild,
+  useUploadThumbnail,
   useQCPass,
   useQCFail,
 } from "./hooks/useGameMutations";

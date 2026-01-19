@@ -3,15 +3,14 @@
  * Base axios wrapper for all API calls with retry mechanism and consistent error handling
  */
 
-import { 
-  apiGet as axiosGet, 
-  apiPost as axiosPost, 
-  apiPut as axiosPut, 
-  apiPatch as axiosPatch, 
+import {
+  apiGet as axiosGet,
+  apiPost as axiosPost,
+  apiPut as axiosPut,
+  apiPatch as axiosPatch,
   apiDelete as axiosDelete,
-  apiUpload as axiosUpload
-} from './axios';
-import { AxiosError } from 'axios';
+  apiUpload as axiosUpload,
+} from "./axios";
 
 export interface APIErrorResponse {
   error: string;
@@ -28,7 +27,7 @@ export class APIError extends Error {
     message: string,
     status: number,
     code?: string,
-    details?: unknown
+    details?: unknown,
   ) {
     super(message);
     this.name = "APIError";
@@ -46,24 +45,24 @@ function handleAxiosError(error: any): never {
     // Server responded with error status
     const errorData = error.response.data || {};
     throw new APIError(
-      errorData.error || error.message || 'Đã xảy ra lỗi từ server',
+      errorData.error || error.message || "Đã xảy ra lỗi từ server",
       error.response.status,
       errorData.code,
-      errorData.details
+      errorData.details,
     );
   } else if (error.request) {
     // Network error
     throw new APIError(
-      'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+      "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.",
       0,
-      'NETWORK_ERROR'
+      "NETWORK_ERROR",
     );
   } else {
     // Other error
     throw new APIError(
-      error.message || 'Đã xảy ra lỗi không xác định',
+      error.message || "Đã xảy ra lỗi không xác định",
       0,
-      'UNKNOWN_ERROR'
+      "UNKNOWN_ERROR",
     );
   }
 }
@@ -73,7 +72,7 @@ function handleAxiosError(error: any): never {
  */
 export async function apiGet<T>(
   url: string,
-  params?: Record<string, string | number | boolean | undefined>
+  params?: Record<string, string | number | boolean | undefined>,
 ): Promise<T> {
   try {
     const queryString = params ? buildQueryString(params) : "";
@@ -120,9 +119,14 @@ export async function apiPatch<T>(url: string, body?: unknown): Promise<T> {
 /**
  * DELETE request helper with error handling
  */
-export async function apiDelete<T>(url: string, body?: unknown): Promise<T> {
+export async function apiDelete<T>(
+  url: string,
+  params?: Record<string, string | number | boolean | undefined>,
+): Promise<T> {
   try {
-    return await axiosDelete<T>(url);
+    const queryString = params ? buildQueryString(params) : "";
+    const fullUrl = queryString ? `${url}?${queryString}` : url;
+    return await axiosDelete<T>(fullUrl);
   } catch (error) {
     return handleAxiosError(error);
   }
@@ -132,9 +136,9 @@ export async function apiDelete<T>(url: string, body?: unknown): Promise<T> {
  * File upload helper with error handling
  */
 export async function apiUpload<T>(
-  url: string, 
+  url: string,
   formData: FormData,
-  onUploadProgress?: (progressEvent: any) => void
+  onUploadProgress?: (progressEvent: any) => void,
 ): Promise<T> {
   try {
     return await axiosUpload<T>(url, formData, { onUploadProgress });
@@ -147,7 +151,7 @@ export async function apiUpload<T>(
  * Build query string from params object
  */
 export function buildQueryString(
-  params: Record<string, string | number | boolean | undefined>
+  params: Record<string, string | number | boolean | undefined>,
 ): string {
   const searchParams = new URLSearchParams();
 
@@ -168,23 +172,27 @@ export function buildQueryString(
 // Legacy compatibility - keep the old apiFetch function for backward compatibility
 export async function apiFetch<T>(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
-  const method = (options.method || 'GET').toUpperCase();
+  const method = (options.method || "GET").toUpperCase();
   const body = options.body ? JSON.parse(options.body as string) : undefined;
 
   switch (method) {
-    case 'GET':
+    case "GET":
       return apiGet<T>(url);
-    case 'POST':
+    case "POST":
       return apiPost<T>(url, body);
-    case 'PUT':
+    case "PUT":
       return apiPut<T>(url, body);
-    case 'PATCH':
+    case "PATCH":
       return apiPatch<T>(url, body);
-    case 'DELETE':
+    case "DELETE":
       return apiDelete<T>(url, body);
     default:
-      throw new APIError(`Unsupported method: ${method}`, 0, 'UNSUPPORTED_METHOD');
+      throw new APIError(
+        `Unsupported method: ${method}`,
+        0,
+        "UNSUPPORTED_METHOD",
+      );
   }
 }

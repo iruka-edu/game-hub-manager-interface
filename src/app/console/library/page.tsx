@@ -1,42 +1,36 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { verifySession } from '@/lib/session';
-import { UserRepository } from '@/models/User';
-import { GameRepository } from '@/models/Game';
-import { GameVersionRepository } from '@/models/GameVersion';
-import { hasPermissionString } from '@/lib/auth-rbac';
-import { serializeGame, type Game } from '@/models/Game';
-import { serializeGameVersion, type GameVersion } from '@/models/GameVersion';
-import { GameLibraryClient } from './GameLibraryClient';
+"use client";
 
-interface SerializedGame extends Record<string, unknown> {
-  _id: string;
-  gameId: string;
-  title: string;
-  description?: string;
-  thumbnailDesktop?: string;
-  thumbnailMobile?: string;
-  ownerId: string;
-  subject?: string;
-  grade?: string;
-  gameType?: string;
-  disabled: boolean;
-  isDeleted: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/features/auth";
+import { useGames } from "@/features/games";
+import { GameLibraryClient } from "./GameLibraryClient";
 
-interface SerializedGameVersion extends Record<string, unknown> {
-  _id: string;
-  version: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface GameWithVersion {
-  game: SerializedGame;
-  latestVersion?: SerializedGameVersion;
+// Transform games from external API format to GameLibraryClient format
+interface GameForLibrary {
+  game: {
+    _id: string;
+    gameId: string;
+    title: string;
+    description?: string;
+    thumbnailDesktop?: string;
+    thumbnailMobile?: string;
+    ownerId: string;
+    subject?: string;
+    grade?: string;
+    gameType?: string;
+    disabled: boolean;
+    isDeleted: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  latestVersion?: {
+    _id: string;
+    version: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  };
   owner?: {
     _id: string;
     name?: string;
@@ -45,66 +39,103 @@ interface GameWithVersion {
   };
 }
 
-export default async function GameLibraryPage() {
-  // Auth check
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('iruka_session');
-  
-  if (!sessionCookie?.value) {
-    redirect('/login');
+export default function GameLibraryPage() {
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: sessionLoading } = useSession();
+  const { games, isLoading: gamesLoading, isError } = useGames();
+
+  // Authorization check
+  useEffect(() => {
+    if (!sessionLoading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [isAuthenticated, sessionLoading, router]);
+
+  // Loading state
+  if (sessionLoading || gamesLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 bg-slate-200 rounded w-48 animate-pulse"></div>
+            <div className="h-4 bg-slate-200 rounded w-64 mt-2 animate-pulse"></div>
+          </div>
+        </div>
+        {/* Content Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+            >
+              <div className="aspect-308/211 bg-slate-200 animate-pulse"></div>
+              <div className="p-4 space-y-2">
+                <div className="h-4 bg-slate-200 rounded w-3/4 animate-pulse"></div>
+                <div className="h-3 bg-slate-200 rounded w-1/2 animate-pulse"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  const session = verifySession(sessionCookie.value);
-  if (!session) {
-    redirect('/login');
+  // Error state
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Thư viện Game</h1>
+          </div>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <p className="text-red-700">
+            Không thể tải dữ liệu. Vui lòng thử lại sau.
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  const userRepo = await UserRepository.getInstance();
-  const user = await userRepo.findById(session.userId);
-  
-  if (!user) {
-    redirect('/login');
-  }
-
-  // Permission check
-  if (!hasPermissionString(user, 'games:view')) {
-    redirect('/console');
-  }
-
-  // Fetch all games with their latest versions
-  const gameRepo = await GameRepository.getInstance();
-  const versionRepo = await GameVersionRepository.getInstance();
-  
-  const games = await gameRepo.findAll();
-  
-  // Get latest versions and owner info for each game
-  const gamesWithVersions: GameWithVersion[] = await Promise.all(
-    games.map(async (game: Game) => {
-      const serializedGame = serializeGame(game) as SerializedGame;
-      
-      let latestVersion: SerializedGameVersion | undefined;
-      if (game.latestVersionId) {
-        const version = await versionRepo.findById(game.latestVersionId.toString());
-        if (version) {
-          latestVersion = serializeGameVersion(version) as SerializedGameVersion;
+  // Transform games to match GameLibraryClient expected format
+  // Note: Using 'any' because external API GameListItem is lightweight
+  const gamesWithVersions = (games as any[]).map((game) => ({
+    game: {
+      _id: game.id,
+      gameId: game.game_id,
+      title: game.title,
+      description: game.description ?? undefined,
+      thumbnailDesktop: game.thumbnail_desktop ?? undefined,
+      thumbnailMobile: game.thumbnail_mobile ?? undefined,
+      ownerId: game.owner_id,
+      subject: game.subject ?? undefined,
+      grade: game.grade ?? undefined,
+      gameType: game.game_type ?? undefined,
+      disabled: game.disabled ?? false,
+      isDeleted: game.is_deleted ?? false,
+      createdAt: game.created_at ?? new Date().toISOString(),
+      updatedAt: game.updated_at ?? new Date().toISOString(),
+    },
+    latestVersion: game.latest_version
+      ? {
+          _id: game.latest_version.id,
+          version: game.latest_version.version,
+          status: game.latest_version.status,
+          createdAt: game.latest_version.created_at ?? new Date().toISOString(),
+          updatedAt: game.latest_version.updated_at ?? new Date().toISOString(),
         }
-      }
-
-      // Get owner info
-      const owner = await gameRepo.getUserById(game.ownerId);
-
-      return {
-        game: serializedGame,
-        latestVersion,
-        owner: owner ? {
-          _id: owner._id.toString(),
-          name: owner.name,
-          email: owner.email,
-          username: owner.username,
-        } : undefined,
-      };
-    })
-  );
+      : undefined,
+    owner: game.owner
+      ? {
+          _id: game.owner.id,
+          name: game.owner.name,
+          email: game.owner.email,
+          username: game.owner.username,
+        }
+      : undefined,
+  }));
 
   return (
     <div className="space-y-6">
@@ -119,10 +150,10 @@ export default async function GameLibraryPage() {
       </div>
 
       {/* Games List */}
-      <GameLibraryClient 
+      <GameLibraryClient
         initialGames={gamesWithVersions}
-        currentUserId={session.userId}
-        userRoles={user.roles || []}
+        currentUserId={user?.id || ""}
+        userRoles={user?.roles || []}
       />
     </div>
   );

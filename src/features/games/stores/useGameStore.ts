@@ -6,6 +6,7 @@
  */
 
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import type { GameStatus } from "@/models/Game";
 import type { Game, GameFilters, GameModalState } from "../types";
 
@@ -17,7 +18,8 @@ interface GameStoreState {
   setOwnerId: (ownerId: string | "all") => void;
   setSubject: (subject: string | "all") => void;
   setGrade: (grade: string | "all") => void;
-  setIsDeleted: (isDeleted: boolean) => void;
+  setIncludeDeleted: (includeDeleted: boolean) => void;
+  setMine: (mine: boolean) => void;
   resetFilters: () => void;
 
   // Modal state
@@ -41,7 +43,8 @@ const initialFilters: GameFilters = {
   ownerId: "all",
   subject: "all",
   grade: "all",
-  isDeleted: false,
+  includeDeleted: false,
+  mine: true,
 };
 
 const initialModal: GameModalState = {
@@ -79,9 +82,14 @@ export const useGameStore = create<GameStoreState>((set) => ({
       filters: { ...state.filters, grade },
     })),
 
-  setIsDeleted: (isDeleted) =>
+  setIncludeDeleted: (includeDeleted) =>
     set((state) => ({
-      filters: { ...state.filters, isDeleted },
+      filters: { ...state.filters, includeDeleted },
+    })),
+
+  setMine: (mine) =>
+    set((state) => ({
+      filters: { ...state.filters, mine },
     })),
 
   resetFilters: () =>
@@ -147,28 +155,35 @@ export const useSelectedGameIds = () =>
   useGameStore((state) => state.selectedGameIds);
 
 export const useGameModalActions = () =>
-  useGameStore((state) => ({
-    openViewModal: state.openViewModal,
-    openEditModal: state.openEditModal,
-    openUploadModal: state.openUploadModal,
-    openQCModal: state.openQCModal,
-    closeModal: state.closeModal,
-  }));
+  useGameStore(
+    useShallow((state) => ({
+      openViewModal: state.openViewModal,
+      openEditModal: state.openEditModal,
+      openUploadModal: state.openUploadModal,
+      openQCModal: state.openQCModal,
+      closeModal: state.closeModal,
+    })),
+  );
 
 export const useGameFilterActions = () =>
-  useGameStore((state) => ({
-    setSearch: state.setSearch,
-    setStatus: state.setStatus,
-    setOwnerId: state.setOwnerId,
-    setSubject: state.setSubject,
-    setGrade: state.setGrade,
-    setIsDeleted: state.setIsDeleted,
-    resetFilters: state.resetFilters,
-  }));
+  useGameStore(
+    useShallow((state) => ({
+      setSearch: state.setSearch,
+      setStatus: state.setStatus,
+      setOwnerId: state.setOwnerId,
+      setSubject: state.setSubject,
+      setGrade: state.setGrade,
+      setIncludeDeleted: state.setIncludeDeleted,
+      setMine: state.setMine,
+      resetFilters: state.resetFilters,
+    })),
+  );
 
 export const useGameSelectionActions = () =>
-  useGameStore((state) => ({
-    toggleGameSelection: state.toggleGameSelection,
-    selectAllGames: state.selectAllGames,
-    clearSelection: state.clearSelection,
-  }));
+  useGameStore(
+    useShallow((state) => ({
+      toggleGameSelection: state.toggleGameSelection,
+      selectAllGames: state.selectAllGames,
+      clearSelection: state.clearSelection,
+    })),
+  );

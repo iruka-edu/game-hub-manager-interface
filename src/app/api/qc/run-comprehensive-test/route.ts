@@ -115,13 +115,6 @@ export async function POST(request: NextRequest) {
     // Run comprehensive QC test suite
     const testReport: QCTestReport = await MiniGameQCService.runQCTestSuite(testSuite);
 
-    const ev = testReport.qaResults.qa01.events ?? [];
-    const hasAllEvents =
-      ev.some(e => e.type === 'INIT') &&
-      ev.some(e => e.type === 'READY') &&
-      ev.some(e => e.type === 'QUIT') &&
-      ev.some(e => e.type === 'COMPLETE');
-
     // Save QC report to database
     const qcReportRepo = await QCReportRepository.getInstance();
     

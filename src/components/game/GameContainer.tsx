@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { ReactNode, forwardRef } from 'react';
+import { ReactNode, forwardRef } from "react";
 
 interface GameContainerProps {
   isFullscreen: boolean;
@@ -12,8 +12,8 @@ interface GameContainerProps {
 export const GameContainer = forwardRef<HTMLDivElement, GameContainerProps>(
   ({ isFullscreen, cssHeight, showToolbar, children }, ref) => {
     return (
-      <div 
-        className={`game-container bg-slate-50 no-zoom ${isFullscreen ? 'game-container-fullscreen' : ''}`}
+      <div
+        className={`game-container bg-slate-50 no-zoom ${isFullscreen ? "" : ""}`}
         id="game-container"
         ref={ref}
         style={{
@@ -23,7 +23,7 @@ export const GameContainer = forwardRef<HTMLDivElement, GameContainerProps>(
         {children}
       </div>
     );
-  }
+  },
 );
 
-GameContainer.displayName = 'GameContainer';
+GameContainer.displayName = "GameContainer";

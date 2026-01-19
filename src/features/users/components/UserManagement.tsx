@@ -25,7 +25,7 @@ interface UserManagementProps {
 }
 
 const roleLabels: Record<string, string> = {
-  dev: "Nhà phát triển",
+  dev: "Lập trình viên",
   qc: "Kiểm thử QC",
   cto: "CTO",
   ceo: "CEO",
@@ -34,7 +34,10 @@ const roleLabels: Record<string, string> = {
 
 const availableRoles = Object.keys(roleLabels) as Role[];
 
-export function UserManagement({ canManageUsers, userRoles }: UserManagementProps) {
+export function UserManagement({
+  canManageUsers,
+  userRoles,
+}: UserManagementProps) {
   // Server State (React Query)
   const { users, isLoading, isError, error } = useUsers();
 
@@ -54,7 +57,7 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
 
   // Local form state
   const [formData, setFormData] = useState({
-    name: "",
+    full_name: "",
     email: "",
     password: "",
     roles: [] as Role[],
@@ -66,17 +69,17 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
   }>({ isOpen: false, user: null });
 
   // Check if current user can delete users (admin, cto, ceo only)
-  const canDeleteUsers = userRoles.some(role => ['admin', 'cto', 'ceo'].includes(role));
+  const canDeleteUsers = userRoles.some((role) => [""].includes(role));
 
   const handleOpenAddModal = () => {
-    setFormData({ name: "", email: "", password: "", roles: [] });
+    setFormData({ full_name: "", email: "", password: "", roles: [] });
     setFormError(null);
     openAddModal();
   };
 
   const handleOpenEditModal = (user: User) => {
     setFormData({
-      name: user.name,
+      full_name: user.full_name,
       email: user.email,
       password: "",
       roles: user.roles,
@@ -102,13 +105,13 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
         const payload: CreateUserPayload = {
           email: formData.email,
           password: formData.password,
-          name: formData.name,
+          full_name: formData.full_name,
           roles: formData.roles,
         };
         await createUserMutation.mutateAsync(payload);
       } else if (modal.selectedUser) {
         const payload: UpdateUserPayload = {
-          name: formData.name,
+          full_name: formData.full_name,
           email: formData.email,
           roles: formData.roles,
         };
@@ -127,7 +130,7 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
     try {
       await updateStatusMutation.mutateAsync({
         userId,
-        payload: { isActive: !currentStatus },
+        payload: { is_active: !currentStatus },
       });
     } catch (err) {
       console.error("Không thể cập nhật trạng thái:", err);
@@ -225,7 +228,7 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
               <tr key={user.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    {user.name}
+                    {user.full_name}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -246,12 +249,12 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      user.isActive
+                      user.is_active
                         ? "bg-green-100 text-green-800"
                         : "bg-red-100 text-red-800"
                     }`}
                   >
-                    {user.isActive ? "Hoạt động" : "Không hoạt động"}
+                    {user.is_active ? "Hoạt động" : "Không hoạt động"}
                   </span>
                 </td>
                 {canManageUsers && (
@@ -263,15 +266,17 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
                       Sửa
                     </button>
                     <button
-                      onClick={() => handleToggleStatus(user.id, user.isActive)}
+                      onClick={() =>
+                        handleToggleStatus(user.id, user.is_active)
+                      }
                       disabled={updateStatusMutation.isPending}
                       className={`px-3 py-1 rounded text-white text-xs font-medium disabled:opacity-50 ${
-                        user.isActive
+                        user.is_active
                           ? "bg-red-500 hover:bg-red-600"
                           : "bg-green-500 hover:bg-green-600"
                       }`}
                     >
-                      {user.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
+                      {user.is_active ? "Vô hiệu hóa" : "Kích hoạt"}
                     </button>
                     {canDeleteUsers && (
                       <button
@@ -289,7 +294,9 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
           </tbody>
         </table>
         {users.length === 0 && (
-          <div className="text-center py-8 text-gray-500">Không tìm thấy người dùng nào</div>
+          <div className="text-center py-8 text-gray-500">
+            Không tìm thấy người dùng nào
+          </div>
         )}
       </div>
 
@@ -318,7 +325,9 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
               <form onSubmit={handleSubmit}>
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    {modal.mode === "add" ? "Thêm người dùng mới" : "Sửa thông tin người dùng"}
+                    {modal.mode === "add"
+                      ? "Thêm người dùng mới"
+                      : "Sửa thông tin người dùng"}
                   </h3>
 
                   {formError && (
@@ -336,9 +345,12 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
                         type="text"
                         required
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        value={formData.name}
+                        value={formData.full_name}
                         onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
+                          setFormData({
+                            ...formData,
+                            full_name: e.target.value,
+                          })
                         }
                       />
                     </div>
@@ -347,15 +359,29 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
                       <label className="block text-sm font-medium text-gray-700">
                         Email
                       </label>
-                      <input
-                        type="email"
-                        required
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        value={formData.email}
-                        onChange={(e) =>
-                          setFormData({ ...formData, email: e.target.value })
-                        }
-                      />
+                      <div className="mt-1 flex rounded-md shadow-sm">
+                        <input
+                          type="text"
+                          required
+                          pattern="[a-zA-Z0-9._\-]+"
+                          placeholder="son.nguyen"
+                          className="block w-full border border-gray-300 rounded-l-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          value={formData.email.replace("@iruka.com", "")}
+                          onChange={(e) => {
+                            const username = e.target.value.replace(/@/g, "");
+                            setFormData({
+                              ...formData,
+                              email: username ? `${username}@iruka.com` : "",
+                            });
+                          }}
+                        />
+                        <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                          @iruka.com
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Nhập tên người dùng (vd: son.nguyen)
+                      </p>
                     </div>
 
                     {modal.mode === "add" && (
@@ -430,7 +456,10 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
       {deleteConfirm.isOpen && deleteConfirm.user && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div
+              className="fixed inset-0 transition-opacity"
+              aria-hidden="true"
+            >
               <div
                 className="absolute inset-0 bg-gray-500 opacity-75"
                 onClick={handleCloseDeleteConfirm}
@@ -470,8 +499,10 @@ export function UserManagement({ canManageUsers, userRoles }: UserManagementProp
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
                         Bạn có chắc chắn muốn xóa người dùng{" "}
-                        <span className="font-medium">{deleteConfirm.user.name}</span>?
-                        Hành động này không thể hoàn tác.
+                        <span className="font-medium">
+                          {deleteConfirm.user.full_name}
+                        </span>
+                        ? Hành động này không thể hoàn tác.
                       </p>
                     </div>
                   </div>

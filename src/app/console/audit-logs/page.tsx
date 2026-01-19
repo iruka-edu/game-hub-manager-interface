@@ -1,77 +1,88 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { verifySession } from "@/lib/session";
-import { UserRepository } from "@/models/User";
-import { AuditLogger } from "@/lib/audit";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/features/auth";
+import { useAuditLogs, useAuditLogFilterActions } from "@/features/audit-logs";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { AuditLogEntry } from "@/features/audit-logs/types";
 
-interface Props {
-  searchParams: Promise<{ page?: string }>;
-}
+// Action display names
+const actionLabels: Record<string, { label: string; color: string }> = {
+  GAME_CREATE: { label: "Tạo game", color: "bg-blue-100 text-blue-800" },
+  GAME_UPDATE: {
+    label: "Cập nhật game",
+    color: "bg-yellow-100 text-yellow-800",
+  },
+  GAME_SUBMIT_QC: { label: "Gửi QC", color: "bg-purple-100 text-purple-800" },
+  GAME_QC_PASS: { label: "QC Pass", color: "bg-green-100 text-green-800" },
+  GAME_QC_FAIL: { label: "QC Fail", color: "bg-red-100 text-red-800" },
+  GAME_APPROVE: {
+    label: "Duyệt game",
+    color: "bg-emerald-100 text-emerald-800",
+  },
+  GAME_PUBLISH: { label: "Xuất bản", color: "bg-indigo-100 text-indigo-800" },
+  GAME_ARCHIVE: { label: "Lưu trữ", color: "bg-slate-100 text-slate-800" },
+  USER_LOGIN: { label: "Đăng nhập", color: "bg-cyan-100 text-cyan-800" },
+  USER_LOGOUT: { label: "Đăng xuất", color: "bg-gray-100 text-gray-800" },
+  // Fallback default
+  DEFAULT: { label: "Hành động", color: "bg-gray-100 text-gray-800" },
+};
 
-export default async function AuditLogsPage({ searchParams }: Props) {
-  const { page: pageParam } = await searchParams;
-  const page = parseInt(pageParam || "1", 10);
-  const limit = 50;
+export default function AuditLogsPage() {
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: sessionLoading } = useSession();
+  const { logs, pagination, isLoading, isError } = useAuditLogs();
+  const { setPage } = useAuditLogFilterActions();
 
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("iruka_session");
+  // Authorization check
+  useEffect(() => {
+    if (!sessionLoading && !isAuthenticated) {
+      router.push("/login");
+      return;
+    }
 
-  if (!sessionCookie?.value) {
-    redirect("/login");
-  }
-
-  const session = verifySession(sessionCookie.value);
-  if (!session) {
-    redirect("/login");
-  }
-
-  const userRepo = await UserRepository.getInstance();
-  const user = await userRepo.findById(session.userId);
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  // Only Admin, CTO, and CEO can view audit logs
-  const hasAccess =
-    user.roles.includes("admin") ||
-    user.roles.includes("cto") ||
-    user.roles.includes("ceo");
-  if (!hasAccess) {
-    redirect("/console");
-  }
-
-  // Fetch logs
-  const skip = (page - 1) * limit;
-  const logs = await AuditLogger.getLogs({}, limit, skip);
-  const total = await AuditLogger.getLogsCount({});
-  const totalPages = Math.ceil(total / limit);
+    if (user) {
+      const hasAccess =
+        user.roles.includes("admin") ||
+        user.roles.includes("cto") ||
+        user.roles.includes("ceo");
+      if (!hasAccess) {
+        router.push("/console");
+      }
+    }
+  }, [user, isAuthenticated, sessionLoading, router]);
 
   const breadcrumbItems = [
     { label: "Console", href: "/console" },
     { label: "Audit Logs" },
   ];
 
-  // Action display names
-  const actionLabels: Record<string, { label: string; color: string }> = {
-    GAME_CREATE: { label: "Tạo game", color: "bg-blue-100 text-blue-800" },
-    GAME_UPDATE: {
-      label: "Cập nhật game",
-      color: "bg-yellow-100 text-yellow-800",
-    },
-    GAME_SUBMIT_QC: { label: "Gửi QC", color: "bg-purple-100 text-purple-800" },
-    GAME_QC_PASS: { label: "QC Pass", color: "bg-green-100 text-green-800" },
-    GAME_QC_FAIL: { label: "QC Fail", color: "bg-red-100 text-red-800" },
-    GAME_APPROVE: {
-      label: "Duyệt game",
-      color: "bg-emerald-100 text-emerald-800",
-    },
-    GAME_PUBLISH: { label: "Xuất bản", color: "bg-indigo-100 text-indigo-800" },
-    GAME_ARCHIVE: { label: "Lưu trữ", color: "bg-slate-100 text-slate-800" },
-    USER_LOGIN: { label: "Đăng nhập", color: "bg-cyan-100 text-cyan-800" },
-    USER_LOGOUT: { label: "Đăng xuất", color: "bg-gray-100 text-gray-800" },
-  };
+  // Loading state
+  if (sessionLoading || isLoading) {
+    return (
+      <div className="p-8">
+        <Breadcrumb items={breadcrumbItems} />
+        <div className="animate-pulse space-y-4 mt-8">
+          <div className="h-8 bg-slate-200 rounded w-1/4"></div>
+          <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+          <div className="h-64 bg-slate-200 rounded mt-8"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (isError) {
+    return (
+      <div className="p-8">
+        <Breadcrumb items={breadcrumbItems} />
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 mt-8">
+          <p className="text-red-700">Không thể tải dữ liệu audit logs.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -87,7 +98,10 @@ export default async function AuditLogsPage({ searchParams }: Props) {
         </div>
         <div className="text-sm text-slate-500">
           Tổng cộng:{" "}
-          <span className="font-semibold text-slate-700">{total}</span> bản ghi
+          <span className="font-semibold text-slate-700">
+            {pagination.total}
+          </span>{" "}
+          bản ghi
         </div>
       </div>
 
@@ -125,14 +139,15 @@ export default async function AuditLogsPage({ searchParams }: Props) {
                   </td>
                 </tr>
               ) : (
-                logs.map((log: any) => {
-                  const actionInfo = actionLabels[log.action] || {
-                    label: log.action,
-                    color: "bg-gray-100 text-gray-800",
-                  };
+                logs.map((log: AuditLogEntry) => {
+                  const actionInfo = actionLabels[log.action] ||
+                    actionLabels.DEFAULT || {
+                      label: log.action,
+                      color: "bg-gray-100 text-gray-800",
+                    };
 
                   return (
-                    <tr key={log._id?.toString()} className="hover:bg-slate-50">
+                    <tr key={log._id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {new Date(log.createdAt).toLocaleString("vi-VN")}
                       </td>
@@ -153,9 +168,9 @@ export default async function AuditLogsPage({ searchParams }: Props) {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         <div>{log.target?.entity || "N/A"}</div>
-                        {log.metadata?.gameId && (
+                        {(log.metadata as any)?.gameId && (
                           <div className="text-xs text-slate-400 font-mono">
-                            {log.metadata.gameId}
+                            {String((log.metadata as any).gameId)}
                           </div>
                         )}
                       </td>
@@ -171,27 +186,27 @@ export default async function AuditLogsPage({ searchParams }: Props) {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {pagination.totalPages > 1 && (
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
             <div className="text-sm text-slate-600">
-              Trang {page} / {totalPages}
+              Trang {pagination.page} / {pagination.totalPages}
             </div>
             <div className="flex gap-2">
-              {page > 1 && (
-                <a
-                  href={`/console/audit-logs?page=${page - 1}`}
+              {pagination.page > 1 && (
+                <button
+                  onClick={() => setPage(pagination.page - 1)}
                   className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
                 >
                   Trước
-                </a>
+                </button>
               )}
-              {page < totalPages && (
-                <a
-                  href={`/console/audit-logs?page=${page + 1}`}
+              {pagination.page < pagination.totalPages && (
+                <button
+                  onClick={() => setPage(pagination.page + 1)}
                   className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                 >
                   Tiếp
-                </a>
+                </button>
               )}
             </div>
           </div>
