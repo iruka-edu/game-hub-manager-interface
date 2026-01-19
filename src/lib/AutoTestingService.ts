@@ -17,7 +17,7 @@ import type {
 } from '@/types/qc-types';
 
 // Import REAL SDK
-import * as SDK from '@iruka-edu/mini-game-sdk';
+// import * as SDK from '@iruka-edu/mini-game-sdk';
 import type { 
   IframeBridge, 
   GameManifest as SDKGameManifest,
@@ -27,7 +27,8 @@ import type {
 
 // Import Playwright for real browser testing
 // @ts-ignore - Playwright is server-only and may not be available during build
-import { chromium, type Browser, type Page, type BrowserContext } from 'playwright';
+// import { chromium, type Browser, type Page, type BrowserContext } from 'playwright';
+import type { Browser, Page, BrowserContext } from 'playwright';
 
 // Test result types for SDK testing
 interface SDKTestResult {
@@ -40,6 +41,9 @@ interface SDKTestResult {
 
 // Use SDK's GameManifest type
 type GameManifest = SDKGameManifest;
+
+type SDKModule = typeof import('@iruka-edu/mini-game-sdk');
+let SDK: SDKModule | null = null;
 
 /**
  * Enhanced Auto Testing Service with REAL Mini Game SDK Integration
@@ -66,6 +70,12 @@ export class AutoTestingService {
   private static browser: Browser | null = null;
   private static testResults: SDKTestResult[] = [];
 
+  private static async getSDK(): Promise<SDKModule> {
+    if (SDK) return SDK;
+    SDK = await import('@iruka-edu/mini-game-sdk');
+    return SDK;
+  }
+
   /**
    * Initialize Playwright browser for testing
    */
@@ -75,6 +85,7 @@ export class AutoTestingService {
     }
 
     try {
+      const { chromium } = await import('playwright');
       this.browser = await chromium.launch({
         headless: true,
         args: [
@@ -117,6 +128,7 @@ export class AutoTestingService {
     let page: Page | null = null;
 
     try {
+      const SDK = await this.getSDK();
       // Initialize browser
       browser = await this.initializeBrowser();
       context = await browser.newContext({
@@ -164,7 +176,10 @@ export class AutoTestingService {
           pass: false, 
           duplicateAttemptId: false, 
           backendRecordCount: 0, 
-          consistencyCheck: false 
+          consistencyCheck: false,
+          rawResult: {},
+          eventsTimeline: [],
+          testDurationts: 0,
         },
         rawResult: {},
         eventsTimeline: [],
@@ -241,6 +256,7 @@ export class AutoTestingService {
       // Test 1: Manifest Validation with REAL SDK
       async () => {
         const startTime = Date.now();
+        const SDK = await this.getSDK();
         try {
           if (manifest) {
             const validation = SDK.validateManifest(manifest) as any;
@@ -274,6 +290,7 @@ export class AutoTestingService {
       async () => {
         const startTime = Date.now();
         try {
+          const SDK = await this.getSDK();
           const version = SDK.SDK_VERSION;
           return {
             component: 'SDK Version',
@@ -295,6 +312,7 @@ export class AutoTestingService {
 
       // Test 3: Test Spy Functionality
       async () => {
+        const SDK = await this.getSDK();
         const startTime = Date.now();
         try {
           if (SDK.__testSpy) {
@@ -330,6 +348,7 @@ export class AutoTestingService {
 
       // Test 4: AutoSaveManager
       async () => {
+        const SDK = await this.getSDK();
         const startTime = Date.now();
         try {
           const autoSave = new SDK.AutoSaveManager(
@@ -792,6 +811,8 @@ export class AutoTestingService {
         console.log(`  ✅ No duplicate submissions detected`);
       }
 
+      const SDK = await this.getSDK();
+
       // Check SDK test spy for consistency
       if (SDK.__testSpy) {
         const spyData = SDK.__testSpy.getSummary();
@@ -835,7 +856,9 @@ export class AutoTestingService {
   /**
    * Reset SDK and test state
    */
-  static reset(): void {
+  static async reset(): Promise<void> {
+    const SDK = await this.getSDK();
+
     if (SDK.__testSpy) {
       SDK.__testSpy.disable();
     }
