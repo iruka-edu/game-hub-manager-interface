@@ -1,14 +1,9 @@
 /**
  * GCS API Functions
- * Calling external API at NEXT_PUBLIC_BASE_API_URL
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import {
-  externalApiGet,
-  externalApiPost,
-  externalApiDelete,
-  externalApiUpload,
-} from "@/lib/external-api";
+import { apiGet, apiPost, apiDelete, apiUpload } from "@/lib/api-fetch";
 import type {
   GCSListResponse,
   GCSBucketInfoResponse,
@@ -26,9 +21,9 @@ import type {
  */
 export async function listGCSFiles(
   prefix?: string,
-  limit?: number
+  limit?: number,
 ): Promise<GCSListResponse> {
-  return externalApiGet<GCSListResponse>("/api/v1/gcs/files", {
+  return apiGet<GCSListResponse>("/api/v1/gcs/files", {
     prefix: prefix ?? "",
     limit: limit ?? 100,
   });
@@ -40,10 +35,10 @@ export async function listGCSFiles(
  */
 export async function getGCSFile(
   path: string,
-  redirect: boolean = true
+  redirect: boolean = true,
 ): Promise<{ url: string } | void> {
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  return externalApiGet(`/api/v1/gcs/files/${encodedPath}`, { redirect });
+  return apiGet(`/api/v1/gcs/files/${encodedPath}`, { redirect });
 }
 
 /**
@@ -53,15 +48,15 @@ export async function getGCSFile(
 export async function uploadGCSFile(
   destinationPath: string,
   file: File,
-  onUploadProgress?: (progressEvent: any) => void
+  onUploadProgress?: (progressEvent: any) => void,
 ): Promise<void> {
   const formData = new FormData();
   formData.append("file", file);
 
-  await externalApiUpload(
+  await apiUpload(
     `/api/v1/gcs/files?path=${encodeURIComponent(destinationPath)}`,
     formData,
-    onUploadProgress
+    onUploadProgress,
   );
 }
 
@@ -70,7 +65,7 @@ export async function uploadGCSFile(
  * DELETE /api/v1/gcs/files?path=...
  */
 export async function deleteGCSFile(path: string): Promise<void> {
-  await externalApiDelete<void>("/api/v1/gcs/files", { path });
+  await apiDelete<void>("/api/v1/gcs/files", { path });
 }
 
 /**
@@ -78,7 +73,7 @@ export async function deleteGCSFile(path: string): Promise<void> {
  * GET /api/v1/gcs/cache
  */
 export async function getGCSCacheInfo(): Promise<GCSBucketInfoResponse> {
-  return externalApiGet<GCSBucketInfoResponse>("/api/v1/gcs/cache");
+  return apiGet<GCSBucketInfoResponse>("/api/v1/gcs/cache");
 }
 
 /**
@@ -86,9 +81,9 @@ export async function getGCSCacheInfo(): Promise<GCSBucketInfoResponse> {
  * POST /api/v1/gcs/cleanup
  */
 export async function cleanupGCS(
-  request: GCSCleanupRequest
+  request: GCSCleanupRequest,
 ): Promise<GCSCleanupResponse> {
-  return externalApiPost<GCSCleanupResponse>("/api/v1/gcs/cleanup", request);
+  return apiPost<GCSCleanupResponse>("/api/v1/gcs/cleanup", request);
 }
 
 /**
@@ -198,22 +193,22 @@ export async function getGCSCache(): Promise<GCSBucketInfoResponse> {
 }
 
 /**
- * Clear GCS cache (legacy - no-op for external API)
+ * Clear GCS cache (legacy - no-op for backend API)
  */
 export async function clearGCSCache(
-  _type?: string
+  _type?: string,
 ): Promise<{ success: boolean; message: string }> {
   // Cache is now handled client-side, this is a no-op
   return { success: true, message: "Cache cleared" };
 }
 
 /**
- * Set GCS cache (legacy - no-op for external API)
+ * Set GCS cache (legacy - no-op for backend API)
  */
 export async function setGCSCache(
   _data: any,
   _type?: string,
-  _ttl?: number
+  _ttl?: number,
 ): Promise<{ success: boolean; message: string }> {
   // Cache is now handled client-side, this is a no-op
   return { success: true, message: "Cache set" };

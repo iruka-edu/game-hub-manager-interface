@@ -1,9 +1,9 @@
 /**
  * User Mutation API Functions
- * API functions for create, update, delete users via external API
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { externalApiPost } from "@/lib/external-api";
+import { apiPost } from "@/lib/api-fetch";
 import type {
   User,
   CreateUserPayload,
@@ -17,17 +17,17 @@ import type {
  * POST /api/v1/users/
  */
 export async function createUser(payload: CreateUserPayload): Promise<User> {
-  return externalApiPost<User>("/api/v1/users/", payload);
+  return apiPost<User>("/api/v1/users/", payload);
 }
 
 /**
  * Update user information
- * Note: External API doesn't have a dedicated update endpoint
+ * Note: API doesn't have a dedicated update endpoint
  * This function uses status update for now - extend when API supports full user updates
  */
 export async function updateUser(
   userId: string,
-  payload: UpdateUserPayload
+  payload: UpdateUserPayload,
 ): Promise<User> {
   // For now, we can only update status via the API
   // If the payload includes is_active (from UpdateUserPayload), use status update
@@ -38,7 +38,7 @@ export async function updateUser(
   }
 
   // Fall back to updating status if no other fields
-  return externalApiPost<User>(`/api/v1/users/${userId}/status`, {
+  return apiPost<User>(`/api/v1/users/${userId}/status`, {
     is_active: true, // Default to keeping active
   });
 }
@@ -49,9 +49,9 @@ export async function updateUser(
  */
 export async function updateUserStatus(
   userId: string,
-  payload: UpdateUserStatusPayload
+  payload: UpdateUserStatusPayload,
 ): Promise<User> {
-  return externalApiPost<User>(`/api/v1/users/${userId}/status`, payload);
+  return apiPost<User>(`/api/v1/users/${userId}/status`, payload);
 }
 
 /**
@@ -60,14 +60,14 @@ export async function updateUserStatus(
  */
 export async function resetUserPassword(
   userId: string,
-  payload: ResetUserPasswordPayload
+  payload: ResetUserPasswordPayload,
 ): Promise<User> {
-  return externalApiPost<User>(`/api/v1/users/${userId}/password`, payload);
+  return apiPost<User>(`/api/v1/users/${userId}/password`, payload);
 }
 
 /**
  * Delete user (soft delete via status update)
- * Note: External API doesn't have a delete endpoint, deactivating instead
+ * Note: API doesn't have a delete endpoint, deactivating instead
  */
 export async function deleteUser(userId: string): Promise<void> {
   // Soft delete by setting is_active to false

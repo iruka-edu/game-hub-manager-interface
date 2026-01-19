@@ -1,8 +1,9 @@
 /**
  * Audit Logs API Functions
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { externalApiGet } from "@/lib/external-api";
+import { apiGet } from "@/lib/api-fetch";
 import type { AuditLogsResponse, AuditLogsParams } from "../types";
 
 /**
@@ -12,7 +13,7 @@ import type { AuditLogsResponse, AuditLogsParams } from "../types";
 export async function getAuditLogs(
   params?: AuditLogsParams,
 ): Promise<AuditLogsResponse> {
-  return externalApiGet<AuditLogsResponse>("/api/v1/audit-logs", {
+  return apiGet<AuditLogsResponse>("/api/v1/audit-logs", {
     page: params?.page,
     limit: params?.limit,
     userId: params?.userId,

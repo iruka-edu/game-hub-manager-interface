@@ -1,9 +1,9 @@
 /**
  * Notifications API Functions
- * Calling external API at NEXT_PUBLIC_BASE_API_URL
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { externalApiGet, externalApiPost } from "@/lib/external-api";
+import { apiGet, apiPost } from "@/lib/api-fetch";
 import type {
   NotificationsResponse,
   GetNotificationsParams,
@@ -16,9 +16,9 @@ import type {
  * GET /api/v1/notifications/
  */
 export async function getNotifications(
-  params?: GetNotificationsParams
+  params?: GetNotificationsParams,
 ): Promise<NotificationsResponse> {
-  return externalApiGet<NotificationsResponse>("/api/v1/notifications/", {
+  return apiGet<NotificationsResponse>("/api/v1/notifications/", {
     limit: params?.limit ?? 20,
     skip: params?.skip ?? 0,
   });
@@ -29,10 +29,10 @@ export async function getNotifications(
  * POST /api/v1/notifications/{notification_id}/read
  */
 export async function markAsRead(
-  notificationId: string
+  notificationId: string,
 ): Promise<MarkAsReadResponse> {
-  return externalApiPost<MarkAsReadResponse>(
-    `/api/v1/notifications/${notificationId}/read`
+  return apiPost<MarkAsReadResponse>(
+    `/api/v1/notifications/${notificationId}/read`,
   );
 }
 
@@ -41,7 +41,5 @@ export async function markAsRead(
  * POST /api/v1/notifications/read-all
  */
 export async function markAllAsRead(): Promise<MarkAllAsReadResponse> {
-  return externalApiPost<MarkAllAsReadResponse>(
-    "/api/v1/notifications/read-all"
-  );
+  return apiPost<MarkAllAsReadResponse>("/api/v1/notifications/read-all");
 }

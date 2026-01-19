@@ -1,9 +1,9 @@
 /**
  * Games API - Get Games
- * Pure functions for fetching games data from external API
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { externalApiGet } from "@/lib/external-api";
+import { apiGet } from "@/lib/api-fetch";
 import type { GamesListResponse, GameDetailResponse } from "../types";
 
 export interface GetGamesParams {
@@ -18,9 +18,9 @@ export interface GetGamesParams {
  * GET /api/v1/games/list
  */
 export async function getGames(
-  params?: GetGamesParams
+  params?: GetGamesParams,
 ): Promise<GamesListResponse> {
-  return externalApiGet<GamesListResponse>("/api/v1/games/list", {
+  return apiGet<GamesListResponse>("/api/v1/games/list", {
     skip: params?.skip,
     limit: params?.limit,
     mine: params?.mine,
@@ -33,7 +33,7 @@ export async function getGames(
  * GET /api/v1/games/{game_id}
  */
 export async function getGameById(gameId: string): Promise<GameDetailResponse> {
-  return externalApiGet<GameDetailResponse>(`/api/v1/games/${gameId}`);
+  return apiGet<GameDetailResponse>(`/api/v1/games/${gameId}`);
 }
 
 /**
@@ -41,12 +41,9 @@ export async function getGameById(gameId: string): Promise<GameDetailResponse> {
  * GET /api/v1/games/check-duplicate
  */
 export async function checkDuplicateGameId(
-  gameId: string
+  gameId: string,
 ): Promise<{ duplicate: boolean }> {
-  return externalApiGet<{ duplicate: boolean }>(
-    "/api/v1/games/check-duplicate",
-    {
-      gameId,
-    }
-  );
+  return apiGet<{ duplicate: boolean }>("/api/v1/games/check-duplicate", {
+    gameId,
+  });
 }

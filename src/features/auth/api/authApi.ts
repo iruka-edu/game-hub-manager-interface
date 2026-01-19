@@ -1,9 +1,9 @@
 /**
  * Auth API Functions
- * Calling external API at NEXT_PUBLIC_BASE_API_URL
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { externalApiGet, externalApiPost } from "@/lib/external-api";
+import { apiGet, apiPost } from "@/lib/api-fetch";
 import { tokenStorage } from "@/lib/token-storage";
 import type {
   CurrentUser,
@@ -20,10 +20,7 @@ import type {
  */
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
   try {
-    const tokens = await externalApiPost<TokenSchema>(
-      "/api/v1/auth/login",
-      payload,
-    );
+    const tokens = await apiPost<TokenSchema>("/api/v1/auth/login", payload);
 
     // Store both access and refresh tokens in cookies
     tokenStorage.setToken(tokens.access_token);
@@ -53,7 +50,7 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
  */
 export async function logout(): Promise<LogoutResponse> {
   try {
-    await externalApiPost("/api/v1/auth/logout");
+    await apiPost("/api/v1/auth/logout");
     tokenStorage.clearTokens();
     return { success: true };
   } catch (error: any) {
@@ -69,7 +66,7 @@ export async function logout(): Promise<LogoutResponse> {
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   try {
-    return await externalApiGet<CurrentUser>("/api/v1/auth/me");
+    return await apiGet<CurrentUser>("/api/v1/auth/me");
   } catch {
     return null;
   }
@@ -77,7 +74,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
 /**
  * Refresh access token
- * POST /api/v1/auth/refresh
+ * POST /api/auth/refresh
+ * Note: Backend reads refresh_token from cookie automatically
  */
 export async function refreshToken(): Promise<RefreshTokenResponse | null> {
   try {
@@ -86,10 +84,9 @@ export async function refreshToken(): Promise<RefreshTokenResponse | null> {
       return null;
     }
 
-    const tokens = await externalApiPost<RefreshTokenResponse>(
-      "/api/v1/auth/refresh",
-      { refresh_token: currentRefreshToken },
-    );
+    // Backend reads refresh_token from cookie automatically (withCredentials: true)
+    // No need to send it in body
+    const tokens = await apiPost<RefreshTokenResponse>("/api/v1/auth/refresh");
 
     // Save both new tokens
     tokenStorage.setToken(tokens.access_token);

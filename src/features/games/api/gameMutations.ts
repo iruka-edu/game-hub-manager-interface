@@ -1,14 +1,9 @@
 /**
  * Games Mutation API Functions
- * API functions for create, update, delete games via external API
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import {
-  externalApiPost,
-  externalApiPut,
-  externalApiDelete,
-  externalApiUpload,
-} from "@/lib/external-api";
+import { apiPost, apiPut, apiDelete, apiUpload } from "@/lib/api-fetch";
 import type {
   Game,
   GameCreateResponse,
@@ -28,7 +23,7 @@ import type {
 export async function createGame(
   payload: CreateGamePayload,
 ): Promise<GameCreateResponse> {
-  return externalApiPost<GameCreateResponse>("/api/v1/games/create", payload);
+  return apiPost<GameCreateResponse>("/api/v1/games/create", payload);
 }
 
 /**
@@ -39,7 +34,7 @@ export async function updateGame(
   gameId: string,
   payload: UpdateGamePayload,
 ): Promise<Game> {
-  return externalApiPut<Game>(`/api/v1/games/${gameId}`, payload);
+  return apiPut<Game>(`/api/v1/games/${gameId}`, payload);
 }
 
 /**
@@ -50,7 +45,7 @@ export async function deleteGame(
   gameId: string,
   reason?: string,
 ): Promise<void> {
-  await externalApiDelete<void>(`/api/v1/games/${gameId}`, { reason });
+  await apiDelete<void>(`/api/v1/games/${gameId}`, { reason });
 }
 
 /**
@@ -58,7 +53,7 @@ export async function deleteGame(
  * POST /api/v1/games/{game_id}/submit-qc
  */
 export async function submitToQC(gameId: string): Promise<void> {
-  await externalApiPost<void>(`/api/v1/games/${gameId}/submit-qc`);
+  await apiPost<void>(`/api/v1/games/${gameId}/submit-qc`);
 }
 
 /**
@@ -69,10 +64,7 @@ export async function updateSelfQA(
   gameId: string,
   checklist: SelfQAChecklist,
 ): Promise<SelfQAResponse> {
-  return externalApiPost<SelfQAResponse>(
-    `/api/v1/games/${gameId}/self-qa`,
-    checklist,
-  );
+  return apiPost<SelfQAResponse>(`/api/v1/games/${gameId}/self-qa`, checklist);
 }
 
 /**
@@ -83,7 +75,7 @@ export async function qcReview(
   gameId: string,
   payload: QCReviewPayload,
 ): Promise<void> {
-  await externalApiPost<void>(`/api/v1/games/${gameId}/qc-review`, payload);
+  await apiPost<void>(`/api/v1/games/${gameId}/qc-review`, payload);
 }
 
 /**
@@ -94,7 +86,7 @@ export async function approveGame(
   gameId: string,
   payload: ApprovePayload,
 ): Promise<void> {
-  await externalApiPost<void>(`/api/v1/release/${gameId}/approve`, payload);
+  await apiPost<void>(`/api/v1/release/${gameId}/approve`, payload);
 }
 
 /**
@@ -105,7 +97,7 @@ export async function rejectGame(
   gameId: string,
   payload: ApprovePayload,
 ): Promise<void> {
-  await externalApiPost<void>(`/api/v1/release/${gameId}/reject`, payload);
+  await apiPost<void>(`/api/v1/release/${gameId}/reject`, payload);
 }
 
 /**
@@ -116,7 +108,7 @@ export async function publishGame(
   gameId: string,
   payload?: PublishPayload,
 ): Promise<void> {
-  await externalApiPost<void>(`/api/v1/release/${gameId}/publish`, payload);
+  await apiPost<void>(`/api/v1/release/${gameId}/publish`, payload);
 }
 
 /**
@@ -127,11 +119,7 @@ export async function uploadBuild(
   formData: FormData,
   onUploadProgress?: (progressEvent: any) => void,
 ): Promise<void> {
-  await externalApiUpload<void>(
-    "/api/v1/games/upload",
-    formData,
-    onUploadProgress,
-  );
+  await apiUpload<void>("/api/v1/games/upload", formData, onUploadProgress);
 }
 
 /**
@@ -142,7 +130,7 @@ export async function uploadThumbnail(
   formData: FormData,
   onUploadProgress?: (progressEvent: any) => void,
 ): Promise<void> {
-  await externalApiUpload<void>(
+  await apiUpload<void>(
     "/api/v1/games/upload-thumbnail",
     formData,
     onUploadProgress,
@@ -157,7 +145,7 @@ export async function uploadWithMetadata(
   formData: FormData,
   onUploadProgress?: (progressEvent: any) => void,
 ): Promise<void> {
-  await externalApiUpload<void>(
+  await apiUpload<void>(
     "/api/v1/games/upload-with-metadata",
     formData,
     onUploadProgress,

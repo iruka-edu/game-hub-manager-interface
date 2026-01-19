@@ -16,25 +16,24 @@ export interface LoginPayload {
 
 /**
  * Token response from login/refresh
- * Matches TokenSchema
+ * Matches TokenSchema from OpenAPI spec
  */
 export interface TokenSchema {
   access_token: string;
-  refresh_token: string;
-  token_type: string;
+  refresh_token?: string | null;
+  token_type?: string;
 }
 
 /**
  * Current user from /auth/me
- * Based on UserResponse but simplified for auth context
+ * Matches UserResponse schema from OpenAPI spec
  */
 export interface CurrentUser {
-  id: string;
+  id: string; // UUID format
   email: string;
-  name: string;
-  roles: Role[];
+  full_name: string;
   is_active: boolean;
-  avatar?: string;
+  roles: Role[];
 }
 
 /**

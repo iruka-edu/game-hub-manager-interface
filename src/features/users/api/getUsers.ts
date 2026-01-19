@@ -1,9 +1,9 @@
 /**
  * Users API Functions
- * Pure functions for fetching users data from external API
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { externalApiGet } from "@/lib/external-api";
+import { apiGet } from "@/lib/api-fetch";
 import type { UsersListResponse } from "../types";
 
 /**
@@ -11,5 +11,5 @@ import type { UsersListResponse } from "../types";
  * GET /api/v1/users/
  */
 export async function getUsers(): Promise<UsersListResponse> {
-  return externalApiGet<UsersListResponse>("/api/v1/users/");
+  return apiGet<UsersListResponse>("/api/v1/users/");
 }

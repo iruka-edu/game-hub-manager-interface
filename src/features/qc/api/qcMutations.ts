@@ -1,9 +1,9 @@
 /**
  * QC API Functions
- * Calling external API at NEXT_PUBLIC_BASE_API_URL
+ * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { externalApiPost } from "@/lib/external-api";
+import { apiPost } from "@/lib/api-fetch";
 import type {
   QCDecisionPayload,
   QCDecisionResponse,
@@ -16,9 +16,9 @@ import type {
  * POST /api/v1/qc/decision
  */
 export async function submitQCDecision(
-  decision: QCDecisionPayload
+  decision: QCDecisionPayload,
 ): Promise<QCDecisionResponse> {
-  return externalApiPost<QCDecisionResponse>("/api/v1/qc/decision", decision);
+  return apiPost<QCDecisionResponse>("/api/v1/qc/decision", decision);
 }
 
 /**
@@ -26,7 +26,7 @@ export async function submitQCDecision(
  * POST /api/v1/qc/run
  */
 export async function submitTestRun(
-  testRun: QCRunPayload
+  testRun: QCRunPayload,
 ): Promise<QCRunResponse> {
-  return externalApiPost<QCRunResponse>("/api/v1/qc/run", testRun);
+  return apiPost<QCRunResponse>("/api/v1/qc/run", testRun);
 }
