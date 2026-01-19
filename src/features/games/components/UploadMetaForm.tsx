@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { 
+  useSubjects, 
+  useAgeBands,
+  useLevels, 
+  useSkills, 
+  useThemes 
+} from "@/features/game-lessons/hooks/useGameLessons";
 
 interface UploadMetaFormProps {
   values: {
@@ -16,56 +23,37 @@ interface UploadMetaFormProps {
   };
 }
 
-const GRADES = [
-  { value: "1", label: "Lớp 1 (6-7 tuổi)" },
-  { value: "2", label: "Lớp 2 (7-8 tuổi)" },
-  { value: "3", label: "Lớp 3 (8-9 tuổi)" },
-  { value: "4", label: "Lớp 4 (9-10 tuổi)" },
-  { value: "5", label: "Lớp 5 (10-11 tuổi)" },
-  { value: "6", label: "Lớp 6 (11-12 tuổi)" },
-  { value: "7", label: "Lớp 7 (12-13 tuổi)" },
-  { value: "8", label: "Lớp 8 (13-14 tuổi)" },
-  { value: "9", label: "Lớp 9 (14-15 tuổi)" },
-  { value: "10", label: "Lớp 10 (15-16 tuổi)" },
-  { value: "11", label: "Lớp 11 (16-17 tuổi)" },
-  { value: "12", label: "Lớp 12 (17-18 tuổi)" },
-];
-
-const SUBJECTS = [
-  { value: "math", label: "Toán học" },
-  { value: "vietnamese", label: "Tiếng Việt" },
-  { value: "art", label: "Nghệ thuật" },
-];
-
-const LEVELS = [
-  { value: "1", label: "Làm quen", icon: "🌱" },
-  { value: "2", label: "Tiến bộ", icon: "⭐" },
-  { value: "3", label: "Thử thách", icon: "🔥" },
-];
-
-const SKILLS = [
-  { value: "1", label: "Tô màu cơ bản" },
-  { value: "2", label: "Tô theo mẫu - Theo gợi ý" },
-  { value: "3", label: "Nhận diện hình & Chi tiết qua tô" },
-  { value: "4", label: "Điều khiển nét & tay" },
-  { value: "5", label: "Hoàn thiện hình/ Bổ sung nhẹ" },
-  { value: "6", label: "Tạo hình theo chủ đề" },
-];
-
-const THEMES = [
-  { value: "1", label: "Động vật", icon: "🐾" },
-  { value: "2", label: "Xe cộ", icon: "🚗" },
-  { value: "3", label: "Đồ chơi", icon: "🧸" },
-  { value: "4", label: "Âm nhạc", icon: "🎵" },
-  { value: "5", label: "Trái cây", icon: "🍎" },
-  { value: "6", label: "Rau củ", icon: "🥕" },
-  { value: "7", label: "Thiên nhiên – hoa lá", icon: "🌸" },
-  { value: "8", label: "Ngữ cảnh đời sống gần gũi", icon: "🏠" },
-];
 
 export function UploadMetaForm({ values }: UploadMetaFormProps) {
+  // Fetch data from game-lessons API
+  const { data: subjects, isLoading: subjectsLoading } = useSubjects();
+  const { data: ageBands, isLoading: ageBandsLoading } = useAgeBands();
+  const { data: levels, isLoading: levelsLoading } = useLevels();
+  const { data: skills, isLoading: skillsLoading } = useSkills();
+  const { data: themes, isLoading: themesLoading } = useThemes();
+
   const [selectedSkills, setSelectedSkills] = useState<string[]>(values.skills);
   const [selectedThemes, setSelectedThemes] = useState<string[]>(values.themes);
+
+  // Helper function to create grade options from age bands
+  const getGradeOptions = () => {
+    if (!ageBands) return [];
+    
+    // Create grade options based on Vietnamese education system
+    const gradeOptions = [];
+    for (let grade = 1; grade <= 12; grade++) {
+      const ageBand = ageBands.find(ab => 
+        ab.min_age === grade + 5 && ab.max_age === grade + 6
+      );
+      
+      gradeOptions.push({
+        value: grade.toString(),
+        label: `Lớp ${grade} (${grade + 5}-${grade + 6} tuổi)`,
+        ageBandName: ageBand?.name || `${grade + 5}-${grade + 6} tuổi`
+      });
+    }
+    return gradeOptions;
+  };
 
   const toggleSkill = (skillId: string) => {
     setSelectedSkills((prev) =>
@@ -82,6 +70,9 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
         : [...prev, themeId],
     );
   };
+
+  // Loading state
+  const isLoading = subjectsLoading || ageBandsLoading || levelsLoading || skillsLoading || themesLoading;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -113,7 +104,19 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
       </div>
 
       <form className="p-6 space-y-6">
-        {/* Required Fields Section */}
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="flex items-center gap-3 text-slate-600">
+              <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Đang tải dữ liệu...</span>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && (
+          <>
+            {/* Required Fields Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-px flex-1 bg-slate-200" />
@@ -136,7 +139,7 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
                 required
               >
                 <option value="">Chọn lớp học</option>
-                {GRADES.map((grade) => (
+                {getGradeOptions().map((grade) => (
                   <option key={grade.value} value={grade.value}>
                     {grade.label}
                   </option>
@@ -156,9 +159,9 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
                 required
               >
                 <option value="">Chọn môn học</option>
-                {SUBJECTS.map((subject) => (
-                  <option key={subject.value} value={subject.value}>
-                    {subject.label}
+                {subjects?.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
                   </option>
                 ))}
               </select>
@@ -238,23 +241,25 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
               Độ khó <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-3 gap-3">
-              {LEVELS.map((level) => (
+              {levels?.map((level) => (
                 <label
-                  key={level.value}
+                  key={level.id}
                   className="relative flex items-center justify-center p-4 border-2 border-slate-200 rounded-xl cursor-pointer transition-all hover:border-indigo-300 hover:bg-indigo-50 has-checked:border-indigo-600 has-checked:bg-indigo-50"
                 >
                   <input
                     type="radio"
                     name="level"
-                    value={level.value}
-                    defaultChecked={values.level === level.value}
+                    value={level.id}
+                    defaultChecked={values.level === level.id}
                     className="sr-only"
                     required
                   />
                   <div className="text-center">
-                    <div className="text-2xl mb-1">{level.icon}</div>
+                    <div className="text-2xl mb-1">
+                      {level.order === 1 ? "🌱" : level.order === 2 ? "⭐" : "🔥"}
+                    </div>
                     <div className="text-sm font-medium text-slate-700">
-                      {level.label}
+                      {level.name}
                     </div>
                   </div>
                   <div className="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-slate-300 bg-white transition-all peer-checked:border-indigo-600 peer-checked:bg-indigo-600 flex items-center justify-center">
@@ -341,20 +346,20 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
               </span>
             </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {SKILLS.map((skill) => (
+              {skills?.map((skill) => (
                 <label
-                  key={skill.value}
+                  key={skill.id}
                   className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer transition-all hover:bg-slate-50 has-checked:bg-indigo-50 has-checked:border-indigo-300"
                 >
                   <input
                     type="checkbox"
                     name="skill"
-                    value={skill.value}
-                    checked={selectedSkills.includes(skill.value)}
-                    onChange={() => toggleSkill(skill.value)}
+                    value={skill.id}
+                    checked={selectedSkills.includes(skill.id)}
+                    onChange={() => toggleSkill(skill.id)}
                     className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-slate-700">{skill.label}</span>
+                  <span className="text-sm text-slate-700">{skill.name}</span>
                 </label>
               ))}
             </div>
@@ -369,21 +374,32 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
               </span>
             </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {THEMES.map((theme) => (
+              {themes?.map((theme) => (
                 <label
-                  key={theme.value}
+                  key={theme.id}
                   className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer transition-all hover:bg-slate-50 has-checked:bg-indigo-50 has-checked:border-indigo-300"
                 >
                   <input
                     type="checkbox"
                     name="theme"
-                    value={theme.value}
-                    checked={selectedThemes.includes(theme.value)}
-                    onChange={() => toggleTheme(theme.value)}
+                    value={theme.id}
+                    checked={selectedThemes.includes(theme.id)}
+                    onChange={() => toggleTheme(theme.id)}
                     className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                   />
-                  <span className="text-xl">{theme.icon}</span>
-                  <span className="text-sm text-slate-700">{theme.label}</span>
+                  <span className="text-xl">
+                    {/* Default icons based on theme name or category */}
+                    {theme.name.toLowerCase().includes('động vật') ? '🐾' :
+                     theme.name.toLowerCase().includes('xe') ? '🚗' :
+                     theme.name.toLowerCase().includes('đồ chơi') ? '🧸' :
+                     theme.name.toLowerCase().includes('âm nhạc') ? '🎵' :
+                     theme.name.toLowerCase().includes('trái cây') ? '🍎' :
+                     theme.name.toLowerCase().includes('rau') ? '🥕' :
+                     theme.name.toLowerCase().includes('thiên nhiên') || theme.name.toLowerCase().includes('hoa') ? '🌸' :
+                     theme.name.toLowerCase().includes('đời sống') || theme.name.toLowerCase().includes('nhà') ? '🏠' :
+                     '🎯'}
+                  </span>
+                  <span className="text-sm text-slate-700">{theme.name}</span>
                 </label>
               ))}
             </div>
@@ -394,24 +410,57 @@ export function UploadMetaForm({ values }: UploadMetaFormProps) {
         <div className="pt-4 border-t border-slate-200">
           <button
             type="submit"
-            className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+            disabled={isLoading}
+            className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium shadow-sm hover:shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 7l5 5m0 0l-5 5m5-5H6"
-              />
-            </svg>
-            Tiếp tục Upload Game
+            {isLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Đang tải...
+              </>
+            ) : (
+              <>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+                Tiếp tục Upload Game
+              </>
+            )}
           </button>
         </div>
+        </>
+        )}
+
+        {/* Error State */}
+        {!isLoading && (!subjects || !ageBands || !levels || !skills || !themes) && (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-4 text-red-500">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-2">Không thể tải dữ liệu</h3>
+              <p className="text-slate-600 mb-4">Có lỗi xảy ra khi tải thông tin từ hệ thống. Vui lòng thử lại.</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
+              >
+                Tải lại trang
+              </button>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );

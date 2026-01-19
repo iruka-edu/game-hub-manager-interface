@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -8,6 +8,13 @@ import {
   uploadBuild,
   uploadThumbnail,
 } from "@/features/games/api/gameMutations";
+import { 
+  useSubjects, 
+  useAgeBands,
+  useLevels, 
+  useSkills, 
+  useThemes 
+} from "@/features/game-lessons/hooks/useGameLessons";
 
 interface GameMeta {
   grade: string;
@@ -39,22 +46,7 @@ interface ThumbnailData {
   preview: string | null;
 }
 
-// Grade to age mapping based on Vietnamese education system
-const GRADE_AGE_MAPPING = {
-  "1": "6-7 tuổi",
-  "2": "7-8 tuổi",
-  "3": "8-9 tuổi",
-  "4": "9-10 tuổi",
-  "5": "10-11 tuổi",
-  "6": "11-12 tuổi",
-  "7": "12-13 tuổi",
-  "8": "13-14 tuổi",
-  "9": "14-15 tuổi",
-  "10": "15-16 tuổi",
-  "11": "16-17 tuổi",
-  "12": "17-18 tuổi",
-} as const;
-
+// Difficulty options - can be made dynamic later if needed
 const DIFFICULTY_OPTIONS = [
   { value: "easy", label: "Dễ - Phù hợp học sinh yếu" },
   { value: "medium", label: "Trung bình - Phù hợp học sinh khá" },
@@ -67,6 +59,52 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const desktopThumbRef = useRef<HTMLInputElement>(null);
   const mobileThumbRef = useRef<HTMLInputElement>(null);
+
+  // Fetch data from game-lessons API
+  const { data: subjects } = useSubjects();
+  const { data: ageBands } = useAgeBands();
+  const { data: levels } = useLevels();
+  const { data: skills } = useSkills();
+  const { data: themes } = useThemes();
+
+  // Helper functions to get names from API data
+  const getSubjectName = (subjectId: string) => {
+    const subject = subjects?.find(s => s.id === subjectId || s.code === subjectId);
+    return subject?.name || subjectId;
+  };
+
+  const getAgeBandByGrade = (grade: string) => {
+    // Map Vietnamese grade to age band
+    const gradeToAge: Record<string, string> = {
+      "1": "6-7",
+      "2": "7-8", 
+      "3": "8-9",
+      "4": "9-10",
+      "5": "10-11",
+      "6": "11-12",
+      "7": "12-13",
+      "8": "13-14",
+      "9": "14-15",
+      "10": "15-16",
+      "11": "16-17",
+      "12": "17-18",
+    };
+    
+    const ageRange = gradeToAge[grade];
+    if (!ageRange || !ageBands) return "Chưa xác định";
+    
+    const [minAge, maxAge] = ageRange.split("-").map(Number);
+    const ageBand = ageBands.find(ab => 
+      ab.min_age === minAge && ab.max_age === maxAge
+    );
+    
+    return ageBand?.name || `${minAge}-${maxAge} tuổi`;
+  };
+
+  const getLevelName = (levelId: string) => {
+    const level = levels?.find(l => l.id === levelId);
+    return level?.name || levelId;
+  };
 
   // ZIP file state
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -94,9 +132,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
     runtime: "HTML5",
     entryPoint: "index.html",
     difficulty: meta.level || "", // Use level from meta (1/2/3)
-    targetAge:
-      GRADE_AGE_MAPPING[meta.grade as keyof typeof GRADE_AGE_MAPPING] ||
-      "Chưa xác định",
+    targetAge: getAgeBandByGrade(meta.grade),
   });
 
   // Game ID edit mode
@@ -111,6 +147,14 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
     exists: boolean;
     message: string;
   }>({ checking: false, exists: false, message: "" });
+
+  // Update targetAge when grade changes or ageBands data loads
+  useEffect(() => {
+    setManifest(prev => ({
+      ...prev,
+      targetAge: getAgeBandByGrade(meta.grade)
+    }));
+  }, [meta.grade, ageBands]);
 
   // Auto-detect SDK when ZIP file is selected
   const detectSDK = async (file: File) => {
@@ -980,18 +1024,44 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-slate-500">Môn:</span>
-              <span className="font-medium text-slate-900">{meta.subject}</span>
+              <span className="font-medium text-slate-900">{getSubjectName(meta.subject)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-slate-500">Độ khó:</span>
               <span className="font-medium text-slate-900">
-                {meta.level === "1"
+                {getLevelName(meta.level) || (meta.level === "1"
                   ? "🌱 Làm quen"
                   : meta.level === "2"
                     ? "⭐ Tiến bộ"
-                    : "🔥 Thử thách"}
+                    : "🔥 Thử thách")}
               </span>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Tuổi:</span>
+              <span className="font-medium text-slate-900">{manifest.targetAge}</span>
+            </div>
+            {meta.skills.length > 0 && (
+              <div className="col-span-2 flex items-start gap-2">
+                <span className="text-slate-500 shrink-0">Kỹ năng:</span>
+                <span className="font-medium text-slate-900">
+                  {meta.skills.map(skillId => {
+                    const skill = skills?.find(s => s.id === skillId);
+                    return skill?.name || skillId;
+                  }).join(', ')}
+                </span>
+              </div>
+            )}
+            {meta.themes.length > 0 && (
+              <div className="col-span-2 flex items-start gap-2">
+                <span className="text-slate-500 shrink-0">Chủ đề:</span>
+                <span className="font-medium text-slate-900">
+                  {meta.themes.map(themeId => {
+                    const theme = themes?.find(t => t.id === themeId);
+                    return theme?.name || themeId;
+                  }).join(', ')}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

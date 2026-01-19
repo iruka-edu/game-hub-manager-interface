@@ -1,3 +1,12 @@
+"use client";
+
+import { 
+  useSubjects, 
+  useLevels, 
+  useSkills, 
+  useThemes 
+} from "@/features/game-lessons/hooks/useGameLessons";
+
 interface MetadataSummaryProps {
   meta: {
     lop: string;
@@ -12,57 +21,51 @@ interface MetadataSummaryProps {
   };
 }
 
-const SUBJECT_NAMES: Record<string, string> = {
-  math: 'Toán học',
-  vietnamese: 'Tiếng Việt',
-  english: 'Tiếng Anh',
-  science: 'Khoa học',
-  history: 'Lịch sử',
-  geography: 'Địa lý',
-  art: 'Nghệ thuật',
-};
-
-const LEVEL_NAMES: Record<string, string> = {
-  '1': 'Làm quen',
-  '2': 'Tiến bộ',
-  '3': 'Thử thách',
-};
-
-const SKILL_NAMES: Record<string, string> = {
-  '1': 'Tô màu cơ bản',
-  '2': 'Tô theo mẫu - Theo gợi ý',
-  '3': 'Nhận diện hình & Chi tiết qua tô',
-  '4': 'Điều khiển nét & tay',
-  '5': 'Hoàn thiện hình/ Bổ sung nhẹ',
-  '6': 'Tạo hình theo chủ đề',
-};
-
-const THEME_NAMES: Record<string, string> = {
-  '1': 'Động vật',
-  '2': 'Xe cộ',
-  '3': 'Đồ chơi',
-  '4': 'Âm nhạc',
-  '5': 'Trái cây',
-  '6': 'Rau củ',
-  '7': 'Thiên nhiên – hoa lá',
-  '8': 'Ngữ cảnh đời sống gần gũi',
-};
-
 export function MetadataSummary({ meta }: MetadataSummaryProps) {
+  // Fetch data from game-lessons API
+  const { data: subjects } = useSubjects();
+  const { data: levels } = useLevels();
+  const { data: skills } = useSkills();
+  const { data: themes } = useThemes();
+
+  // Helper functions to get names from API data
+  const getSubjectName = (subjectId: string) => {
+    const subject = subjects?.find(s => s.id === subjectId || s.code === subjectId);
+    return subject?.name || subjectId;
+  };
+
+  const getLevelName = (levelId: string) => {
+    const level = levels?.find(l => l.id === levelId);
+    return level?.name || levelId;
+  };
+
+  const getSkillNames = (skillIds: string[]) => {
+    return skillIds.map(skillId => {
+      const skill = skills?.find(s => s.id === skillId);
+      return skill?.name || skillId;
+    }).join(', ');
+  };
+
+  const getThemeNames = (themeIds: string[]) => {
+    return themeIds.map(themeId => {
+      const theme = themes?.find(t => t.id === themeId);
+      return theme?.name || themeId;
+    }).join(', ');
+  };
   const items = [
     { label: 'Lớp', value: meta.lop },
-    { label: 'Môn', value: SUBJECT_NAMES[meta.mon] || meta.mon },
+    { label: 'Môn', value: getSubjectName(meta.mon) },
     { label: 'Game ID', value: meta.game, mono: true },
     meta.quyenSach && { label: 'Quyển sách', value: meta.quyenSach },
     meta.lessonNo && { label: 'Bài học', value: `Bài ${meta.lessonNo}` },
-    meta.level && { label: 'Độ khó', value: LEVEL_NAMES[meta.level] || meta.level },
+    meta.level && { label: 'Độ khó', value: getLevelName(meta.level) },
     meta.skills.length > 0 && {
       label: 'Kỹ năng',
-      value: meta.skills.map(s => SKILL_NAMES[s] || s).join(', '),
+      value: getSkillNames(meta.skills),
     },
     meta.themes.length > 0 && {
       label: 'Chủ đề',
-      value: meta.themes.map(t => THEME_NAMES[t] || t).join(', '),
+      value: getThemeNames(meta.themes),
     },
   ].filter(Boolean);
 

@@ -2,20 +2,23 @@
 
 /**
  * useGameLessons Hooks
- * React Query hooks for educational metadata
+ * React Query hooks for educational metadata using game-lessons API
  */
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  getAgeBands,
   getSubjects,
+  getAgeBands,
   getCourses,
-  getLevels,
+  getTracksBySubjectAndAgeBand,
+  getTracksByCourse,
   getUnits,
-  getLessons,
+  getLessonsByTrack,
+  getLessonsByUnit,
   getSkills,
+  getSkillsByAgeBandAndSubject,
+  getLevels,
   getThemes,
-  getTracks,
 } from "../api/getLessonsMetadata";
 
 /**
@@ -23,34 +26,29 @@ import {
  */
 export const gameLessonsKeys = {
   all: ["gameLessons"] as const,
-  ageBands: () => [...gameLessonsKeys.all, "ageBands"] as const,
   subjects: () => [...gameLessonsKeys.all, "subjects"] as const,
-  courses: (subjectId?: string) =>
-    [...gameLessonsKeys.all, "courses", subjectId] as const,
-  levels: () => [...gameLessonsKeys.all, "levels"] as const,
-  units: (courseId?: string) =>
-    [...gameLessonsKeys.all, "units", courseId] as const,
-  lessons: (unitId?: string) =>
-    [...gameLessonsKeys.all, "lessons", unitId] as const,
+  ageBands: () => [...gameLessonsKeys.all, "ageBands"] as const,
+  courses: (subjectId: string, ageBandId: string) =>
+    [...gameLessonsKeys.all, "courses", subjectId, ageBandId] as const,
+  tracksBySubjectAndAgeBand: (subjectId: string, ageBandId: string) =>
+    [...gameLessonsKeys.all, "tracks", "bySubjectAndAgeBand", subjectId, ageBandId] as const,
+  tracksByCourse: (courseId: string) =>
+    [...gameLessonsKeys.all, "tracks", "byCourse", courseId] as const,
+  units: (trackId: string) =>
+    [...gameLessonsKeys.all, "units", trackId] as const,
+  lessonsByTrack: (trackId: string) =>
+    [...gameLessonsKeys.all, "lessons", "byTrack", trackId] as const,
+  lessonsByUnit: (unitId: string) =>
+    [...gameLessonsKeys.all, "lessons", "byUnit", unitId] as const,
   skills: () => [...gameLessonsKeys.all, "skills"] as const,
+  skillsByAgeBandAndSubject: (ageBandId: string, subjectId: string) =>
+    [...gameLessonsKeys.all, "skills", "filtered", ageBandId, subjectId] as const,
+  levels: () => [...gameLessonsKeys.all, "levels"] as const,
   themes: () => [...gameLessonsKeys.all, "themes"] as const,
-  tracks: (ageBandId?: string) =>
-    [...gameLessonsKeys.all, "tracks", ageBandId] as const,
 };
 
 // These are reference data - cache for a long time
 const REFERENCE_DATA_STALE_TIME = 30 * 60 * 1000; // 30 minutes
-
-/**
- * Hook for age bands
- */
-export function useAgeBands() {
-  return useQuery({
-    queryKey: gameLessonsKeys.ageBands(),
-    queryFn: getAgeBands,
-    staleTime: REFERENCE_DATA_STALE_TIME,
-  });
-}
 
 /**
  * Hook for subjects
@@ -64,12 +62,107 @@ export function useSubjects() {
 }
 
 /**
- * Hook for courses (optionally filtered by subject)
+ * Hook for age bands
  */
-export function useCourses(subjectId?: string) {
+export function useAgeBands() {
   return useQuery({
-    queryKey: gameLessonsKeys.courses(subjectId),
-    queryFn: () => getCourses(subjectId),
+    queryKey: gameLessonsKeys.ageBands(),
+    queryFn: getAgeBands,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for courses (requires both subject and age band)
+ */
+export function useCourses(subjectId: string, ageBandId: string) {
+  return useQuery({
+    queryKey: gameLessonsKeys.courses(subjectId, ageBandId),
+    queryFn: () => getCourses(subjectId, ageBandId),
+    enabled: !!subjectId && !!ageBandId,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for tracks by subject and age band
+ */
+export function useTracksBySubjectAndAgeBand(subjectId: string, ageBandId: string) {
+  return useQuery({
+    queryKey: gameLessonsKeys.tracksBySubjectAndAgeBand(subjectId, ageBandId),
+    queryFn: () => getTracksBySubjectAndAgeBand(subjectId, ageBandId),
+    enabled: !!subjectId && !!ageBandId,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for tracks by course
+ */
+export function useTracksByCourse(courseId: string) {
+  return useQuery({
+    queryKey: gameLessonsKeys.tracksByCourse(courseId),
+    queryFn: () => getTracksByCourse(courseId),
+    enabled: !!courseId,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for units (requires track ID)
+ */
+export function useUnits(trackId: string) {
+  return useQuery({
+    queryKey: gameLessonsKeys.units(trackId),
+    queryFn: () => getUnits(trackId),
+    enabled: !!trackId,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for lessons by track
+ */
+export function useLessonsByTrack(trackId: string) {
+  return useQuery({
+    queryKey: gameLessonsKeys.lessonsByTrack(trackId),
+    queryFn: () => getLessonsByTrack(trackId),
+    enabled: !!trackId,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for lessons by unit
+ */
+export function useLessonsByUnit(unitId: string) {
+  return useQuery({
+    queryKey: gameLessonsKeys.lessonsByUnit(unitId),
+    queryFn: () => getLessonsByUnit(unitId),
+    enabled: !!unitId,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for all skills
+ */
+export function useSkills() {
+  return useQuery({
+    queryKey: gameLessonsKeys.skills(),
+    queryFn: getSkills,
+    staleTime: REFERENCE_DATA_STALE_TIME,
+  });
+}
+
+/**
+ * Hook for skills filtered by age band and subject
+ */
+export function useSkillsByAgeBandAndSubject(ageBandId: string, subjectId: string) {
+  return useQuery({
+    queryKey: gameLessonsKeys.skillsByAgeBandAndSubject(ageBandId, subjectId),
+    queryFn: () => getSkillsByAgeBandAndSubject(ageBandId, subjectId),
+    enabled: !!ageBandId && !!subjectId,
     staleTime: REFERENCE_DATA_STALE_TIME,
   });
 }
@@ -86,56 +179,12 @@ export function useLevels() {
 }
 
 /**
- * Hook for units (optionally filtered by course)
- */
-export function useUnits(courseId?: string) {
-  return useQuery({
-    queryKey: gameLessonsKeys.units(courseId),
-    queryFn: () => getUnits(courseId),
-    staleTime: REFERENCE_DATA_STALE_TIME,
-  });
-}
-
-/**
- * Hook for lessons (optionally filtered by unit)
- */
-export function useLessons(unitId?: string) {
-  return useQuery({
-    queryKey: gameLessonsKeys.lessons(unitId),
-    queryFn: () => getLessons(unitId),
-    staleTime: REFERENCE_DATA_STALE_TIME,
-  });
-}
-
-/**
- * Hook for skills
- */
-export function useSkills() {
-  return useQuery({
-    queryKey: gameLessonsKeys.skills(),
-    queryFn: getSkills,
-    staleTime: REFERENCE_DATA_STALE_TIME,
-  });
-}
-
-/**
  * Hook for themes
  */
 export function useThemes() {
   return useQuery({
     queryKey: gameLessonsKeys.themes(),
     queryFn: getThemes,
-    staleTime: REFERENCE_DATA_STALE_TIME,
-  });
-}
-
-/**
- * Hook for tracks (optionally filtered by age band)
- */
-export function useTracks(ageBandId?: string) {
-  return useQuery({
-    queryKey: gameLessonsKeys.tracks(ageBandId),
-    queryFn: () => getTracks(ageBandId),
     staleTime: REFERENCE_DATA_STALE_TIME,
   });
 }

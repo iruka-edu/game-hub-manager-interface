@@ -1,132 +1,116 @@
 /**
  * Game Lessons Feature Types
- * Educational metadata types (subjects, courses, units, etc.)
+ * Educational metadata types based on API specification
  */
 
 /**
- * Common metadata item structure
+ * Subject Base
  */
-export interface MetadataItem {
+export interface SubjectBase {
   id: string;
   name: string;
-  displayName?: string;
-}
-
-/**
- * Age Band
- */
-export interface AgeBand extends MetadataItem {
-  minAge?: number;
-  maxAge?: number;
-}
-
-/**
- * Subject
- */
-export interface Subject extends MetadataItem {
   code?: string;
 }
 
 /**
- * Course
+ * Age Band Output
  */
-export interface Course extends MetadataItem {
-  subjectId?: string;
+export interface AgeBandOut {
+  id: string;
+  name: string;
+  min_age?: number;
+  max_age?: number;
 }
 
 /**
- * Level
+ * Course Output
  */
-export interface Level extends MetadataItem {
+export interface CourseOut {
+  id: string;
+  name: string;
+  subject_id: string;
+  age_band_id: string;
+}
+
+/**
+ * Track Output
+ */
+export interface TrackOut {
+  id: string;
+  name: string;
+  course_id?: string;
+  subject_id?: string;
+  age_band_id?: string;
+}
+
+/**
+ * Unit Output
+ */
+export interface UnitOut {
+  id: string;
+  name: string;
+  track_id: string;
   order?: number;
 }
 
 /**
- * Unit
+ * Lesson Track Output
  */
-export interface Unit extends MetadataItem {
-  courseId?: string;
+export interface LessonTrackOut {
+  id: string;
+  name: string;
+  unit_id?: string;
+  track_id?: string;
   order?: number;
 }
 
 /**
- * Lesson
+ * Skill Output
  */
-export interface Lesson extends MetadataItem {
-  unitId?: string;
-  order?: number;
-}
-
-/**
- * Skill
- */
-export interface Skill extends MetadataItem {
+export interface SkillOut {
+  id: string;
+  name: string;
+  subject_id?: string;
+  age_band_id?: string;
   category?: string;
 }
 
 /**
- * Theme
+ * Level Output
  */
-export interface Theme extends MetadataItem {
+export interface LevelOut {
+  id: string;
+  name: string;
+  order?: number;
+}
+
+/**
+ * Theme Output
+ */
+export interface ThemeOut {
+  id: string;
+  name: string;
   category?: string;
 }
 
 /**
- * Track
+ * HTTP Validation Error
  */
-export interface Track extends MetadataItem {
-  ageBandId?: string;
+export interface HTTPValidationError {
+  detail?: Array<{
+    loc: Array<string | number>;
+    msg: string;
+    type: string;
+  }>;
 }
 
-/**
- * Generic list response
- */
-export interface MetadataListResponse<T> {
-  data: T[];
-  total?: number;
-}
-
-/**
- * Age Bands Response
- */
-export type AgeBandsResponse = MetadataListResponse<AgeBand>;
-
-/**
- * Subjects Response
- */
-export type SubjectsResponse = MetadataListResponse<Subject>;
-
-/**
- * Courses Response
- */
-export type CoursesResponse = MetadataListResponse<Course>;
-
-/**
- * Levels Response
- */
-export type LevelsResponse = MetadataListResponse<Level>;
-
-/**
- * Units Response
- */
-export type UnitsResponse = MetadataListResponse<Unit>;
-
-/**
- * Lessons Response
- */
-export type LessonsResponse = MetadataListResponse<Lesson>;
-
-/**
- * Skills Response
- */
-export type SkillsResponse = MetadataListResponse<Skill>;
-
-/**
- * Themes Response
- */
-export type ThemesResponse = MetadataListResponse<Theme>;
-
-/**
- * Tracks Response
- */
-export type TracksResponse = MetadataListResponse<Track>;
+// Response types (arrays as per API spec)
+export type SubjectsResponse = SubjectBase[];
+export type AgeBandsResponse = AgeBandOut[];
+export type CoursesResponse = CourseOut[];
+export type TracksResponse = TrackOut[];
+export type UnitsResponse = UnitOut[];
+export type LessonsResponse = LessonTrackOut[];
+export type SkillsResponse = SkillOut[];
+export type LevelsResponse = LevelOut[];
+export type ThemesResponse = ThemeOut[];
