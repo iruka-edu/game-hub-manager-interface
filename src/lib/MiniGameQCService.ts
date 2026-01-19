@@ -228,7 +228,7 @@ export class MiniGameQCService {
    * Gọi API kiểm tra thực tế
    */
   private static async runRealTest(gameUrl: string) {
-    const runnerBaseUrl = process.env.RUNNER_URL || "http://localhost:8080";
+    const runnerBaseUrl = process.env.RUNNER_URL || "https://runner-h7j3ksnhva-as.a.run.app";
     
     const response = await fetch(`${runnerBaseUrl}/run`, {
       method: 'POST',
