@@ -1,0 +1,13 @@
+run:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 1
+  maxInstances: 10
+
+env:
+  - variable: NEXT_PUBLIC_BASE_API_URL
+    value: https://iruka-gamehub-api-1037337851453.asia-southeast1.run.app
+  - variable: NEXT_PUBLIC_GAME_LESSON_API_URL
+    value: https://iruka-api-1037337851453.asia-southeast1.run.app
+  - variable: GITHUB_TOKEN
+    secret: GITHUB_TOKEN@latest
