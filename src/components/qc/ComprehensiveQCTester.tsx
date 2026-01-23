@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiPost } from '@/lib/api-fetch';
 import type { QCTestReport } from '@/lib/MiniGameQCService';
 
 interface ComprehensiveQCTesterProps {
@@ -64,24 +65,11 @@ export function ComprehensiveQCTester({
     setProgress('Initializing comprehensive QC test...');
 
     try {
-      const response = await fetch('/api/qc/run-comprehensive-test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          gameId,
-          versionId,
-          testConfig
-        }),
+      const result = await apiPost<any>('/api/v1/qc/run', {
+        gameId,
+        versionId,
+        testConfig,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Test failed');
-      }
-
-      const result = await response.json();
       setTestReport(result.testReport);
       setProgress('Test completed successfully!');
       

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQCPass, useQCFail } from "@/features/games";
+import { apiPost } from "@/lib/api-fetch";
 
 interface QCReviewFormProps {
   gameId: string;
@@ -378,40 +379,31 @@ export function QCReviewForm({
 
     try {
       // Call the comprehensive test API
-      const response = await fetch("/api/qc/run-comprehensive-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gameId: game.gameId,
-          versionId: versionId,
-          gameUrl: `https://storage.googleapis.com/iruka-edu-mini-game/games/${game.gameId}/${version.version}/index.html`,
-          gameData: {
-            id: game._id,
-            game_id: game.gameId,
-            title: game.title,
-            description: game.description || "",
-            owner_id: "",
-            status: "uploaded",
-            meta_data: {},
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          versionData: {
-            id: version._id,
-            game_id: game.gameId,
-            version: version.version,
-            status: version.status,
-            build_url: `https://storage.googleapis.com/iruka-edu-mini-game/games/${game.gameId}/${version.version}/index.html`,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        }),
+      const data = await apiPost<any>("/api/v1/qc/run", {
+        gameId: game.gameId,
+        versionId: versionId,
+        gameUrl: `https://storage.googleapis.com/iruka-edu-mini-game/games/${game.gameId}/${version.version}/index.html`,
+        gameData: {
+          id: game._id,
+          game_id: game.gameId,
+          title: game.title,
+          description: game.description || "",
+          owner_id: "",
+          status: "uploaded",
+          meta_data: {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        versionData: {
+          id: version._id,
+          game_id: game.gameId,
+          version: version.version,
+          status: version.status,
+          build_url: `https://storage.googleapis.com/iruka-edu-mini-game/games/${game.gameId}/${version.version}/index.html`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to run auto tests");
-      }
 
       setAutoTestProgress((prev) => ({
         ...prev,
@@ -420,7 +412,6 @@ export function QCReviewForm({
         currentTest: "Đang chạy QA-01: SDK Handshake...",
       }));
 
-      const data = await response.json();
       console.log("📊 Auto test response:", data);
 
       const testReport = data.testReport;

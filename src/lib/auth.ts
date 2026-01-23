@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { verifySession, type SessionPayload } from '@/lib/session';
-import { UserRepository } from '@/models/User';
 import type { User, Role } from '@/models/User';
 import { ROLE_PERMISSIONS, type Permission } from '@/lib/auth-rbac';
 
@@ -21,9 +20,8 @@ export async function getUserFromCookies(): Promise<User | null> {
   
   const session = verifySession(token);
   if (!session) return null;
-  
-  const userRepo = await UserRepository.getInstance();
-  return userRepo.findById(session.userId);
+
+  return null;
 }
 
 /**
@@ -46,9 +44,8 @@ export async function getSessionFromCookies(): Promise<SessionPayload | null> {
 export async function getUserFromHeaders(headers: Headers): Promise<User | null> {
   const userId = headers.get('x-user-id');
   if (!userId) return null;
-  
-  const userRepo = await UserRepository.getInstance();
-  return userRepo.findById(userId);
+
+  return null;
 }
 
 /**

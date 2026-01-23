@@ -1,4 +1,3 @@
-import { ObjectId } from "mongodb";
 import type { GameType, Subject, Grade, DifficultyLevel } from '@iruka-edu/game-core';
 
 /**
@@ -185,7 +184,7 @@ export interface FieldValidationResult {
  * Metadata configuration document stored in database
  */
 export interface MetadataConfigDocument {
-  _id: ObjectId;
+  _id: string;
   
   /** Configuration version for tracking changes */
   version: string;
@@ -210,10 +209,10 @@ export interface MetadataConfigDocument {
  * Audit log entry for metadata changes
  */
 export interface MetadataAuditLog {
-  _id: ObjectId;
+  _id: string;
   
   /** Game ID that was modified */
-  gameId: ObjectId;
+  gameId: string;
   
   /** Type of action performed */
   action: 'update' | 'validate' | 'publish_attempt' | 'config_change';
@@ -319,7 +318,7 @@ export interface FixSuggestion {
  * Extends the existing Game interface to include the new metadata structure
  */
 export interface GameWithMetadata {
-  _id: ObjectId;
+  _id: string;
   gameId: string;
   title: string;
   description?: string;
@@ -327,8 +326,8 @@ export interface GameWithMetadata {
   teamId?: string;
   
   // Version references
-  latestVersionId?: ObjectId;
-  liveVersionId?: ObjectId;
+  latestVersionId?: string;
+  liveVersionId?: string;
   
   // Extensible metadata object
   metadata: GameMetadata;

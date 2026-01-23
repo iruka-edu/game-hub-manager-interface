@@ -25,7 +25,7 @@ export function LargeFileUploadExample() {
         file,
         gameId: 'com.iruka.example-game', // Replace with actual gameId
         version: '1.0.0', // Replace with actual version
-        mongoGameId: undefined, // Optional: MongoDB _id if updating existing game
+        mongoGameId: undefined, // Optional legacy id if updating existing game
         onProgress: (p) => setProgress(Math.round(p)),
       });
 

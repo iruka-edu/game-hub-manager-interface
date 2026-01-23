@@ -1,5 +1,3 @@
-import type { ObjectId } from "mongodb";
-
 /**
  * Types of actions that can be logged in the audit system
  */
@@ -67,10 +65,10 @@ export interface AuditChange {
 }
 
 /**
- * Complete audit log entry stored in MongoDB
+ * Complete audit log entry stored in the audit system
  */
 export interface AuditLogEntry {
-  _id?: ObjectId;
+  _id?: string;
   actor: AuditActor;
   action: ActionType;
   target: AuditTarget;

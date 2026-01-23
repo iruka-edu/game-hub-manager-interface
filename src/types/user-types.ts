@@ -1,6 +1,6 @@
 /**
  * User roles in the system
- * Shared type definition that doesn't depend on mongodb
+ * Shared type definition that doesn't depend on backend storage
  */
 export type Role = 'dev' | 'qc' | 'cto' | 'ceo' | 'admin';
 

@@ -19,11 +19,11 @@ const COOKIE_NAME = 'iruka_session';
 
 /**
  * Create a session token for a user
- * Note: User type is inlined to avoid mongodb import
+ * Note: User type is inlined to avoid backend coupling
  */
-export function createSession(user: { _id: { toString(): string }; email: string; roles: Role[] }): string {
+export function createSession(user: { _id: string; email: string; roles: Role[] }): string {
   const payload = {
-    userId: user._id.toString(),
+    userId: user._id,
     email: user.email,
     roles: user.roles,
   };

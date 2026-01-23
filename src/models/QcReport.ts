@@ -1,5 +1,3 @@
-import { ObjectId, type Collection, type Db } from "mongodb";
-import { getMongoClient } from "../lib/mongodb";
 import type {
   QA01Result,
   QA02Result,
@@ -25,7 +23,7 @@ export type GameEventType =
 export interface GameEvent {
   type: GameEventType;
   timestamp: Date;
-  data?: any;
+  data?: unknown;
 }
 
 /**
@@ -37,31 +35,26 @@ export type QCDecision = "pass" | "fail";
  * Comprehensive QC Report interface
  */
 export interface QCReport {
-  _id: ObjectId;
-  gameId: ObjectId; // Reference to Game
-  versionId: ObjectId; // Reference to GameVersion
-  qcUserId: ObjectId; // Reference to QC User
-  reviewerName?: string; // Snapshot of reviewer name
+  _id: string;
+  gameId: string;
+  versionId: string;
+  qcUserId: string;
+  reviewerName?: string;
 
-  // Individual QA Test Results (Legacy)
   qa01?: QA01Result;
   qa02?: QA02Result;
   qa03?: QA03Result;
   qa04?: QA04Result;
 
-  // New Structure: Full QA Summary with categories
   qaSummary?: QASummary;
 
-  // Comprehensive Test Data
-  rawResult?: object; // Raw results from game testing
-  eventsTimeline?: GameEvent[]; // Complete event timeline
+  rawResult?: object;
+  eventsTimeline?: GameEvent[];
 
-  // QC Decision
   decision: QCDecision;
-  notes?: string; // Renamed from note to match generic usage, but keeping mapping if needed
+  notes?: string;
 
-  // Metadata
-  reviewedAt?: Date; // Explicit review timestamp
+  reviewedAt?: Date;
   testStartedAt?: Date;
   testCompletedAt?: Date;
   createdAt: Date;
@@ -71,175 +64,3 @@ export interface QCReport {
  * Input type for creating a new QC Report
  */
 export type CreateQCReportInput = Omit<QCReport, "_id" | "createdAt">;
-
-/**
- * QC Report Repository for CRUD operations
- */
-export class QCReportRepository {
-  private collection: Collection<QCReport>;
-
-  constructor(db: Db) {
-    this.collection = db.collection<QCReport>("qc_reports");
-  }
-
-  /**
-   * Get a QCReportRepository instance
-   */
-  static async getInstance(): Promise<QCReportRepository> {
-    const { db } = await getMongoClient();
-    return new QCReportRepository(db);
-  }
-
-  /**
-   * Create a new QC report with validation
-   */
-  async create(input: CreateQCReportInput): Promise<QCReport> {
-    // Validate required fields
-    if (!input.gameId) {
-      throw new Error("gameId is required");
-    }
-    if (!input.versionId) {
-      throw new Error("versionId is required");
-    }
-    if (!input.qcUserId && !input.reviewerName) {
-      // Allow either ID or Name for now if we want flexibility, but ID is best
-      if (!input.qcUserId) throw new Error("qcUserId is required");
-    }
-    if (!input.decision) {
-      throw new Error("decision is required");
-    }
-
-    // Validate decision type
-    if (!["pass", "fail"].includes(input.decision)) {
-      throw new Error('decision must be "pass" or "fail"');
-    }
-
-    // Validate that we have EITHER legacy results OR new qaSummary
-    const hasLegacyResults =
-      input.qa01 && input.qa02 && input.qa03 && input.qa04;
-    const hasNewSummary = !!input.qaSummary;
-
-    if (!hasLegacyResults && !hasNewSummary) {
-      throw new Error(
-        "QC Report must contain either legacy QA results (qa01-04) or a qaSummary"
-      );
-    }
-
-    const now = new Date();
-    const report: Omit<QCReport, "_id"> = {
-      ...input,
-      createdAt: now,
-      reviewedAt: input.reviewedAt || now,
-    };
-
-    const result = await this.collection.insertOne(report as QCReport);
-    return { ...report, _id: result.insertedId } as QCReport;
-  }
-
-  /**
-   * Find QC reports by game ID
-   */
-  async findByGameId(gameId: string): Promise<QCReport[]> {
-    try {
-      if (!ObjectId.isValid(gameId)) {
-        return [];
-      }
-      return this.collection
-        .find({ gameId: new ObjectId(gameId) })
-        .sort({ createdAt: -1 })
-        .toArray();
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Find QC reports by version ID
-   */
-  async findByVersionId(versionId: string): Promise<QCReport[]> {
-    try {
-      if (!ObjectId.isValid(versionId)) {
-        return [];
-      }
-      return this.collection
-        .find({ versionId: new ObjectId(versionId) })
-        .sort({ createdAt: -1 })
-        .toArray();
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Get the latest QC report for a version
-   */
-  async getLatestByVersionId(versionId: string): Promise<QCReport | null> {
-    try {
-      if (!ObjectId.isValid(versionId)) {
-        return null;
-      }
-      return this.collection.findOne(
-        { versionId: new ObjectId(versionId) },
-        { sort: { createdAt: -1 } }
-      );
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Find QC reports by QC user
-   */
-  async findByQCUserId(qcUserId: string): Promise<QCReport[]> {
-    try {
-      if (!ObjectId.isValid(qcUserId)) {
-        return [];
-      }
-      return this.collection
-        .find({ qcUserId: new ObjectId(qcUserId) })
-        .sort({ createdAt: -1 })
-        .toArray();
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Count QC reports for a game (for attempt numbering)
-   */
-  async countByGameId(gameId: string): Promise<number> {
-    try {
-      if (!ObjectId.isValid(gameId)) {
-        return 0;
-      }
-      return this.collection.countDocuments({ gameId: new ObjectId(gameId) });
-    } catch {
-      return 0;
-    }
-  }
-
-  /**
-   * Find a QC report by ID
-   */
-  async findById(id: string): Promise<QCReport | null> {
-    try {
-      if (!ObjectId.isValid(id)) {
-        return null;
-      }
-      return this.collection.findOne({ _id: new ObjectId(id) });
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Ensure indexes are created for optimal performance
-   */
-  async ensureIndexes(): Promise<void> {
-    await this.collection.createIndex({ versionId: 1 });
-    await this.collection.createIndex({ gameId: 1, createdAt: -1 });
-    await this.collection.createIndex({ qcUserId: 1 });
-    await this.collection.createIndex({ decision: 1 });
-    await this.collection.createIndex({ createdAt: -1 });
-  }
-}
