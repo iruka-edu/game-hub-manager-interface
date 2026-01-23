@@ -24,6 +24,7 @@ function UploadPageContent() {
     lessonNo: searchParams.get("lessonNo") || "",
     level: searchParams.get("level") || "",
     game: searchParams.get("game") || "",
+    gameId: searchParams.get("gameId") || "",
     skills,
     themes,
     github: searchParams.get("github") || "",
@@ -34,6 +35,7 @@ function UploadPageContent() {
     meta.lop &&
     meta.mon &&
     meta.game &&
+    meta.gameId &&
     meta.github &&
     meta.level &&
     meta.lessonNo,
@@ -44,6 +46,7 @@ function UploadPageContent() {
     subject: meta.mon,
     lessonNo: meta.lessonNo,
     backendGameId: meta.game,
+    gameId: meta.gameId,
     level: meta.level,
     skills: meta.skills,
     themes: meta.themes,

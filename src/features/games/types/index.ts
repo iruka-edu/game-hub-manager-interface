@@ -228,6 +228,7 @@ export interface GameCreateResponse {
  * Matches GameCreateIn schema
  */
 export interface CreateGamePayload {
+  id?: string;
   title: string;
   gameId: string;
   description?: string | null;

@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from './api-fetch';
 
-const BACKEND_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8000';
+const BACKEND_BASE_URL = process.env.BACKEND_API_URL || 'https://iruka-api-1037337851453.asia-southeast1.run.app';
 
 // Helper function to create full URL
 function createBackendUrl(endpoint: string): string {

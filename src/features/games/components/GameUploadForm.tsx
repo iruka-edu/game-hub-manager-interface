@@ -21,6 +21,7 @@ interface GameMeta {
   subject: string;
   lessonNo: string;
   backendGameId: string;
+  gameId: string;
   level: string;
   skills: string[];
   themes: string[];
@@ -127,7 +128,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
   const [error, setError] = useState("");
 
   const [manifest, setManifest] = useState<ManifestData>({
-    gameId: meta.backendGameId || "my-awesome-game",
+    gameId: meta.gameId || "my-awesome-game",
     version: "1.0.0",
     runtime: "HTML5",
     entryPoint: "index.html",
@@ -324,6 +325,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
       setUploadStep("Đang tạo game...");
 
       const createPayload = {
+        id: meta.backendGameId,
         title: manifest.gameId,
         gameId: manifest.gameId,
         description: `Game được tải lên từ ${meta.linkGithub}`,
@@ -1013,7 +1015,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
           </h4>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-slate-500">Game ID:</span>
+              <span className="text-slate-500">Game ID (GCS):</span>
               <code className="px-2 py-0.5 bg-slate-100 rounded text-slate-900 font-mono text-xs">
                 {manifest.gameId}
               </code>
