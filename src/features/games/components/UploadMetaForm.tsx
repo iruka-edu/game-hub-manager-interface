@@ -1,13 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  useSubjects, 
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useSubjects,
   useAgeBands,
-  useLevels, 
-  useSkills, 
-  useThemes 
+  useLevels,
+  useThemes,
 } from "@/features/game-lessons/hooks/useGameLessons";
+
+import {
+  getTracksBySubjectAndAgeBand,
+  getLessonsByTrack,
+  getSkillsByAgeBandAndSubject,
+  getSkills,
+} from "@/features/game-lessons/api";
+import { gamesApi } from "@/lib/backend-api";
+
+type Option = { value: string; label: string; keywords?: string; group?: string };
+
+type SelectName =
+  | "lop"
+  | "mon"
+  | "quyenSach"
+  | "lessonNo"
+  | "game"
+  | "level"
+  | "skill"
+  | "theme";
+
+type Field = {
+  name: SelectName;
+  label: string;
+  span: 6 | 12;
+  disabled?: boolean;
+  hint?: string;
+};
 
 interface UploadMetaFormProps {
   values: {
@@ -17,451 +44,756 @@ interface UploadMetaFormProps {
     lessonNo: string;
     level: string;
     game: string;
+    gameId: string; // dùng upload GCS
     skills: string[];
     themes: string[];
     github: string;
   };
+  onNext?: (payload: UploadMetaFormProps["values"]) => void;
 }
 
+const spanClass = (span: 6 | 12) => (span === 6 ? "sm:col-span-6" : "sm:col-span-12");
 
-export function UploadMetaForm({ values }: UploadMetaFormProps) {
-  // Fetch data from game-lessons API
-  const { data: subjects, isLoading: subjectsLoading } = useSubjects();
-  const { data: ageBands, isLoading: ageBandsLoading } = useAgeBands();
-  const { data: levels, isLoading: levelsLoading } = useLevels();
-  const { data: skills, isLoading: skillsLoading } = useSkills();
-  const { data: themes, isLoading: themesLoading } = useThemes();
+// ---- helpers map API item -> options (giữ y logic: ưu tiên name, search theo id/code/name)
+function looksLikeId(str: string) {
+  return (
+    /^[0-9a-f]{24}$/i.test(str) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str)
+  );
+}
 
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(values.skills);
-  const [selectedThemes, setSelectedThemes] = useState<string[]>(values.themes);
+function toLabel(item: any) {
+  const name = item?.name ?? item?.title ?? item?.label ?? "";
+  const code = item?.code ?? "";
+  const id = item?.id != null ? String(item.id) : "";
 
-  // Helper function to create grade options from age bands
-  const getGradeOptions = () => {
-    if (!ageBands) return [];
-    
-    // Create grade options based on Vietnamese education system
-    const gradeOptions = [];
-    for (let grade = 1; grade <= 12; grade++) {
-      const ageBand = ageBands.find(ab => 
-        ab.min_age === grade + 5 && ab.max_age === grade + 6
-      );
-      
-      gradeOptions.push({
-        value: grade.toString(),
-        label: `Lớp ${grade} (${grade + 5}-${grade + 6} tuổi)`,
-        ageBandName: ageBand?.name || `${grade + 5}-${grade + 6} tuổi`
-      });
-    }
-    return gradeOptions;
-  };
+  if (name) return name;
 
-  const toggleSkill = (skillId: string) => {
-    setSelectedSkills((prev) =>
-      prev.includes(skillId)
-        ? prev.filter((id) => id !== skillId)
-        : [...prev, skillId],
-    );
-  };
+  const codeIsId = looksLikeId(code) || code === id;
+  return !codeIsId ? (code || id || "(unknown)") : (id || "(unknown)");
+}
 
-  const toggleTheme = (themeId: string) => {
-    setSelectedThemes((prev) =>
-      prev.includes(themeId)
-        ? prev.filter((id) => id !== themeId)
-        : [...prev, themeId],
-    );
-  };
+function toOptions(items: any[]): Option[] {
+  return (Array.isArray(items) ? items : []).map((it) => {
+    const id = it?.id != null ? String(it.id) : "";
+    const name = it?.name ?? it?.title ?? it?.label ?? "";
+    const code = it?.code ?? "";
+    const group = it?.group ?? it?.category ?? "";
+    return {
+      value: id,
+      label: toLabel(it),
+      keywords: [id, code, name].filter(Boolean).join(" "),
+      group: group || undefined,
+    };
+  });
+}
 
-  // Loading state
-  const isLoading = subjectsLoading || ageBandsLoading || levelsLoading || skillsLoading || themesLoading;
+function useOutsideClick(ref: React.RefObject<HTMLElement | null>, onOutside: () => void) {
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const el = ref.current;
+      if (!el) return;
+      if (!el.contains(e.target as Node)) onOutside();
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [ref, onOutside]);
+}
+
+// ---------- SearchSelect ----------
+function SearchSelect(props: {
+  name: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Option[];
+  disabled?: boolean;
+  required?: boolean;
+  placeholder?: string;
+  loadingText?: string;
+}) {
+  const {
+    name,
+    value,
+    onChange,
+    options,
+    disabled,
+    required,
+    placeholder = "-- Chọn --",
+    loadingText,
+  } = props;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  useOutsideClick(rootRef, () => setOpen(false));
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
+  }, []);
+
+  const selectedLabel = useMemo(() => {
+    if (disabled && loadingText) return { text: loadingText, dim: true };
+    const opt = options.find((o) => o.value === value);
+    if (opt) return { text: opt.label, dim: false };
+    return { text: placeholder, dim: true };
+  }, [disabled, loadingText, options, value, placeholder]);
+
+  const filtered = useMemo(() => {
+    const qq = q.trim().toLowerCase();
+    if (!qq) return options;
+    return options.filter((o) => (o.keywords || `${o.value} ${o.label}`).toLowerCase().includes(qq));
+  }, [options, q]);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="bg-linear-to-r from-indigo-50 to-blue-50 px-6 py-5 border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
-            <svg
-              className="w-5 h-5 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Thông tin Game</h2>
-            <p className="text-sm text-slate-600">
-              Điền thông tin cơ bản để bắt đầu upload game
-            </p>
-          </div>
+    <div className="relative" ref={rootRef}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((s) => !s)}
+        className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
+                   disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed
+                   flex items-center justify-between gap-2"
+      >
+        <span className={`truncate ${selectedLabel.dim ? "text-slate-400" : "text-slate-800"}`}>
+          {selectedLabel.text}
+        </span>
+        <svg className="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+
+      <div
+        className={`${
+          open ? "" : "hidden"
+        } absolute z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden`}
+      >
+        <div className="p-2 border-b border-slate-100">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Tìm..."
+            className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-300"
+          />
+        </div>
+        <div className="max-h-64 overflow-auto p-1">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm font-bold text-slate-400">Không tìm thấy</div>
+          ) : (
+            filtered.map((o) => {
+              const active = o.value === value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-left"
+                >
+                  <div className="text-sm font-bold text-slate-700">{o.label}</div>
+                  <span className="text-xs font-black text-iruka-blue">{active ? "✓" : ""}</span>
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
 
-      <form className="p-6 space-y-6">
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <div className="flex items-center gap-3 text-slate-600">
-              <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm">Đang tải dữ liệu...</span>
-            </div>
-          </div>
-        )}
-
-        {!isLoading && (
-          <>
-            {/* Required Fields Section */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Thông tin bắt buộc
-            </span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Grade */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Lớp <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="lop"
-                defaultValue={values.lop}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
-                required
-              >
-                <option value="">Chọn lớp học</option>
-                {getGradeOptions().map((grade) => (
-                  <option key={grade.value} value={grade.value}>
-                    {grade.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Subject */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Môn học <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="mon"
-                defaultValue={values.mon}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
-                required
-              >
-                <option value="">Chọn môn học</option>
-                {subjects?.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Game ID */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Game ID <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="game"
-              defaultValue={values.game}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-mono text-sm"
-              placeholder="com.iruka.math-addition"
-              pattern="^[a-z0-9.-]+$"
-              title="Chỉ được dùng chữ thường, số, dấu chấm và gạch ngang"
-              required
-            />
-            <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Định dạng: com.iruka.tên-game (chữ thường, số, dấu chấm, gạch
-              ngang)
-            </p>
-          </div>
-
-          {/* GitHub Link */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Link GitHub <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <input
-                type="url"
-                name="github"
-                defaultValue={values.github}
-                className="w-full pl-11 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                placeholder="https://github.com/iruka-edu/game-name"
-                pattern="https://github\.com/.*"
-                title="Phải là link GitHub hợp lệ"
-                required
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-1.5">
-              Link đến repository GitHub chứa source code game
-            </p>
-          </div>
-
-          {/* Difficulty Level */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">
-              Độ khó <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {levels?.map((level) => (
-                <label
-                  key={level.id}
-                  className="relative flex items-center justify-center p-4 border-2 border-slate-200 rounded-xl cursor-pointer transition-all hover:border-indigo-300 hover:bg-indigo-50 has-checked:border-indigo-600 has-checked:bg-indigo-50"
-                >
-                  <input
-                    type="radio"
-                    name="level"
-                    value={level.id}
-                    defaultChecked={values.level === level.id}
-                    className="sr-only"
-                    required
-                  />
-                  <div className="text-center">
-                    <div className="text-2xl mb-1">
-                      {level.order === 1 ? "🌱" : level.order === 2 ? "⭐" : "🔥"}
-                    </div>
-                    <div className="text-sm font-medium text-slate-700">
-                      {level.name}
-                    </div>
-                  </div>
-                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-slate-300 bg-white transition-all peer-checked:border-indigo-600 peer-checked:bg-indigo-600 flex items-center justify-center">
-                    <svg
-                      className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100"
-                      fill="currentColor"
-                      viewBox="0 0 12 12"
-                    >
-                      <path
-                        d="M10 3L4.5 8.5L2 6"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                      />
-                    </svg>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Optional Fields Section */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Thông tin bổ sung (tùy chọn)
-            </span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Book */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Quyển sách
-              </label>
-              <input
-                type="text"
-                name="quyenSach"
-                defaultValue={values.quyenSach}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                placeholder="VD: Tập 1, Học kỳ 1..."
-                list="quyenSach-suggestions"
-              />
-              <datalist id="quyenSach-suggestions">
-                <option value="Tập 1" />
-                <option value="Tập 2" />
-                <option value="Học kỳ 1" />
-                <option value="Học kỳ 2" />
-              </datalist>
-            </div>
-
-            {/* Lesson - REQUIRED */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Số bài học <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="lessonNo"
-                defaultValue={values.lessonNo ? parseInt(values.lessonNo) || '' : ''}
-                min="1"
-                max="999"
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                placeholder="VD: 1, 2, 3..."
-                required
-              />
-              <p className="text-xs text-slate-500 mt-1.5">
-                Số thứ tự bài học (1-999)
-              </p>
-            </div>
-          </div>
-
-          {/* Skills */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">
-              Kỹ năng
-              <span className="text-slate-400 text-xs ml-2 font-normal">
-                (có thể chọn nhiều)
-              </span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {skills?.map((skill) => (
-                <label
-                  key={skill.id}
-                  className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer transition-all hover:bg-slate-50 has-checked:bg-indigo-50 has-checked:border-indigo-300"
-                >
-                  <input
-                    type="checkbox"
-                    name="skill"
-                    value={skill.id}
-                    checked={selectedSkills.includes(skill.id)}
-                    onChange={() => toggleSkill(skill.id)}
-                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-slate-700">{skill.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Themes */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">
-              Sở thích/Chủ đề
-              <span className="text-slate-400 text-xs ml-2 font-normal">
-                (có thể chọn nhiều)
-              </span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {themes?.map((theme) => (
-                <label
-                  key={theme.id}
-                  className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer transition-all hover:bg-slate-50 has-checked:bg-indigo-50 has-checked:border-indigo-300"
-                >
-                  <input
-                    type="checkbox"
-                    name="theme"
-                    value={theme.id}
-                    checked={selectedThemes.includes(theme.id)}
-                    onChange={() => toggleTheme(theme.id)}
-                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-xl">
-                    {/* Default icons based on theme name or category */}
-                    {theme.name.toLowerCase().includes('động vật') ? '🐾' :
-                     theme.name.toLowerCase().includes('xe') ? '🚗' :
-                     theme.name.toLowerCase().includes('đồ chơi') ? '🧸' :
-                     theme.name.toLowerCase().includes('âm nhạc') ? '🎵' :
-                     theme.name.toLowerCase().includes('trái cây') ? '🍎' :
-                     theme.name.toLowerCase().includes('rau') ? '🥕' :
-                     theme.name.toLowerCase().includes('thiên nhiên') || theme.name.toLowerCase().includes('hoa') ? '🌸' :
-                     theme.name.toLowerCase().includes('đời sống') || theme.name.toLowerCase().includes('nhà') ? '🏠' :
-                     '🎯'}
-                  </span>
-                  <span className="text-sm text-slate-700">{theme.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Submit Button */}
-        <div className="pt-4 border-t border-slate-200">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium shadow-sm hover:shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Đang tải...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </svg>
-                Tiếp tục Upload Game
-              </>
-            )}
-          </button>
-        </div>
-        </>
-        )}
-
-        {/* Error State */}
-        {!isLoading && (!subjects || !ageBands || !levels || !skills || !themes) && (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-4 text-red-500">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-slate-900 mb-2">Không thể tải dữ liệu</h3>
-              <p className="text-slate-600 mb-4">Có lỗi xảy ra khi tải thông tin từ hệ thống. Vui lòng thử lại.</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
-              >
-                Tải lại trang
-              </button>
-            </div>
-          </div>
-        )}
-      </form>
+      {/* hidden select để submit GET + required */}
+      <select
+        name={name}
+        required={required}
+        disabled={disabled}
+        className="hidden"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
     </div>
+  );
+}
+
+// ---------- MultiSelect ----------
+function MultiSelect(props: {
+  name: string;
+  values: string[];
+  onChange: (v: string[]) => void;
+  options: Option[];
+  disabled?: boolean;
+  required?: boolean;
+  placeholder?: string;
+  loadingText?: string;
+}) {
+  const { name, values, onChange, options, disabled, required, placeholder = "-- Chọn --", loadingText } = props;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  useOutsideClick(rootRef, () => setOpen(false));
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const qq = q.trim().toLowerCase();
+    if (!qq) return options;
+    return options.filter((o) => (o.keywords || `${o.value} ${o.label}`).toLowerCase().includes(qq));
+  }, [options, q]);
+
+  const grouped = useMemo(() => {
+    const groups = new Map<string, Option[]>();
+    const ungrouped: Option[] = [];
+    for (const o of filtered) {
+      const g = o.group?.trim();
+      if (g) {
+        if (!groups.has(g)) groups.set(g, []);
+        groups.get(g)!.push(o);
+      } else {
+        ungrouped.push(o);
+      }
+    }
+    return { groups, ungrouped };
+  }, [filtered]);
+
+  const toggle = (id: string) => {
+    onChange(values.includes(id) ? values.filter((x) => x !== id) : [...values, id]);
+  };
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((s) => !s)}
+        className="w-full min-h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
+                   disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed
+                   flex items-center justify-between gap-2"
+      >
+        <div className="min-w-0 flex-1 flex items-center gap-1 flex-wrap overflow-hidden">
+          {disabled && loadingText ? (
+            <span className="text-slate-400 font-bold text-sm truncate">{loadingText}</span>
+          ) : values.length === 0 ? (
+            <span className="text-slate-400 font-bold">{placeholder}</span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-700">
+              <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-black">
+                {values.length}
+              </span>
+              <span className="truncate">mục đã chọn</span>
+            </span>
+          )}
+        </div>
+
+        <svg className="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+
+      <div
+        className={`${
+          open ? "" : "hidden"
+        } absolute z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden`}
+      >
+        <div className="p-2 border-b border-slate-100">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Tìm..."
+            className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-300"
+          />
+        </div>
+
+        <div className="max-h-64 overflow-auto p-1">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm font-bold text-slate-400">Không tìm thấy</div>
+          ) : (
+            <>
+              {Array.from(grouped.groups.entries()).map(([gName, gOpts]) => (
+                <div key={gName}>
+                  <div className="px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider bg-slate-50 sticky top-0">
+                    {gName}
+                  </div>
+                  {gOpts.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => toggle(o.value)}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-left"
+                    >
+                      <input type="checkbox" readOnly checked={values.includes(o.value)} className="w-4 h-4" />
+                      <div className="text-sm font-bold text-slate-700">{o.label}</div>
+                    </button>
+                  ))}
+                </div>
+              ))}
+
+              {grouped.ungrouped.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => toggle(o.value)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-left"
+                >
+                  <input type="checkbox" readOnly checked={values.includes(o.value)} className="w-4 h-4" />
+                  <div className="text-sm font-bold text-slate-700">{o.label}</div>
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* hidden select multiple để submit GET */}
+      <select
+        name={name}
+        multiple
+        required={required}
+        disabled={disabled}
+        className="hidden"
+        value={values}
+        onChange={(e) => {
+          const selected = Array.from(e.target.selectedOptions).map((x) => x.value);
+          onChange(selected);
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+
+      <p className="mt-1 text-[11px] font-bold text-slate-400">Chọn nhiều mục (tick checkbox).</p>
+    </div>
+  );
+}
+
+// ========================= MAIN =========================
+export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
+  // base lists from existing hooks
+  const { data: subjects, isLoading: subjectsLoading } = useSubjects();
+  const { data: ageBands, isLoading: ageBandsLoading } = useAgeBands();
+  const { data: levelsData, isLoading: levelsLoading } = useLevels();
+  const { data: themesData, isLoading: themesLoading } = useThemes();
+
+  // selections
+  const [lop, setLop] = useState(values.lop ?? "");
+  const [mon, setMon] = useState(values.mon ?? "");
+  const [quyenSach, setQuyenSach] = useState(values.quyenSach ?? "");
+  const [lessonNo, setLessonNo] = useState(values.lessonNo ?? "");
+  const [game, setGame] = useState(values.game ?? "");
+  const [gameId, setGameId] = useState(values.gameId ?? "");
+  const [level, setLevel] = useState(values.level ?? "");
+  const [skill, setSkill] = useState<string[]>(Array.isArray(values.skills) ? values.skills : []);
+  const [theme, setTheme] = useState<string[]>(Array.isArray(values.themes) ? values.themes : []);
+  const [github, setGithub] = useState(values.github ?? "");
+
+  // dependent options loaded via existing API functions
+  const [tracks, setTracks] = useState<Option[]>([]);
+  const [lessons, setLessons] = useState<Option[]>([]);
+  const [games, setGames] = useState<Option[]>([]);
+  const [skills, setSkills] = useState<Option[]>([]);
+
+  // loading per dependent
+  const [loading, setLoading] = useState({
+    quyenSach: false,
+    lesson: false,
+    game: false,
+    skill: false,
+  });
+
+  // map hook data -> options
+  const lops = useMemo(() => toOptions(ageBands ?? []), [ageBands]);
+  const mons = useMemo(() => toOptions(subjects ?? []), [subjects]);
+  const levels = useMemo(() => toOptions(levelsData ?? []), [levelsData]);
+  const themes = useMemo(() => toOptions(themesData ?? []), [themesData]);
+
+  const has = (k: SelectName) => {
+    const v: any =
+      k === "lop"
+        ? lop
+        : k === "mon"
+        ? mon
+        : k === "quyenSach"
+        ? quyenSach
+        : k === "lessonNo"
+        ? lessonNo
+        : k === "game"
+        ? game
+        : k === "level"
+        ? level
+        : k === "skill"
+        ? skill
+        : theme;
+    if (Array.isArray(v)) return v.length > 0;
+    return Boolean(v && String(v).trim().length > 0);
+  };
+
+  const fields: Field[] = useMemo(
+    () => [
+      { name: "lop", label: "LỚP / ĐỘ TUỔI", span: 6 },
+      { name: "mon", label: "MÔN", span: 6 },
+
+      {
+        name: "quyenSach",
+        label: "QUYỂN SÁCH / TRACK",
+        span: 12,
+        disabled: !has("lop") || !has("mon"),
+        hint: "Chọn Lớp và Môn học trước",
+      },
+
+      {
+        name: "lessonNo",
+        label: "LESSON",
+        span: 12,
+        disabled: !has("quyenSach"),
+        hint: "Chọn Quyển sách trước",
+      },
+
+      {
+        name: "game",
+        label: "GAME",
+        span: 12,
+        disabled: !has("lessonNo"),
+        hint: "Chọn Lesson trước",
+      },
+
+      { name: "level", label: "LEVEL", span: 12 },
+      { name: "skill", label: "SKILL", span: 6 },
+      { name: "theme", label: "THEME", span: 6 },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lop, mon, quyenSach, lessonNo, game, level, skill, theme],
+  );
+
+  // ---- chain loaders using existing API functions ----
+  useEffect(() => {
+    // reset downstream
+    setQuyenSach("");
+    setLessonNo("");
+    setGame("");
+    setTracks([]);
+    setLessons([]);
+    setGames([]);
+
+    if (!lop || !mon) return;
+
+    (async () => {
+      setLoading((s) => ({ ...s, quyenSach: true }));
+      try {
+        const data = await getTracksBySubjectAndAgeBand(mon, lop);
+        setTracks(toOptions(data as any[]));
+      } finally {
+        setLoading((s) => ({ ...s, quyenSach: false }));
+      }
+    })().catch(console.error);
+
+    (async () => {
+      setLoading((s) => ({ ...s, skill: true }));
+      try {
+        // nếu có filter endpoint thì dùng filter, không thì fallback all
+        const data = await getSkillsByAgeBandAndSubject(lop, mon).catch(async () => {
+          return await getSkills();
+        });
+        const opts = toOptions(data as any[]);
+        setSkills(opts);
+        // loại bỏ selected không còn tồn tại
+        setSkill((prev) => prev.filter((id) => opts.some((o) => o.value === id)));
+      } finally {
+        setLoading((s) => ({ ...s, skill: false }));
+      }
+    })().catch(console.error);
+  }, [lop, mon]);
+
+  useEffect(() => {
+    setLessonNo("");
+    setGame("");
+    setLessons([]);
+    setGames([]);
+
+    if (!quyenSach) return;
+
+    (async () => {
+      setLoading((s) => ({ ...s, lesson: true }));
+      try {
+        const data = await getLessonsByTrack(quyenSach);
+        setLessons(toOptions(data as any[]));
+      } finally {
+        setLoading((s) => ({ ...s, lesson: false }));
+      }
+    })().catch(console.error);
+  }, [quyenSach]);
+
+  useEffect(() => {
+    setGame("");
+    setGames([]);
+
+    if (!lessonNo) return;
+
+    (async () => {
+      setLoading((s) => ({ ...s, game: true }));
+      try {
+        const data = await gamesApi.getGamesByLesson(lessonNo);
+        setGames(toOptions(data as any[]));
+      } finally {
+        setLoading((s) => ({ ...s, game: false }));
+      }
+    })().catch(console.error);
+  }, [lessonNo]);
+
+  const isSearchable = (name: SelectName) => name === "quyenSach" || name === "lessonNo";
+  const isMulti = (name: SelectName) => name === "skill" || name === "theme";
+
+  const optionsByName: Record<SelectName, Option[]> = {
+    lop: lops,
+    mon: mons,
+    quyenSach: tracks,
+    lessonNo: lessons,
+    game: games,
+    level: levels,
+    skill: skills,
+    theme: themes,
+  };
+
+  const loadingText = (name: SelectName) => {
+    if (name === "lop" && ageBandsLoading) return "Đang tải độ tuổi...";
+    if (name === "mon" && subjectsLoading) return "Đang tải môn...";
+    if (name === "level" && levelsLoading) return "Đang tải level...";
+    if (name === "theme" && themesLoading) return "Đang tải theme...";
+    if (name === "quyenSach" && loading.quyenSach) return "Đang tải quyển sách...";
+    if (name === "lessonNo" && loading.lesson) return "Đang tải lesson...";
+    if (name === "game" && loading.game) return "Đang tải game...";
+    if (name === "skill" && loading.skill) return "Đang tải skill...";
+    return undefined;
+  };
+
+  const resetAll = () => {
+    setLop("");
+    setMon("");
+    setQuyenSach("");
+    setLessonNo("");
+    setGame("");
+    setLevel("");
+    setSkill([]);
+    setTheme([]);
+    setGithub("");
+
+    setTracks([]);
+    setLessons([]);
+    setGames([]);
+
+    // clear querystring (không reload)
+    window.history.replaceState(null, "", window.location.pathname);
+  };
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // Nếu không truyền onNext thì giữ behavior cũ: submit GET theo action/method
+    if (!onNext) return;
+
+    e.preventDefault();
+
+    // Chặn nếu form chưa hợp lệ (required)
+    const form = e.currentTarget;
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
+      // Gửi data lên màn tiếp theo (GIỮ LOGIC CHUYỂN MÀN)
+      onNext({
+        lop,
+        mon,
+        quyenSach,
+        lessonNo: lessonNo,
+        game,
+        gameId,
+        level,
+        skills: skill,
+        themes: theme,
+        github,
+      } as any);
+    };
+
+  return (
+    <form
+      id="upload-meta-form"
+      method="get"
+      onSubmit={handleSubmit}
+      className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5"
+    >
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h2 className="text-sm font-black text-slate-900">Chọn thông tin gắn vào Cây kiến thức</h2>
+          <p className="text-xs font-bold text-slate-500 mt-1">
+            Các trường theo tầng sẽ mở dần theo lựa chọn của bạn. Link github là nhập tay.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+        {fields.map((f) => {
+          const disabled =
+            Boolean(f.disabled) ||
+            Boolean(loadingText(f.name)) ||
+            (f.name === "lop" && ageBandsLoading) ||
+            (f.name === "mon" && subjectsLoading);
+
+          const opts = optionsByName[f.name];
+
+          return (
+            <label key={f.name} className={`block ${spanClass(f.span)}`}>
+              <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                {f.label}
+              </span>
+
+              {isMulti(f.name) ? (
+                <MultiSelect
+                  name={f.name}
+                  values={f.name === "skill" ? skill : theme}
+                  onChange={(arr) => (f.name === "skill" ? setSkill(arr) : setTheme(arr))}
+                  options={opts}
+                  disabled={disabled}
+                  required
+                  loadingText={loadingText(f.name)}
+                />
+              ) : isSearchable(f.name) ? (
+                <SearchSelect
+                  name={f.name}
+                  value={f.name === "quyenSach" ? quyenSach : lessonNo}
+                  onChange={(v) => (f.name === "quyenSach" ? setQuyenSach(v) : setLessonNo(v))}
+                  options={opts}
+                  disabled={disabled}
+                  required
+                  loadingText={loadingText(f.name)}
+                />
+              ) : (
+                <select
+                  name={f.name}
+                  required
+                  disabled={disabled}
+                  value={
+                    f.name === "lop"
+                      ? lop
+                      : f.name === "mon"
+                      ? mon
+                      : f.name === "game"
+                      ? game
+                      : f.name === "level"
+                      ? level
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (f.name === "lop") setLop(v);
+                    if (f.name === "mon") setMon(v);
+                    if (f.name === "game") setGame(v);
+                    if (f.name === "level") setLevel(v);
+                  }}
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300
+                             disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed"
+                >
+                  <option value="" disabled>
+                    {loadingText(f.name) ?? "-- Chọn --"}
+                  </option>
+                  {opts.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {f.disabled && f.hint && (
+                <p className="mt-1 text-[11px] font-bold text-slate-400">{f.hint}</p>
+              )}
+            </label>
+          );
+        })}
+
+        <label className="block sm:col-span-12">
+          <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+            GAME ID (GCS)
+          </span>
+
+          <input
+            type="text"
+            name="gameId"
+            value={gameId}
+            onChange={(e) => setGameId(e.target.value)}
+            placeholder="com.iruka.math-addition"
+            pattern="^[a-z0-9.-]+$"
+            title="Chỉ được dùng chữ thường, số, dấu chấm và gạch ngang"
+            required
+            className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 outline-none focus:border-blue-300
+                      font-mono"
+          />
+
+          <p className="mt-1 text-[11px] font-bold text-slate-500 flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Định dạng: com.iruka.tên-game (chữ thường, số, dấu chấm, gạch ngang)
+          </p>
+        </label>
+
+        <label className="block sm:col-span-12">
+          <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+            Link github
+          </span>
+          <input
+            name="github"
+            required
+            value={github}
+            onChange={(e) => setGithub(e.target.value)}
+            placeholder="https://github.com/your-org/your-repo (hoặc link PR/commit)"
+            className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-300"
+          />
+          <p className="mt-1 text-[11px] font-bold text-slate-500">
+            Tip: có thể dán link commit/tag để trace build.
+          </p>
+        </label>
+      </div>
+
+      <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+        <button
+          type="button"
+          onClick={resetAll}
+          className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:border-slate-300"
+        >
+          Reset
+        </button>
+
+        <button
+          type="submit"
+          className="inline-flex h-10 items-center justify-center rounded-xl bg-[#2b9bf6] px-5 text-sm font-black text-white shadow-md hover:bg-[#1a88f4]"
+        >
+          Tiếp tục Upload →
+        </button>
+      </div>
+    </form>
   );
 }

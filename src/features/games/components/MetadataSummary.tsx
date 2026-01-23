@@ -15,6 +15,7 @@ interface MetadataSummaryProps {
     lessonNo: string;
     level: string;
     game: string;
+    gameId: string;
     skills: string[];
     themes: string[];
     github: string;
@@ -55,7 +56,7 @@ export function MetadataSummary({ meta }: MetadataSummaryProps) {
   const items = [
     { label: 'Lớp', value: meta.lop },
     { label: 'Môn', value: getSubjectName(meta.mon) },
-    { label: 'Game ID', value: meta.game, mono: true },
+    { label: 'Game ID (GCS)', value: meta.gameId, mono: true },
     meta.quyenSach && { label: 'Quyển sách', value: meta.quyenSach },
     meta.lessonNo && { label: 'Bài học', value: `Bài ${meta.lessonNo}` },
     meta.level && { label: 'Độ khó', value: getLevelName(meta.level) },
