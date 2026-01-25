@@ -6,7 +6,10 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { getSession, login, logout } from "../api/authApi";
+import { tokenStorage } from "@/lib/token-storage";
+import { isTokenExpired } from "@/lib/jwt";
 import type { LoginPayload } from "../types";
 
 /**
@@ -21,6 +24,39 @@ export const authKeys = {
  * Hook to get current session
  */
 export function useSession() {
+  const queryClient = useQueryClient();
+
+  // Strict Entry Check: Prevent Zombie Sessions
+  useEffect(() => {
+    const checkTokenValidity = () => {
+      const refreshToken = tokenStorage.getRefreshToken();
+
+      // If refresh token exists but is expired -> Force logout immediately
+      if (!refreshToken) {
+        // remove isTokenExpired(refreshToken) to test
+        console.warn(
+          "[Auth] Refresh token expired - forcing logout (zombie session prevention)",
+        );
+
+        // Clear tokens
+        tokenStorage.clearTokens();
+
+        // Clear React Query cache
+        queryClient.setQueryData(authKeys.session(), {
+          user: null,
+          isAuthenticated: false,
+        });
+
+        // Hard redirect to login (clears all state)
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+      }
+    };
+
+    checkTokenValidity();
+  }, [queryClient]);
+
   const query = useQuery({
     queryKey: authKeys.session(),
     queryFn: getSession,

@@ -3,6 +3,10 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
+
+// Default thumbnail URL
+const DEFAULT_THUMBNAIL_URL =
+  "https://storage.googleapis.com/iruka-edu-mini-game/games/com.iruka.game-test-1/thumbnails/desktop.png";
 import {
   ResponsiveLayout,
   ResponsiveContainer,
@@ -774,7 +778,8 @@ function GamePreview({ formData }: { formData: UploadFormData }) {
         <div className="gh-preview-content">
           <div className="gh-preview-card">
             <div className="gh-preview-thumbnail">
-              {formData.thumbnailDesktop ? (
+              {formData.thumbnailDesktop &&
+              formData.thumbnailDesktop.trim() !== "" ? (
                 <Image
                   src={formData.thumbnailDesktop}
                   alt="Game thumbnail"
@@ -783,9 +788,13 @@ function GamePreview({ formData }: { formData: UploadFormData }) {
                   className="gh-preview-image"
                 />
               ) : (
-                <div className="gh-preview-placeholder">
-                  <span className="gh-preview-icon">🎮</span>
-                </div>
+                <Image
+                  src={DEFAULT_THUMBNAIL_URL}
+                  alt="Default game thumbnail"
+                  width={308}
+                  height={211}
+                  className="gh-preview-image opacity-50"
+                />
               )}
             </div>
 

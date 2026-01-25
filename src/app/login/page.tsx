@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLogin } from "@/features/auth/hooks/useAuth";
 
@@ -10,9 +10,21 @@ function LoginContent() {
   const loginMutation = useLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false });
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    const savedPassword = localStorage.getItem("rememberedPassword");
+    if (savedEmail && savedPassword) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
+  }, []);
 
   // Use mutation loading state
   const loading = loginMutation.isPending;
@@ -49,6 +61,15 @@ function LoginContent() {
       if (!result.success) {
         setError(result.error || "Đăng nhập thất bại");
         return;
+      }
+
+      // Save or clear credentials based on remember me
+      if (rememberMe) {
+        localStorage.setItem("rememberedEmail", email);
+        localStorage.setItem("rememberedPassword", password);
+      } else {
+        localStorage.removeItem("rememberedEmail");
+        localStorage.removeItem("rememberedPassword");
       }
 
       // Get redirect URL from query params or default to console
@@ -245,6 +266,24 @@ function LoginContent() {
                   {passwordError}
                 </p>
               )}
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={loading}
+                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed"
+              />
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm text-slate-700 cursor-pointer"
+              >
+                Nhớ mật khẩu
+              </label>
             </div>
 
             <button

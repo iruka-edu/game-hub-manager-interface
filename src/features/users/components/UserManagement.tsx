@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useUsers } from "../hooks/useUsers";
 import {
   useCreateUser,
@@ -26,11 +27,19 @@ interface UserManagementProps {
 }
 
 const roleLabels: Record<string, string> = {
-  dev: "Lập trình viên",
-  qc: "Kiểm thử QC",
-  cto: "CTO",
-  ceo: "CEO",
-  admin: "Quản trị viên",
+  dev: "Developer (Dev)",
+  qc: "Quality Control (QC)",
+  reviewer: "Reviewer (Duyệt nội dung)",
+  publisher: "Publisher (Xuất bản)",
+  admin: "Administrator (Hệ thống)",
+};
+
+const roleDescriptions: Record<string, string> = {
+  dev: "Tạo và hoàn thiện game",
+  qc: "Kiểm soát chất lượng game",
+  reviewer: "Duyệt nội dung (approve/reject)",
+  publisher: "Kiểm soát hiển thị (publish/unpublish)",
+  admin: "Quản trị hệ thống",
 };
 
 const availableRoles = Object.keys(roleLabels) as Role[];
@@ -69,8 +78,8 @@ export function UserManagement({
     user: User | null;
   }>({ isOpen: false, user: null });
 
-  // Check if current user can delete users (admin, cto, ceo only)
-  const canDeleteUsers = userRoles.some((role) => [""].includes(role));
+  // Check if current user can delete users (admin only as per new requirements)
+  const canDeleteUsers = userRoles.some((role) => ["admin"].includes(role));
 
   const handleOpenAddModal = () => {
     setFormData({ full_name: "", email: "", password: "", roles: [] });
@@ -185,7 +194,7 @@ export function UserManagement({
           <div className="md:col-span-2">
             <input
               type="text"
-              placeholder="Tìm kiếm người dùng..."
+              placeholder="Tìm theo tên hoặc email..."
               className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={filters.search}
               onChange={(e) => setSearch(e.target.value)}
@@ -213,7 +222,7 @@ export function UserManagement({
             >
               <option value="all">Tất cả trạng thái</option>
               <option value="active">Hoạt động</option>
-              <option value="inactive">Vô hiệu hóa</option>
+              <option value="inactive">Tạm khóa</option>
             </select>
           </div>
         </div>
@@ -228,30 +237,30 @@ export function UserManagement({
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Tên
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Email
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Vai trò
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">
                 Ngày tạo
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                 Đăng nhập cuối
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Trạng thái
               </th>
               {canManageUsers && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Thao tác
                 </th>
               )}
@@ -260,54 +269,60 @@ export function UserManagement({
           <tbody className="bg-white divide-y divide-gray-200">
             {users.map((user) => (
               <tr key={user.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <div className="text-sm font-semibold text-slate-900">
                     {user.full_name}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">{user.email}</div>
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <div className="text-sm text-slate-500">{user.email}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4 whitespace-nowrap">
                   <div className="flex flex-wrap gap-1">
                     {user.roles.map((role) => (
                       <span
                         key={role}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100"
                       >
                         {roleLabels[role] || role}
                       </span>
                     ))}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                   {user.created_at
                     ? new Date(user.created_at).toLocaleDateString("vi-VN")
                     : "N/A"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  {(user as any).last_login_at // Casting as temporary fix until type is updated
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
+                  {(user as any).last_login_at
                     ? new Date((user as any).last_login_at).toLocaleString(
                         "vi-VN",
                       )
                     : "Chưa đăng nhập"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4 whitespace-nowrap">
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tight ${
                       user.is_active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-rose-100 text-rose-800"
                     }`}
                   >
-                    {user.is_active ? "Hoạt động" : "Không hoạt động"}
+                    {user.is_active ? "Hoạt động" : "Tạm khóa"}
                   </span>
                 </td>
                 {canManageUsers && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                    <Link
+                      href={`/console/audit-logs?userId=${user.email}`}
+                      className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 rounded text-indigo-700 text-xs font-semibold"
+                    >
+                      Logs
+                    </Link>
                     <button
                       onClick={() => handleOpenEditModal(user)}
-                      className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 text-xs font-medium"
+                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-xs font-semibold"
                     >
                       Sửa
                     </button>
@@ -322,7 +337,7 @@ export function UserManagement({
                           : "bg-green-500 hover:bg-green-600"
                       }`}
                     >
-                      {user.is_active ? "Vô hiệu hóa" : "Kích hoạt"}
+                      {user.is_active ? "Khóa" : "Mở khóa"}
                     </button>
                     {canDeleteUsers && (
                       <button
@@ -451,28 +466,47 @@ export function UserManagement({
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Vai trò
+                      <label className="block text-sm font-semibold text-slate-700 mb-3">
+                        Vai trò thao tác
                       </label>
-                      <select
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                        value={formData.roles[0] || ""}
-                        onChange={(e) => {
-                          const val = e.target.value as Role;
-                          setFormData({ ...formData, roles: [val] });
-                        }}
-                      >
-                        <option value="" disabled>
-                          Chọn vai trò
-                        </option>
+                      <div className="grid grid-cols-1 gap-2.5">
                         {availableRoles.map((role) => (
-                          <option key={role} value={role}>
-                            {roleLabels[role]}
-                          </option>
+                          <label
+                            key={role}
+                            className={`flex items-start p-3 rounded-xl border transition-all cursor-pointer hover:shadow-sm ${
+                              formData.roles.includes(role)
+                                ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
+                                : "bg-white border-slate-200 hover:border-slate-300"
+                            }`}
+                          >
+                            <div className="flex items-center h-5">
+                              <input
+                                type="checkbox"
+                                checked={formData.roles.includes(role)}
+                                onChange={() => toggleRole(role)}
+                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                            </div>
+                            <div className="ml-3 text-sm">
+                              <span
+                                className={`block font-bold ${
+                                  formData.roles.includes(role)
+                                    ? "text-indigo-900"
+                                    : "text-slate-900"
+                                }`}
+                              >
+                                {roleLabels[role]}
+                              </span>
+                              <span className="text-slate-500 text-xs">
+                                {roleDescriptions[role]}
+                              </span>
+                            </div>
+                          </label>
                         ))}
-                      </select>
-                      <p className="mt-1 text-xs text-slate-500">
-                        * Mỗi người dùng chỉ được gán một vai trò duy nhất.
+                      </div>
+                      <p className="mt-3 text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        * Bạn có thể gán nhiều vai trò cho một người dùng. Hệ
+                        thống sẽ kết hợp tất cả các quyền tương ứng.
                       </p>
                     </div>
                   </div>

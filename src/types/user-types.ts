@@ -2,12 +2,18 @@
  * User roles in the system
  * Shared type definition that doesn't depend on backend storage
  */
-export type Role = 'dev' | 'qc' | 'cto' | 'ceo' | 'admin';
+export type Role = "dev" | "qc" | "reviewer" | "publisher" | "admin";
 
 /**
  * Valid roles array for validation
  */
-export const VALID_ROLES: Role[] = ['dev', 'qc', 'cto', 'ceo', 'admin'];
+export const VALID_ROLES: Role[] = [
+  "dev",
+  "qc",
+  "reviewer",
+  "publisher",
+  "admin",
+];
 
 /**
  * Validate that a role is valid

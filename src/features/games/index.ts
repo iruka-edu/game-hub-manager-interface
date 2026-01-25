@@ -7,7 +7,12 @@
 export * from "./types";
 
 // Hooks (for components)
-export { useGames, useGameDetail, gamesKeys } from "./hooks/useGames";
+export {
+  useGames,
+  useGameDetail,
+  useGameHistory,
+  gamesKeys,
+} from "./hooks/useGames";
 export {
   useUpdateGame,
   useDeleteGame,
@@ -16,6 +21,7 @@ export {
   useApproveGame,
   useRejectGame,
   usePublishGame,
+  useUnpublishGame,
   useUploadBuild,
   useUploadThumbnail,
   useQCPass,

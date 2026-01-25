@@ -60,7 +60,7 @@ export function MobileNav({ user }: MobileNavProps) {
       href: "/console/approval",
       label: "Chờ duyệt",
       icon: "✅",
-      roles: ["cto", "ceo", "admin"],
+      roles: ["reviewer", "admin"],
     },
     {
       href: "/console/publish",
@@ -72,7 +72,7 @@ export function MobileNav({ user }: MobileNavProps) {
       href: "/console/users",
       label: "Quản lý User",
       icon: "👥",
-      roles: ["admin", "cto", "ceo"],
+      roles: ["admin"],
     },
   ];
 

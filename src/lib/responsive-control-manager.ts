@@ -1,12 +1,22 @@
-import { DeviceType } from '@/types/game';
+import { DeviceType } from "@/types/game";
+import { UAParser } from "ua-parser-js";
 
 export interface ToolbarLayout {
   showDeviceIndicator: boolean;
   showFullText: boolean;
-  buttonSize: 'sm' | 'md' | 'lg';
-  spacing: 'tight' | 'normal' | 'loose';
+  buttonSize: "sm" | "md" | "lg";
+  spacing: "tight" | "normal" | "loose";
   showFullscreenInToolbar: boolean;
   showGameDetailsLink: boolean;
+  isTestMode: boolean;
+}
+
+export interface DetailedDeviceInfo {
+  deviceType: DeviceType;
+  os: string;
+  browser: string;
+  resolution: string;
+  model: string;
 }
 
 export interface ButtonConfiguration {
@@ -37,7 +47,7 @@ export interface DeviceConfiguration {
   controls: ButtonConfiguration;
   spacing: SpacingConfiguration;
   fullscreen: {
-    togglePosition: 'toolbar' | 'floating' | 'both';
+    togglePosition: "toolbar" | "floating" | "both";
     autoHideDelay: number;
     showOnInteraction: boolean;
   };
@@ -45,7 +55,7 @@ export interface DeviceConfiguration {
 
 export class ResponsiveControlManager {
   private static instance: ResponsiveControlManager;
-  
+
   // Device breakpoints for responsive behavior
   private readonly breakpoints = {
     mobile: { min: 0, max: 639 },
@@ -62,79 +72,79 @@ export class ResponsiveControlManager {
 
   private deviceConfigurations: Record<DeviceType, DeviceConfiguration> = {
     mobile: {
-      type: 'mobile',
+      type: "mobile",
       breakpoints: this.breakpoints.mobile,
       toolbar: {
-        height: '3rem',
-        padding: 'px-3 py-2',
-        fontSize: 'text-sm',
+        height: "3rem",
+        padding: "px-3 py-2",
+        fontSize: "text-sm",
       },
       controls: {
-        size: 'w-10 h-10',
-        padding: 'px-2 py-2',
-        fontSize: 'text-xs',
-        iconSize: 'w-4 h-4',
+        size: "w-10 h-10",
+        padding: "px-2 py-2",
+        fontSize: "text-xs",
+        iconSize: "w-4 h-4",
         touchTarget: `min-h-[${this.touchTargets.mobile}px] min-w-[${this.touchTargets.mobile}px]`,
       },
       spacing: {
-        gap: 'gap-2',
-        padding: 'px-3 py-2',
-        margin: 'mx-1',
+        gap: "gap-2",
+        padding: "px-3 py-2",
+        margin: "mx-1",
       },
       fullscreen: {
-        togglePosition: 'toolbar',
+        togglePosition: "toolbar",
         autoHideDelay: 3000,
         showOnInteraction: true,
       },
     },
     tablet: {
-      type: 'tablet',
+      type: "tablet",
       breakpoints: this.breakpoints.tablet,
       toolbar: {
-        height: '3.5rem',
-        padding: 'px-4 py-3',
-        fontSize: 'text-base',
+        height: "3.5rem",
+        padding: "px-4 py-3",
+        fontSize: "text-base",
       },
       controls: {
-        size: 'w-11 h-11',
-        padding: 'px-3 py-2',
-        fontSize: 'text-sm',
-        iconSize: 'w-5 h-5',
+        size: "w-11 h-11",
+        padding: "px-3 py-2",
+        fontSize: "text-sm",
+        iconSize: "w-5 h-5",
         touchTarget: `min-h-[${this.touchTargets.tablet}px] min-w-[${this.touchTargets.tablet}px]`,
       },
       spacing: {
-        gap: 'gap-3',
-        padding: 'px-4 py-3',
-        margin: 'mx-2',
+        gap: "gap-3",
+        padding: "px-4 py-3",
+        margin: "mx-2",
       },
       fullscreen: {
-        togglePosition: 'toolbar',
+        togglePosition: "toolbar",
         autoHideDelay: 3000,
         showOnInteraction: true,
       },
     },
     desktop: {
-      type: 'desktop',
+      type: "desktop",
       breakpoints: this.breakpoints.desktop,
       toolbar: {
-        height: '3.5rem',
-        padding: 'px-4 py-3',
-        fontSize: 'text-base',
+        height: "3.5rem",
+        padding: "px-4 py-3",
+        fontSize: "text-base",
       },
       controls: {
-        size: 'w-auto h-10',
-        padding: 'px-3 py-2',
-        fontSize: 'text-sm',
-        iconSize: 'w-4 h-4',
+        size: "w-auto h-10",
+        padding: "px-3 py-2",
+        fontSize: "text-sm",
+        iconSize: "w-4 h-4",
         touchTarget: `min-h-[${this.touchTargets.desktop}px] min-w-[${this.touchTargets.desktop}px]`,
       },
       spacing: {
-        gap: 'gap-2',
-        padding: 'px-4 py-3',
-        margin: 'mx-2',
+        gap: "gap-2",
+        padding: "px-4 py-3",
+        margin: "mx-2",
       },
       fullscreen: {
-        togglePosition: 'toolbar',
+        togglePosition: "toolbar",
         autoHideDelay: 3000,
         showOnInteraction: true,
       },
@@ -148,56 +158,126 @@ export class ResponsiveControlManager {
     return ResponsiveControlManager.instance;
   }
 
-  public getLayoutConfig(deviceType: DeviceType, screenWidth: number): ToolbarLayout {
+  public getLayoutConfig(
+    deviceType: DeviceType,
+    screenWidth: number,
+  ): ToolbarLayout {
     const config = this.deviceConfigurations[deviceType];
-    
+
     // Advanced layout calculations based on screen width and device type
     const isNarrowScreen = screenWidth < 480;
     const isWideScreen = screenWidth >= 1200;
-    
+
     return {
-      showDeviceIndicator: this.shouldShowDeviceIndicator(deviceType, screenWidth),
+      showDeviceIndicator: this.shouldShowDeviceIndicator(
+        deviceType,
+        screenWidth,
+      ),
       showFullText: this.shouldShowFullText(deviceType, screenWidth),
       buttonSize: this.calculateButtonSize(deviceType, screenWidth),
       spacing: this.calculateSpacing(deviceType, screenWidth),
       showFullscreenInToolbar: true, // Always show in toolbar for unified experience
-      showGameDetailsLink: this.shouldShowGameDetailsLink(deviceType, screenWidth),
+      showGameDetailsLink: this.shouldShowGameDetailsLink(
+        deviceType,
+        screenWidth,
+      ),
+      isTestMode: true,
     };
   }
 
-  private shouldShowDeviceIndicator(deviceType: DeviceType, screenWidth: number): boolean {
-    // Show device indicator on desktop and wide tablets
-    return deviceType === 'desktop' || (deviceType === 'tablet' && screenWidth >= 768);
+  public getDetailedDeviceInfo(
+    screenWidth: number,
+    screenHeight: number,
+    userAgent: string,
+  ): DetailedDeviceInfo {
+    const parser = new UAParser(userAgent);
+    const result = parser.getResult();
+
+    const deviceType = this.detectDeviceType(
+      screenWidth,
+      screenHeight,
+      userAgent,
+    );
+
+    // OS Detection
+    const os = result.os.name || "Không rõ";
+
+    // Browser Detection
+    const browser = result.browser.name || "Không rõ";
+
+    // Model Detection
+    let model = result.device.model || "Thiết bị";
+
+    // Better model names for Desktop
+    if (!result.device.type) {
+      if (userAgent.indexOf("Windows") !== -1) model = "Máy tính Windows";
+      else if (userAgent.indexOf("Macintosh") !== -1) model = "Máy tính Mac";
+      else if (userAgent.indexOf("Linux") !== -1) model = "Máy tính Linux";
+    } else {
+      model =
+        `${result.device.vendor || ""} ${result.device.model || result.device.type}`.trim();
+    }
+
+    return {
+      deviceType,
+      os,
+      browser,
+      resolution: `${screenWidth}x${screenHeight}`,
+      model,
+    };
   }
 
-  private shouldShowFullText(deviceType: DeviceType, screenWidth: number): boolean {
+  private shouldShowDeviceIndicator(
+    deviceType: DeviceType,
+    screenWidth: number,
+  ): boolean {
+    // Show device indicator on desktop and wide tablets
+    return (
+      deviceType === "desktop" ||
+      (deviceType === "tablet" && screenWidth >= 768)
+    );
+  }
+
+  private shouldShowFullText(
+    deviceType: DeviceType,
+    screenWidth: number,
+  ): boolean {
     // Show full text labels when there's enough space
-    if (deviceType === 'mobile') return screenWidth >= 480;
-    if (deviceType === 'tablet') return screenWidth >= 640;
+    if (deviceType === "mobile") return screenWidth >= 480;
+    if (deviceType === "tablet") return screenWidth >= 640;
     return true; // Always show on desktop
   }
 
-  private calculateButtonSize(deviceType: DeviceType, screenWidth: number): 'sm' | 'md' | 'lg' {
-    if (deviceType === 'mobile') {
-      return screenWidth < 375 ? 'sm' : 'md';
+  private calculateButtonSize(
+    deviceType: DeviceType,
+    screenWidth: number,
+  ): "sm" | "md" | "lg" {
+    if (deviceType === "mobile") {
+      return screenWidth < 375 ? "sm" : "md";
     }
-    if (deviceType === 'tablet') {
-      return screenWidth < 800 ? 'md' : 'lg';
+    if (deviceType === "tablet") {
+      return screenWidth < 800 ? "md" : "lg";
     }
-    return 'lg'; // Desktop
+    return "lg"; // Desktop
   }
 
-  private calculateSpacing(deviceType: DeviceType, screenWidth: number): 'tight' | 'normal' | 'loose' {
-    if (deviceType === 'mobile') {
-      return screenWidth < 375 ? 'tight' : 'normal';
+  private calculateSpacing(
+    deviceType: DeviceType,
+    screenWidth: number,
+  ): "tight" | "normal" | "loose" {
+    if (deviceType === "mobile") {
+      return screenWidth < 375 ? "tight" : "normal";
     }
-    if (deviceType === 'tablet') {
-      return 'normal';
+    if (deviceType === "tablet") {
+      return "normal";
     }
-    return screenWidth >= 1400 ? 'loose' : 'normal'; // Desktop
+    return screenWidth >= 1400 ? "loose" : "normal"; // Desktop
   }
 
-  private shouldShowGameDetailsLink(deviceType: DeviceType, screenWidth: number): boolean {
+  private shouldShowGameDetailsLink(
+    deviceType: DeviceType,
+    screenWidth: number,
+  ): boolean {
     // Show game details link on larger screens
     return screenWidth >= 640;
   }
@@ -214,27 +294,35 @@ export class ResponsiveControlManager {
     return this.deviceConfigurations[deviceType];
   }
 
-  public getToolbarClasses(deviceType: DeviceType, isFullscreen: boolean, showInFullscreen: boolean): string {
+  public getToolbarClasses(
+    deviceType: DeviceType,
+    isFullscreen: boolean,
+    showInFullscreen: boolean,
+  ): string {
     const config = this.deviceConfigurations[deviceType];
     const baseClasses = `game-toolbar bg-white border-b border-slate-200 sticky top-0 z-10 transition-transform duration-300`;
     const paddingClasses = config.toolbar.padding;
-    const hiddenClasses = isFullscreen && !showInFullscreen ? 'game-toolbar-hidden' : '';
-    
+    const hiddenClasses =
+      isFullscreen && !showInFullscreen ? "game-toolbar-hidden" : "";
+
     return `${baseClasses} ${paddingClasses} ${hiddenClasses}`;
   }
 
-  public getButtonClasses(deviceType: DeviceType, variant: 'primary' | 'secondary' | 'info' = 'secondary'): string {
+  public getButtonClasses(
+    deviceType: DeviceType,
+    variant: "primary" | "secondary" | "info" = "secondary",
+  ): string {
     const config = this.deviceConfigurations[deviceType];
     const spacing = this.getSpacingConfig(deviceType);
-    
+
     const baseClasses = `flex items-center ${spacing.gap} ${config.controls.padding} ${config.controls.fontSize} rounded-lg transition-colors ${config.controls.touchTarget}`;
-    
+
     const variantClasses = {
-      primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-      secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700',
-      info: 'text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50',
+      primary: "bg-indigo-600 hover:bg-indigo-700 text-white",
+      secondary: "bg-slate-100 hover:bg-slate-200 text-slate-700",
+      info: "text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50",
     };
-    
+
     return `${baseClasses} ${variantClasses[variant]}`;
   }
 
@@ -243,14 +331,17 @@ export class ResponsiveControlManager {
     return config.controls.iconSize;
   }
 
-  public shouldShowElement(deviceType: DeviceType, element: 'deviceIndicator' | 'fullText' | 'gameDetails'): boolean {
+  public shouldShowElement(
+    deviceType: DeviceType,
+    element: "deviceIndicator" | "fullText" | "gameDetails",
+  ): boolean {
     switch (element) {
-      case 'deviceIndicator':
-        return deviceType !== 'mobile';
-      case 'fullText':
-        return deviceType !== 'mobile';
-      case 'gameDetails':
-        return deviceType !== 'mobile';
+      case "deviceIndicator":
+        return deviceType !== "mobile";
+      case "fullText":
+        return deviceType !== "mobile";
+      case "gameDetails":
+        return deviceType !== "mobile";
       default:
         return true;
     }
@@ -259,55 +350,81 @@ export class ResponsiveControlManager {
   /**
    * Detect device type based on screen dimensions and user agent
    */
-  public detectDeviceType(screenWidth: number, screenHeight: number, userAgent?: string): DeviceType {
-    // Check user agent for mobile devices first
+  public detectDeviceType(
+    screenWidth: number,
+    screenHeight: number,
+    userAgent?: string,
+  ): DeviceType {
     if (userAgent) {
-      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-      const isTabletUA = /iPad|Android(?!.*Mobile)/i.test(userAgent);
-      
-      if (isMobileUA && !isTabletUA) return 'mobile';
-      if (isTabletUA) return 'tablet';
+      const parser = new UAParser(userAgent);
+      const device = parser.getDevice();
+      const os = parser.getOS();
+
+      // If it's explicitly mobile or tablet, trust it
+      if (device.type === "mobile") return "mobile";
+      if (device.type === "tablet") return "tablet";
+
+      // Trusted Desktop OS check: if it's Windows, Mac, or Linux and NOT a mobile/tablet UA
+      const isDesktopOS = /Windows|Mac OS|Linux/i.test(os.name || "");
+      if (isDesktopOS && !device.type) {
+        // Double check for modern iPads that spoof Macintosh
+        const isIOS = /iPhone|iPad|iPod|iOS/i.test(userAgent);
+        const likelyiPad =
+          userAgent.indexOf("Macintosh") !== -1 &&
+          typeof navigator !== "undefined" &&
+          navigator.maxTouchPoints > 2;
+
+        if (!isIOS && !likelyiPad) return "desktop";
+      }
     }
 
-    // Fallback to screen size detection
+    // Fallback/Secondary check using dimension logic
     const minDimension = Math.min(screenWidth, screenHeight);
     const maxDimension = Math.max(screenWidth, screenHeight);
 
-    // Mobile: smaller dimension < 640px
-    if (minDimension < 640) return 'mobile';
-    
-    // Tablet: smaller dimension >= 640px but < 1024px, or aspect ratio suggests tablet
-    if (minDimension < 1024 || (maxDimension / minDimension < 1.5 && maxDimension < 1366)) {
-      return 'tablet';
+    // Mobile: smallest screens
+    if (minDimension < 500) return "mobile";
+
+    // Tablet: standard tablet range (7-11 inches / 600-1000px)
+    // AND it must have a somewhat "square-ish" aspect ratio compared to wide laptops
+    const isSquareish = maxDimension / minDimension < 1.6;
+    if (minDimension >= 600 && minDimension < 1024 && isSquareish) {
+      return "tablet";
     }
 
-    return 'desktop';
+    return "desktop";
   }
 
   /**
    * Get optimal toolbar height based on device and orientation
    */
-  public getOptimalToolbarHeight(deviceType: DeviceType, isLandscape: boolean): string {
+  public getOptimalToolbarHeight(
+    deviceType: DeviceType,
+    isLandscape: boolean,
+  ): string {
     const config = this.deviceConfigurations[deviceType];
-    
+
     // Reduce toolbar height in landscape mode on mobile/tablet to save space
-    if ((deviceType === 'mobile' || deviceType === 'tablet') && isLandscape) {
-      return deviceType === 'mobile' ? '2.5rem' : '3rem';
+    if ((deviceType === "mobile" || deviceType === "tablet") && isLandscape) {
+      return deviceType === "mobile" ? "2.5rem" : "3rem";
     }
-    
+
     return config.toolbar.height;
   }
 
   /**
    * Calculate responsive font sizes
    */
-  public getResponsiveFontSize(deviceType: DeviceType, element: 'title' | 'version' | 'button'): string {
+  public getResponsiveFontSize(
+    deviceType: DeviceType,
+    element: "title" | "version" | "button",
+  ): string {
     const baseSizes = {
-      mobile: { title: 'text-sm', version: 'text-xs', button: 'text-xs' },
-      tablet: { title: 'text-base', version: 'text-sm', button: 'text-sm' },
-      desktop: { title: 'text-base', version: 'text-sm', button: 'text-sm' },
+      mobile: { title: "text-sm", version: "text-xs", button: "text-xs" },
+      tablet: { title: "text-base", version: "text-sm", button: "text-sm" },
+      desktop: { title: "text-base", version: "text-sm", button: "text-sm" },
     };
-    
+
     return baseSizes[deviceType][element];
   }
 
@@ -316,6 +433,6 @@ export class ResponsiveControlManager {
    */
   public getAnimationDuration(deviceType: DeviceType): number {
     // Shorter animations on mobile for better performance
-    return deviceType === 'mobile' ? 200 : 300;
+    return deviceType === "mobile" ? 200 : 300;
   }
 }

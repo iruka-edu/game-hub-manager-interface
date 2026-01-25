@@ -1,12 +1,18 @@
 /**
  * User roles in the system
  */
-export type Role = "dev" | "qc" | "cto" | "ceo" | "admin";
+export type Role = "dev" | "qc" | "reviewer" | "publisher" | "admin";
 
 /**
  * Valid roles array for validation
  */
-export const VALID_ROLES: Role[] = ["dev", "qc", "cto", "ceo", "admin"];
+export const VALID_ROLES: Role[] = [
+  "dev",
+  "qc",
+  "reviewer",
+  "publisher",
+  "admin",
+];
 
 /**
  * User interface representing a user record

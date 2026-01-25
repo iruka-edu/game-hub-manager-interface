@@ -45,8 +45,8 @@ export function ConsoleLayoutClient({
 
       {/* Main Content */}
       <div
-        className={`flex-1 flex flex-col transition-[margin] duration-300 ${
-          isMinimized ? "lg:ml-[80px]" : "lg:ml-[260px]"
+        className={`flex-1 flex flex-col transition-all duration-300 ${
+          isMinimized ? "lg:ml-20" : "lg:ml-64"
         }`}
       >
         {/* Desktop TopBar */}

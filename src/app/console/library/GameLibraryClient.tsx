@@ -28,6 +28,11 @@ interface SerializedGame extends Record<string, unknown> {
   subject?: string;
   grade?: string;
   gameType?: string;
+  lessonNo?: string;
+  level?: string;
+  skills?: string[];
+  themes?: string[];
+  publishState?: string;
   disabled: boolean;
   isDeleted: boolean;
   createdAt: string;
@@ -92,6 +97,10 @@ export function GameLibraryClient({
     setThemes,
   } = useGameFilterActions();
 
+  // Local filters for Library-specific filtering
+  const [creatorFilter, setCreatorFilter] = useState<string>("all");
+  const [lessonFilter, setLessonFilter] = useState<string>("");
+
   // Selection state
   const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(
     new Set(),
@@ -112,10 +121,118 @@ export function GameLibraryClient({
     userRoles.includes("cto") ||
     userRoles.includes("ceo");
 
-  // Games are now filtered server-side passed via props
-  const filteredGames = initialGames;
+  // Extract unique creators for filter dropdown
+  const creators = useMemo(() => {
+    const map = new Map<string, string>();
+    initialGames.forEach((item) => {
+      if (item.owner) {
+        map.set(
+          item.owner._id,
+          item.owner.name ||
+            item.owner.username ||
+            item.owner.email ||
+            "Unknown",
+        );
+      }
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [initialGames]);
 
-  // Get unique subjects for filter (optional, maybe from API or pass unique from fetched games)
+  // Client-side filtering logic
+  const filteredGames = useMemo(() => {
+    let result = initialGames;
+
+    // Search filter (name, ID)
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.game.title.toLowerCase().includes(searchLower) ||
+          item.game.gameId.toLowerCase().includes(searchLower),
+      );
+    }
+
+    // Status filter (lifecycle)
+    if (filters.status && filters.status !== "all") {
+      result = result.filter(
+        (item) => item.latestVersion?.status === filters.status,
+      );
+    }
+
+    // Publish state filter
+    if (filters.publishState && filters.publishState !== "all") {
+      result = result.filter((item) => {
+        const isPublished = item.game.publishState === "published";
+        return filters.publishState === "published"
+          ? isPublished
+          : !isPublished;
+      });
+    }
+
+    // Subject filter
+    if (filters.subject && filters.subject !== "all") {
+      result = result.filter((item) => item.game.subject === filters.subject);
+    }
+
+    // Grade filter
+    if (filters.grade && filters.grade !== "all") {
+      result = result.filter((item) => item.game.grade === filters.grade);
+    }
+
+    // Level filter
+    if (filters.level && filters.level !== "all") {
+      result = result.filter((item) => item.game.level === filters.level);
+    }
+
+    // Skills filter
+    if (
+      filters.skills &&
+      filters.skills !== "all" &&
+      Array.isArray(filters.skills) &&
+      filters.skills.length > 0
+    ) {
+      result = result.filter(
+        (item) =>
+          filters.skills !== "all" &&
+          item.game.skills?.some((s) =>
+            (filters.skills as string[]).includes(s),
+          ),
+      );
+    }
+
+    // Themes filter
+    if (
+      filters.themes &&
+      filters.themes !== "all" &&
+      Array.isArray(filters.themes) &&
+      filters.themes.length > 0
+    ) {
+      result = result.filter(
+        (item) =>
+          filters.themes !== "all" &&
+          item.game.themes?.some((t) =>
+            (filters.themes as string[]).includes(t),
+          ),
+      );
+    }
+
+    // Creator filter (local)
+    if (creatorFilter !== "all") {
+      result = result.filter((item) => item.owner?._id === creatorFilter);
+    }
+
+    // Lesson filter (local)
+    if (lessonFilter.trim()) {
+      const lessonLower = lessonFilter.toLowerCase().trim();
+      result = result.filter((item) =>
+        item.game.lessonNo?.toLowerCase().includes(lessonLower),
+      );
+    }
+
+    return result;
+  }, [initialGames, filters, creatorFilter, lessonFilter]);
+
+  // Get unique subjects for filter
   const subjects = useMemo(() => {
     const subjectSet = new Set<string>();
     initialGames.forEach((item) => {
@@ -288,7 +405,6 @@ export function GameLibraryClient({
                   <option value="approved">✅ Đã duyệt</option>
                 </select>
               </div>
-
               {/* Publish State Filter */}
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
@@ -303,6 +419,39 @@ export function GameLibraryClient({
                   <option value="published">🚀 Đã xuất bản</option>
                   <option value="unpublished">📁 Chưa xuất bản</option>
                 </select>
+              </div>
+
+              {/* Creator Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Người tạo
+                </label>
+                <select
+                  value={creatorFilter}
+                  onChange={(e) => setCreatorFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả người tạo</option>
+                  {creators.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Lesson Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Bài học (ID/No)
+                </label>
+                <input
+                  type="text"
+                  value={lessonFilter}
+                  onChange={(e) => setLessonFilter(e.target.value)}
+                  placeholder="Lọc theo bài học..."
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-colors"
+                />
               </div>
 
               {/* Subject Filter */}
@@ -602,31 +751,39 @@ export function GameLibraryClient({
                         toggleSelection(game._id)
                       }
                     >
-                      {game.thumbnailDesktop ? (
-                        <Image
-                          src={game.thumbnailDesktop}
-                          alt={game.title}
-                          width={308}
-                          height={173}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50">
-                          <svg
-                            className="w-10 h-10 opacity-50"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.5}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </div>
-                      )}
+                      <Image
+                        src={
+                          game.thumbnailDesktop ||
+                          `https://storage.googleapis.com/iruka-edu-mini-game/games/${game.gameId}/thumbnails/desktop.png`
+                        }
+                        alt={game.title}
+                        width={308}
+                        height={173}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        onError={(e) => {
+                          // Fallback to placeholder if image load fails
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.parentElement?.classList.add(
+                            "fallback-placeholder",
+                          );
+                        }}
+                      />
+                      {/* Fallback placeholder (shown via CSS when image hidden) */}
+                      <div className="hidden fallback-placeholder:flex w-full h-full absolute inset-0 items-center justify-center text-slate-400 bg-slate-50">
+                        <svg
+                          className="w-10 h-10 opacity-50"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
 
                       {/* Status Badges Overlay */}
                       <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
@@ -682,74 +839,159 @@ export function GameLibraryClient({
                       <div className="mb-3">
                         <div className="flex items-start justify-between gap-2">
                           <h3
-                            className="font-bold text-slate-900 text-base leading-tight line-clamp-1 group-hover:text-indigo-600 transition-colors"
+                            className="font-bold text-slate-900 text-base leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors"
                             title={game.title}
                           >
                             {game.title}
                           </h3>
                         </div>
-                        <div className="flex items-center mt-1.5 gap-2">
+                        <div className="flex items-center flex-wrap mt-2 gap-2">
                           <span
-                            className={`px-2 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider ${statusColor}`}
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider ${statusColor}`}
                           >
                             {statusLabel}
                           </span>
                           <span
-                            className="text-xs text-slate-400 font-mono truncate max-w-[80px]"
+                            className="text-[10px] text-slate-400 font-mono"
                             title={game.gameId}
                           >
-                            {game.gameId}
+                            ID: {game.gameId}
                           </span>
                         </div>
                       </div>
 
-                      {/* Metadata Grid */}
-                      <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <div className="col-span-2 flex items-center gap-1.5">
-                          <span className="text-slate-400">Ver:</span>
-                          <span className="font-mono text-slate-700 font-medium">
-                            {latestVersion?.version || "N/A"}
+                      {/* Curriculum / Metadata Section */}
+                      <div className="space-y-2 mb-4">
+                        {/* Grade, Subject, Lesson */}
+                        <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400">Lớp:</span>
+                            <span className="text-slate-700 font-medium">
+                              {GRADE_MAP[
+                                game.grade as keyof typeof GRADE_MAP
+                              ] ||
+                                game.grade ||
+                                "-"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400">Môn:</span>
+                            <span className="text-slate-700 font-medium">
+                              {game.subject || "-"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-400">Bài:</span>
+                            <span className="text-slate-700 font-medium font-mono text-[11px]">
+                              {game.lessonNo || "-"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Level / Difficulty */}
+                        <div className="flex items-center gap-1.5 px-1">
+                          <span className="text-[11px] text-slate-400">
+                            Độ khó:
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-600">
+                            {DIFFICULTY_MAP[
+                              game.level as keyof typeof DIFFICULTY_MAP
+                            ] ||
+                              game.level ||
+                              "Cơ bản"}
                           </span>
                         </div>
 
-                        <div className="col-span-2 flex items-center gap-1.5 truncate">
-                          <span className="text-slate-400">G:</span>
-                          <span className="text-slate-700 truncate">
-                            {game.subject || "-"}{" "}
-                            {game.grade ? `(L${game.grade})` : ""}
-                          </span>
-                        </div>
-
-                        <div className="col-span-2 flex items-center gap-1.5 truncate">
-                          <span className="text-slate-400">By:</span>
-                          <span className="text-slate-700 truncate">
-                            {owner?.name || owner?.username || "Unknown"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Footer / Actions */}
-                      <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <div className="text-xs text-slate-400">
-                          {new Date(game.updatedAt).toLocaleDateString(
-                            "vi-VN",
-                            { day: "2-digit", month: "2-digit" },
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {game.disabled && (
+                        {/* Skills & Themes */}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {game.skills?.slice(0, 2).map((skill) => (
                             <span
-                              className="w-2 h-2 rounded-full bg-red-500"
-                              title="Game Disabled"
-                            ></span>
+                              key={skill}
+                              className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] rounded border border-indigo-100"
+                            >
+                              {SKILL_MAP[skill as keyof typeof SKILL_MAP] ||
+                                skill}
+                            </span>
+                          ))}
+                          {game.themes?.slice(0, 1).map((theme) => (
+                            <span
+                              key={theme}
+                              className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[10px] rounded border border-amber-100"
+                            >
+                              {THEME_MAP[theme as keyof typeof THEME_MAP] ||
+                                theme}
+                            </span>
+                          ))}
+                          {(game.skills?.length || 0) +
+                            (game.themes?.length || 0) >
+                            3 && (
+                            <span className="text-[10px] text-slate-400 px-1">
+                              +
+                              {(game.skills?.length || 0) +
+                                (game.themes?.length || 0) -
+                                3}
+                            </span>
                           )}
-                          <Link
-                            href={`/console/games/${game._id}`}
-                            className="px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
-                          >
-                            Chi tiết
-                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Footer Info */}
+                      <div className="mt-auto pt-3 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] shrink-0">
+                              {owner?.name?.charAt(0) ||
+                                owner?.username?.charAt(0) ||
+                                "D"}
+                            </div>
+                            <span
+                              className="text-[11px] text-slate-500 truncate"
+                              title={
+                                owner?.name || owner?.username || "Developer"
+                              }
+                            >
+                              {owner?.name || owner?.username || "Developer"}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            v{latestVersion?.version || "1.0.0"}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="text-[10px] text-slate-400">
+                            CN:{" "}
+                            {new Date(game.updatedAt).toLocaleDateString(
+                              "vi-VN",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "2-digit",
+                              },
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/console/games/${game._id}`}
+                              className="px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-all flex items-center gap-1"
+                            >
+                              Chi tiết
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 5l7 7-7 7"
+                                />
+                              </svg>
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -786,6 +1028,8 @@ export function GameLibraryClient({
                   setStatus("all" as any);
                   setPublishState("all" as any);
                   setSubject("all");
+                  setCreatorFilter("all");
+                  setLessonFilter("");
                 }}
                 className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
               >

@@ -34,20 +34,29 @@ interface MenuItem {
 }
 
 const roleLabels: Record<Role, string> = {
-  dev: "Developer",
-  qc: "QC Tester",
-  cto: "CTO",
-  ceo: "CEO",
-  admin: "Administrator",
+  dev: "Lập trình viên",
+  qc: "Kiểm thử (QC)",
+  reviewer: "Reviewer",
+  publisher: "Publisher",
+  admin: "Quản trị viên",
 };
 
 function getMenuItems(user: SerializedUser): MenuItem[] {
   const userRoles = user.roles as any[]; // Cast to match rbac type
 
-  const items: MenuItem[] = [
-    { id: "dashboard", label: "Dashboard", icon: "home", href: "/console" },
-  ];
+  const items: MenuItem[] = [];
 
+  // Dashboard - Only for Admin, CTO, CEO
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_DASHBOARD)) {
+    items.push({
+      id: "dashboard",
+      label: "Tổng quan",
+      icon: "home",
+      href: "/console",
+    });
+  }
+
+  // My Games - For Developer and Admin (support)
   if (hasPermission(userRoles, PERMISSIONS.VIEW_MY_GAMES)) {
     items.push({
       id: "my-games",
@@ -57,15 +66,27 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
+  // Upload - For Developer (and implicitly Admin via permissions)
+  if (hasPermission(userRoles, PERMISSIONS.UPLOAD_GAME)) {
+    items.push({
+      id: "upload",
+      label: "Upload Game",
+      icon: "upload",
+      href: "/console/upload",
+    });
+  }
+
+  // QC Inbox - For QC and Admin (support)
   if (hasPermission(userRoles, PERMISSIONS.VIEW_QC_INBOX)) {
     items.push({
       id: "qc-inbox",
-      label: "QC Inbox",
+      label: "Chờ test (QC Inbox)",
       icon: "inbox",
       href: "/console/qc-inbox",
     });
   }
 
+  // Review Queue - For Reviewer and Admin
   if (hasPermission(userRoles, PERMISSIONS.VIEW_REVIEW_QUEUE)) {
     items.push({
       id: "approval",
@@ -75,6 +96,7 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
+  // Publish Queue - For Publisher and Admin
   if (hasPermission(userRoles, PERMISSIONS.VIEW_PUBLISH_QUEUE)) {
     items.push({
       id: "publish",
@@ -84,6 +106,7 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
+  // Game Library - For all roles (read-only for most)
   if (hasPermission(userRoles, PERMISSIONS.VIEW_GAME_LIBRARY)) {
     items.push({
       id: "library",
@@ -93,15 +116,17 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
+  // Audit Logs - Only for Admin, CTO, CEO
   if (hasPermission(userRoles, PERMISSIONS.VIEW_AUDIT_LOGS)) {
     items.push({
       id: "audit-logs",
-      label: "Audit Logs",
+      label: "Lịch sử hệ thống",
       icon: "clipboard-list",
       href: "/console/audit-logs",
     });
   }
 
+  // User Management - Only for Admin, CTO, CEO
   if (hasPermission(userRoles, PERMISSIONS.VIEW_USERS)) {
     items.push({
       id: "users",
@@ -147,6 +172,22 @@ function MenuIcon({ name }: { name: string }) {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+          />
+        </svg>
+      );
+    case "upload":
+      return (
+        <svg
+          className={iconClass}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
           />
         </svg>
       );
@@ -269,8 +310,8 @@ export function Sidebar({ user, isMinimized = false }: SidebarProps) {
 
   return (
     <aside
-      className={`hidden lg:flex fixed left-0 top-0 h-full bg-slate-900 text-white z-40 flex-col transition-all duration-300 ${
-        isMinimized ? "w-[80px]" : "w-[260px]"
+      className={`hidden lg:flex fixed left-0 top-0 h-full bg-slate-900 text-white z-50 flex-col transition-all duration-300 ${
+        isMinimized ? "w-20" : "w-64"
       }`}
     >
       {/* Logo */}

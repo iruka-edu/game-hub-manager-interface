@@ -1,129 +1,140 @@
 "use client";
 
-import { useRef, useState } from "react";
-import type { ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "@/features/auth/hooks/useAuth";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { CloseButton } from "@/components/ui/CloseButton";
+import { GameUploadForm } from "@/features/games/components/GameUploadForm";
+import { UploadMetaForm } from "@/features/games/components/UploadMetaForm";
+import { MetadataSummary } from "@/features/games/components/MetadataSummary";
 import { PERMISSIONS, hasPermission } from "@/lib/rbac";
-import Link from "next/link";
-import { ResponsiveUploadPage } from "@/features/upload/components/ResponsiveUploadPage";
-import { uploadWithMetadata } from "@/features/games/api/gameMutations";
-import type { UploadFormData } from "@/features/upload/components/ResponsiveUploadPage";
 
-export default function UploadPage() {
-  const router = useRouter();
-  const [isUploading, setIsUploading] = useState(false);
+function UploadPageContent() {
+  const searchParams = useSearchParams();
+  const { user, isLoading } = useSession();
 
-  const { user, isAuthenticated, isLoading: sessionLoading } = useSession();
+  // Parse metadata from URL params
+  const skills = searchParams.getAll("skill");
+  const themes = searchParams.getAll("theme");
 
-  const handleUpload = async (data: UploadFormData) => {
-    if (!data.files || data.files.length === 0) {
-      throw new Error("No files selected");
-    }
-
-    setIsUploading(true);
-
-    try {
-      // Prepare form data for upload
-      const formData = new FormData();
-      formData.append("file", data.files[0]);
-      formData.append(
-        "gameData",
-        JSON.stringify({
-          gameId: data.gameId,
-          title: data.title,
-          description: data.description,
-          version: data.version,
-          subject: data.subject,
-          grade: data.grade,
-          gameType: data.gameType,
-          lessonNo: data.lessonNo,
-          unit: data.unit,
-          textbook: data.textbook,
-          theme_primary: data.theme_primary,
-          theme_secondary: data.theme_secondary,
-          context_tags: data.context_tags,
-          difficulty_levels: data.difficulty_levels,
-          thumbnailDesktop: data.thumbnailDesktop,
-          thumbnailMobile: data.thumbnailMobile,
-          priority: data.priority,
-          tags: data.tags,
-          skills: data.skills,
-          themes: data.themes,
-          linkGithub: data.linkGithub,
-        }),
-      );
-
-      // Use external API via features
-      await uploadWithMetadata(formData);
-
-      console.log("Upload successful");
-
-      // Navigate to my-games page after successful upload
-      router.push("/console/my-games");
-    } catch (error) {
-      console.error("Upload error:", error);
-      throw error;
-    } finally {
-      setIsUploading(false);
-    }
+  const meta = {
+    lop: searchParams.get("lop") || "",
+    mon: searchParams.get("mon") || "",
+    quyenSach: searchParams.get("quyenSach") || "",
+    lessonNo: searchParams.get("lessonNo") || "",
+    level: searchParams.get("level") || "",
+    game: searchParams.get("game") || "",
+    gameId: searchParams.get("gameId") || "",
+    skills,
+    themes,
+    github: searchParams.get("github") || "",
   };
 
-  const handlePublish = async (gameId: string) => {
-    // TODO: Implement publish logic
-    console.log("Publish game:", gameId);
+  // Check if metadata is ready for upload - require essential fields including difficulty and lessonNo
+  const metaReady = Boolean(
+    meta.lop &&
+    meta.mon &&
+    meta.game &&
+    meta.gameId &&
+    meta.github &&
+    meta.level &&
+    meta.lessonNo,
+  );
+
+  const gameMeta = {
+    grade: meta.lop,
+    subject: meta.mon,
+    lessonNo: meta.lessonNo,
+    backendGameId: meta.game,
+    gameId: meta.gameId,
+    level: meta.level,
+    skills: meta.skills,
+    themes: meta.themes,
+    linkGithub: meta.github,
+    quyenSach: meta.quyenSach,
   };
 
-  const handleNavigate = (path: string) => {
-    router.push(path);
-  };
+  const breadcrumbItems = [
+    { label: "Console", href: "/console" },
+    { label: "Upload Game" },
+  ];
 
-  if (sessionLoading) {
+  // Loading state
+  if (isLoading) {
     return (
-      <div className="p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-slate-200 rounded w-48 mb-8"></div>
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+          <div className="animate-pulse">
+            <div className="h-6 bg-slate-200 rounded w-48 mb-6"></div>
+            <div className="h-64 bg-slate-200 rounded"></div>
+          </div>
         </div>
       </div>
     );
   }
 
-  const userRoles = user?.roles as any[];
-  if (!isAuthenticated || !hasPermission(userRoles, PERMISSIONS.UPLOAD_GAME)) {
+  // Middleware handles auth, but check just in case
+  if (!user) {
+    return null;
+  }
+
+  // Role check
+  const userRoles = user.roles as any[];
+  const canUpload = hasPermission(userRoles, PERMISSIONS.UPLOAD_GAME);
+
+  if (!canUpload) {
     return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <h2 className="text-lg font-semibold text-red-700">
-            Không có quyền truy cập
-          </h2>
-          <p className="text-red-600 mt-2">Bạn không được quyền upload game.</p>
-          <Link
-            href="/console"
-            className="inline-block mt-4 text-sm text-red-600 underline"
-          >
-            Quay về Console
-          </Link>
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <h2 className="text-lg font-semibold text-red-700">
+              Không có quyền truy cập
+            </h2>
+            <p className="text-red-600 mt-2">Bạn không có quyền upload game.</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Upload Game</h1>
-          <p className="mt-2 text-gray-600">
-            Upload your game files and provide metadata information
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        {/* Header */}
+        <header className="flex items-center justify-between mb-6">
+          <Breadcrumb items={breadcrumbItems} />
+          <CloseButton href="/console" title="Đóng" />
+        </header>
 
-        <ResponsiveUploadPage
-          onUpload={handleUpload}
-          onPublish={handlePublish}
-          onNavigate={handleNavigate}
-        />
+        {metaReady ? (
+          <>
+            <MetadataSummary meta={meta} />
+            <GameUploadForm meta={gameMeta} />
+          </>
+        ) : (
+          <UploadMetaForm values={meta} />
+        )}
       </div>
     </div>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+            <div className="animate-pulse">
+              <div className="h-6 bg-slate-200 rounded w-48 mb-6"></div>
+              <div className="h-64 bg-slate-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <UploadPageContent />
+    </Suspense>
   );
 }

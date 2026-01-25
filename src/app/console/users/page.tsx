@@ -43,13 +43,10 @@ export default function UsersPage() {
   }
 
   const userRoles = user.roles as string[];
-  const canManageUsers =
-    userRoles.includes("admin") ||
-    userRoles.includes("cto") ||
-    userRoles.includes("ceo");
+  const isAdmin = userRoles.includes("admin");
 
-  // Access denied
-  if (!canManageUsers) {
+  // Access denied - Only Admin can manage users
+  if (!isAdmin) {
     return (
       <div className="p-8">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -57,7 +54,7 @@ export default function UsersPage() {
             Không có quyền truy cập
           </h2>
           <p className="text-red-600 mt-2">
-            Bạn không có quyền truy cập trang này.
+            Chỉ Quản trị viên (Admin) mới có quyền truy cập trang này.
           </p>
         </div>
       </div>
@@ -67,15 +64,16 @@ export default function UsersPage() {
   return (
     <div className="p-8">
       <div className="mb-8 mt-8">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-tight">
           Quản lý người dùng
         </h1>
         <p className="text-slate-500 mt-1">
-          Hệ thống quản lý người dùng Iruka Hub
+          Quản lý tài khoản, phân quyền role và kiểm soát trạng thái hoạt động
+          của nhân sự trong hệ thống Game Hub.
         </p>
       </div>
 
-      <UserManagement canManageUsers={canManageUsers} userRoles={user.roles} />
+      <UserManagement canManageUsers={isAdmin} userRoles={user.roles} />
     </div>
   );
 }

@@ -51,13 +51,18 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
 export async function logout(): Promise<LogoutResponse> {
   try {
     await apiPost("/api/v1/auth/logout");
-    tokenStorage.clearTokens();
-    return { success: true };
   } catch (error: any) {
+    console.error("Logout API failed:", error);
+  } finally {
     // Still clear all tokens even if API call fails
     tokenStorage.clearTokens();
-    return { success: true };
+
+    // Hard reload to clear RAM, Queue, and all state
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
   }
+  return { success: true };
 }
 
 /**

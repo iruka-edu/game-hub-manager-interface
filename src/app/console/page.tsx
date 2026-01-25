@@ -4,11 +4,37 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useSession } from "@/features/auth/hooks/useAuth";
 import { useGames } from "@/features/games/hooks/useGames";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 
 export default function ConsoleDashboard() {
+  const router = useRouter();
   // Note: Route protection is handled by Middleware, no need for useEffect redirect
   const { user, isLoading: sessionLoading } = useSession();
   const { games, allGames, isLoading: gamesLoading } = useGames();
+
+  // Redirect if user doesn't have dashboard access
+  useEffect(() => {
+    if (!sessionLoading && user) {
+      const userRoles = user.roles as any[];
+
+      if (!hasPermission(userRoles, PERMISSIONS.VIEW_DASHBOARD)) {
+        // Redirect to appropriate page based on role
+        if (hasPermission(userRoles, PERMISSIONS.VIEW_MY_GAMES)) {
+          router.push("/console/my-games");
+        } else if (hasPermission(userRoles, PERMISSIONS.VIEW_QC_INBOX)) {
+          router.push("/console/qc-inbox");
+        } else if (hasPermission(userRoles, PERMISSIONS.VIEW_REVIEW_QUEUE)) {
+          router.push("/console/approval");
+        } else if (hasPermission(userRoles, PERMISSIONS.VIEW_PUBLISH_QUEUE)) {
+          router.push("/console/publish");
+        } else if (hasPermission(userRoles, PERMISSIONS.VIEW_GAME_LIBRARY)) {
+          router.push("/console/library");
+        }
+      }
+    }
+  }, [user, sessionLoading, router]);
 
   // Compute stats from games
   const stats = useMemo(() => {
@@ -75,7 +101,7 @@ export default function ConsoleDashboard() {
     <div className="space-y-6 sm:space-y-8">
       <div className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-          Dashboard
+          Tổng quan
         </h1>
         <p className="text-slate-500 mt-1 text-sm sm:text-base">
           Xin chào, {user.full_name || user.email}!

@@ -67,6 +67,7 @@ export function GamePlayer({
               showInFullscreen={showToolbarInFullscreen}
               onFullscreenToggle={handleFullscreenToggle}
               onRefresh={handleRetry}
+              gameUrl={gameUrl}
             />
           )}
 

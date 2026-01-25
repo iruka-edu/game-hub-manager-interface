@@ -78,3 +78,17 @@ export function useGameDetail(gameId: string) {
     staleTime: 30 * 1000, // 30 seconds
   });
 }
+/**
+ * Hook to fetch game QC history
+ */
+export function useGameHistory(gameId: string, versionId?: string) {
+  return useQuery({
+    queryKey: gamesKeys.history(gameId),
+    queryFn: async () => {
+      const { getQCReports } = await import("../api/getGames");
+      return getQCReports(gameId, versionId);
+    },
+    enabled: !!gameId,
+    staleTime: 60 * 1000,
+  });
+}

@@ -1,11 +1,4 @@
-export type Role =
-  | "dev"
-  | "qc"
-  | "reviewer"
-  | "publisher"
-  | "admin"
-  | "cto"
-  | "ceo";
+export type Role = "dev" | "qc" | "reviewer" | "publisher" | "admin";
 
 export const PERMISSIONS = {
   VIEW_DASHBOARD: "view_dashboard",
@@ -79,31 +72,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.UNPUBLISH_GAME,
     PERMISSIONS.MANAGE_QC_ISSUES,
   ],
-  cto: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.VIEW_AUDIT_LOGS,
-    PERMISSIONS.VIEW_USERS,
-    PERMISSIONS.MANAGE_USERS,
-    PERMISSIONS.VIEW_GAME_LIBRARY,
-    // Add others as Admin equivalent if needed, strictly per user request:
-    // "admin" is the main super role. CTO/CEO usually have admin-like partial access.
-    // For now, treat like Admin or define strictly.
-    // User request didn't specify CTO/CEO permissions explicitly in the matrix,
-    // but in previous steps they were grouped with Admin for Audit/Users.
-    // I will treat them as Admin-lite for now, or just map them to verify access.
-  ],
-  ceo: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.VIEW_AUDIT_LOGS,
-    PERMISSIONS.VIEW_USERS,
-    PERMISSIONS.MANAGE_USERS,
-    PERMISSIONS.VIEW_GAME_LIBRARY,
-  ],
 };
-
-// Also give CTO/CEO admin permissions for simplicity until specified otherwise
-ROLE_PERMISSIONS.cto = [...ROLE_PERMISSIONS.admin];
-ROLE_PERMISSIONS.ceo = [...ROLE_PERMISSIONS.admin];
 
 export function hasPermission(
   userRoles: Role[],

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useQCPass, useQCFail } from "@/features/games";
+import { useQCPass, useQCFail, useGameHistory } from "@/features/games";
 import { apiPost } from "@/lib/api-fetch";
+import { StatusChip } from "@/components/ui/StatusChip";
 
 interface QCReviewFormProps {
   gameId: string;
@@ -80,12 +81,19 @@ export function QCReviewForm({
     results: [],
   });
   const [isRunningAutoTests, setIsRunningAutoTests] = useState(false);
+  const [showRawResult, setShowRawResult] = useState(false);
+  const [rawResult, setRawResult] = useState<any>(null);
 
-  // Initialize tests from version.qaSummary if available
+  // Fetch History
+  const { data: history = [], refetch: refetchHistory } = useGameHistory(
+    gameId,
+    versionId,
+  );
+
   const initialCategories = [
     {
       id: "sdk",
-      name: "Tích hợp SDK",
+      name: "Tích hợp SDK (Auto)",
       icon: "🔌",
       tests: [
         {
@@ -117,11 +125,74 @@ export function QCReviewForm({
           notes: "",
           isAutoTest: true,
         },
+      ],
+    },
+    {
+      id: "audio",
+      name: "Âm thanh",
+      icon: "🔊",
+      tests: [
         {
-          id: "sdk_error_handling",
-          category: "sdk",
-          name: "Xử lý lỗi SDK",
-          description: "Kiểm tra game xử lý lỗi SDK một cách graceful",
+          id: "audio_presence",
+          category: "audio",
+          name: "Sự hiện diện âm thanh",
+          description: "Game có âm thanh nền và âm thanh hiệu ứng (SFX)",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "audio_volume",
+          category: "audio",
+          name: "Âm lượng hợp lý",
+          description: "Âm lượng cân đối, không quá to hoặc quá nhỏ",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "audio_logic",
+          category: "audio",
+          name: "Âm đúng tình huống",
+          description:
+            "Âm thanh phản hồi đúng với hành động (đúng/sai/win/lose)",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "audio_quality",
+          category: "audio",
+          name: "Chất lượng âm thanh",
+          description: "Không rè, không vỡ, không trễ bất thường",
+          passed: null,
+          notes: "",
+        },
+      ],
+    },
+    {
+      id: "visual",
+      name: "Hình ảnh / Asset",
+      icon: "🖼️",
+      tests: [
+        {
+          id: "asset_completeness",
+          category: "visual",
+          name: "Đầy đủ Asset",
+          description: "Không thiếu hình ảnh, sprite hoặc background",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "asset_quality",
+          category: "visual",
+          name: "Chất lượng hiển thị",
+          description: "Hình ảnh rõ nét, không mờ/vỡ, đúng tỉ lệ",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "asset_animation",
+          category: "visual",
+          name: "Xử lý Sprite/Anim",
+          description: "Hiệu ứng chuyển động mượt mà, không lỗi hiển thị",
           passed: null,
           notes: "",
         },
@@ -135,8 +206,9 @@ export function QCReviewForm({
         {
           id: "perf_load_time",
           category: "performance",
-          name: "Thời gian tải",
-          description: "Game tải xong trong vòng 5 giây (3G/4G)",
+          name: "Thời gian tải (Auto)",
+          description:
+            "Game tải xong trong vòng thời gian quy định (Auto-check)",
           passed: null,
           notes: "",
           isAutoTest: true,
@@ -144,27 +216,19 @@ export function QCReviewForm({
         {
           id: "perf_fps",
           category: "performance",
-          name: "Frame Rate",
-          description: "Game chạy mượt mà ≥30 FPS trên thiết bị trung bình",
+          name: "Độ mượt (FPS)",
+          description: "Game chạy ổn định, không giật/lag khi thao tác",
           passed: null,
           notes: "",
         },
         {
-          id: "perf_memory",
+          id: "perf_resources",
           category: "performance",
-          name: "Sử dụng bộ nhớ",
-          description: "Game không gây memory leak, RAM ổn định",
+          name: "Tài nguyên hệ thống",
+          description:
+            "Không tốn tài nguyên bất thường hoặc gây treo trình duyệt",
           passed: null,
           notes: "",
-        },
-        {
-          id: "perf_bundle_size",
-          category: "performance",
-          name: "Kích thước bundle",
-          description: "Tổng kích thước game ≤ 20MB (nén)",
-          passed: null,
-          notes: "",
-          isAutoTest: true,
         },
       ],
     },
@@ -174,163 +238,88 @@ export function QCReviewForm({
       icon: "📱",
       tests: [
         {
-          id: "compat_ios",
+          id: "compat_devices",
           category: "compatibility",
-          name: "iOS Testing",
-          description:
-            "Game hoạt động tốt trên iOS (không autoplay, không white screen)",
+          name: "Đa thiết bị",
+          description: "Hoạt động tốt trên Desktop, Tablet và Mobile",
           passed: null,
           notes: "",
         },
         {
-          id: "compat_android",
+          id: "compat_ratio",
           category: "compatibility",
-          name: "Android Testing",
-          description: "Game hoạt động tốt trên Android các phiên bản",
+          name: "Tỉ lệ màn hình",
+          description: "Hiển thị đúng trên các tỉ lệ màn hình khác nhau",
           passed: null,
           notes: "",
         },
         {
-          id: "compat_browsers",
+          id: "compat_input",
           category: "compatibility",
-          name: "Trình duyệt",
-          description: "Game chạy tốt trên Chrome, Safari, Firefox",
+          name: "Cảm ứng / Chuột",
+          description: "Phản hồi tốt với cả thao tác chạm và click chuột",
           passed: null,
           notes: "",
-        },
-        {
-          id: "compat_responsive",
-          category: "compatibility",
-          name: "Responsive Design",
-          description:
-            "Game hiển thị đúng trên các kích thước màn hình (phone, tablet)",
-          passed: null,
-          notes: "",
-        },
-      ],
-    },
-    {
-      id: "gameplay",
-      name: "Gameplay",
-      icon: "🎮",
-      tests: [
-        {
-          id: "game_mechanics",
-          category: "gameplay",
-          name: "Game Mechanics",
-          description: "Cơ chế game hoạt động đúng, không có bug logic",
-          passed: null,
-          notes: "",
-        },
-        {
-          id: "game_controls",
-          category: "gameplay",
-          name: "Điều khiển",
-          description: "Các nút bấm, gesture, keyboard hoạt động tốt",
-          passed: null,
-          notes: "",
-        },
-        {
-          id: "game_feedback",
-          category: "gameplay",
-          name: "Phản hồi người chơi",
-          description: "Game có feedback rõ ràng (âm thanh, hiệu ứng, điểm số)",
-          passed: null,
-          notes: "",
-        },
-        {
-          id: "game_completion",
-          category: "gameplay",
-          name: "Hoàn thành game",
-          description: "Có thể chơi và hoàn thành game từ đầu đến cuối",
-          passed: null,
-          notes: "",
-        },
-        {
-          id: "game_idempotency",
-          category: "gameplay",
-          name: "Idempotency",
-          description: "Xử lý đúng khi submit kết quả nhiều lần",
-          passed: null,
-          notes: "",
-          isAutoTest: true,
         },
       ],
     },
     {
       id: "content",
-      name: "Nội dung",
-      icon: "📝",
+      name: "Nội dung & Kiến thức",
+      icon: "📚",
       tests: [
+        {
+          id: "content_accuracy",
+          category: "content",
+          name: "Tính chính xác",
+          description: "Sai kiến thức, sai câu chữ hoặc sai đáp án",
+          passed: null,
+          notes: "",
+        },
         {
           id: "content_educational",
           category: "content",
-          name: "Nội dung giáo dục",
-          description: "Nội dung phù hợp với môn học, lớp học đã chọn",
+          name: "Môn học & Lớp",
+          description: "Nội dung phù hợp với môn học và độ tuổi quy định",
           passed: null,
           notes: "",
         },
         {
-          id: "content_language",
+          id: "content_flow",
           category: "content",
-          name: "Ngôn ngữ",
-          description: "Không có lỗi chính tả, ngữ pháp đúng",
-          passed: null,
-          notes: "",
-        },
-        {
-          id: "content_appropriate",
-          category: "content",
-          name: "Phù hợp độ tuổi",
-          description:
-            "Nội dung phù hợp với học sinh (không bạo lực, phản cảm)",
-          passed: null,
-          notes: "",
-        },
-        {
-          id: "content_assets",
-          category: "content",
-          name: "Tài nguyên đa phương tiện",
-          description: "Hình ảnh, âm thanh chất lượng tốt, không bị lỗi",
+          name: "Luồng chơi",
+          description: "Hướng dẫn dễ hiểu, luồng chơi rõ ràng cho học sinh",
           passed: null,
           notes: "",
         },
       ],
     },
     {
-      id: "ui",
-      name: "Giao diện",
+      id: "ux",
+      name: "Giao diện / UX",
       icon: "🎨",
       tests: [
         {
-          id: "ui_design",
-          category: "ui",
-          name: "Thiết kế UI",
-          description: "Giao diện đẹp, dễ nhìn, phù hợp với học sinh",
+          id: "ux_interaction",
+          category: "ux",
+          name: "Tương tác nút bấm",
+          description: "Nút bấm nhạy, phản hồi đúng mục đích",
           passed: null,
           notes: "",
         },
         {
-          id: "ui_readability",
-          category: "ui",
-          name: "Khả năng đọc",
-          description: "Chữ đủ lớn, màu sắc tương phản tốt, dễ đọc",
+          id: "ux_feedback",
+          category: "ux",
+          name: "Phản hồi kết quả",
+          description: "Có phản hồi rõ ràng khi học sinh làm đúng/sai",
           passed: null,
           notes: "",
         },
         {
-          id: "ui_navigation",
-          category: "ui",
-          name: "Điều hướng",
-          description: "Dễ dàng điều hướng, nút bấm rõ ràng",
-          passed: null,
-          notes: "",
-        },
-        {
-          id: "ui_accessibility",
-          category: "ui",
-          name: "Accessibility",
-          description: "Hỗ trợ học sinh khuyết tật (nếu có)",
+          id: "ux_completion",
+          category: "ux",
+          name: "Có thể hoàn thành",
+          description: "Không có lỗi chặn (deadlock) khiến không thể về đích",
           passed: null,
           notes: "",
         },
@@ -413,6 +402,8 @@ export function QCReviewForm({
       }));
 
       console.log("📊 Auto test response:", data);
+      setRawResult(data);
+      refetchHistory();
 
       const testReport = data.testReport;
       const results = testReport.qaResults;
@@ -882,58 +873,77 @@ export function QCReviewForm({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={runAutoTests}
-            disabled={isRunningAutoTests}
-            className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center gap-2 shrink-0 ${
-              isRunningAutoTests
-                ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow"
-            }`}
-          >
-            {isRunningAutoTests ? (
-              <>
-                <svg
-                  className="w-4 h-4 animate-spin"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                Đang chạy...
-              </>
-            ) : (
-              <>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={runAutoTests}
+              disabled={isRunningAutoTests}
+              className={`px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 shrink-0 ${
+                isRunningAutoTests
+                  ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                  : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-95"
+              }`}
+            >
+              {isRunningAutoTests ? (
+                <>
+                  <svg
+                    className="w-4 h-4 animate-spin text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  ĐANG CHẠY...
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                    />
+                  </svg>
+                  CHẠY AUTO TEST
+                </>
+              )}
+            </button>
+
+            {autoTestProgress.phase === "completed" && (
+              <button
+                type="button"
+                onClick={() => setShowRawResult(true)}
+                className="px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 active:scale-95 transition-all flex items-center gap-2"
+              >
                 <svg
                   className="w-4 h-4"
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
                   />
                 </svg>
-                Chạy kiểm tra
-              </>
+                VIEW DIAGNOSTIC
+              </button>
             )}
-          </button>
+          </div>
         </div>
       </div>
 
@@ -1262,6 +1272,174 @@ export function QCReviewForm({
       </p>
 
       {/* Add scrollbar hide utility */}
+      {/* Raw JSON Diagnostic View */}
+      {showRawResult && rawResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-indigo-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 uppercase tracking-tight">
+                    Raw Diagnostic Logs
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    JSON Output for Engineering Debug
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRawResult(false)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <svg
+                  className="w-6 h-6 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6 bg-slate-950 font-mono text-[12px] text-emerald-400 leading-relaxed custom-scrollbar">
+              <pre>{JSON.stringify(rawResult, null, 2)}</pre>
+            </div>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowRawResult(false)}
+                className="px-6 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all active:scale-95"
+              >
+                Đóng logs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QC Test History Section */}
+      <div className="mt-12 bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-5 h-5 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <h3 className="font-bold text-slate-900">Lịch sử QC Runner</h3>
+          </div>
+          <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
+            {history.length} Reports
+          </span>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {history.length > 0 ? (
+            history.map((report: any, idx: number) => (
+              <div
+                key={idx}
+                className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group"
+              >
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${report.passed ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}
+                  >
+                    {report.passed ? (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 text-sm">
+                        Report #{history.length - idx}
+                      </span>
+                      <span
+                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${report.passed ? "text-emerald-700 bg-emerald-100" : "text-rose-700 bg-rose-100"}`}
+                      >
+                        {report.passed ? "PASS" : "FAIL"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+                      {new Date(
+                        report.timestamp || report.created_at,
+                      ).toLocaleString("vi-VN")}{" "}
+                      • By: {report.tested_by || "Auto Runner"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setRawResult(report.rawResult || report);
+                    setShowRawResult(true);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity px-4 py-2 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
+                >
+                  Xem chi tiết
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="p-12 text-center">
+              <p className="text-slate-400 text-sm italic">
+                Chưa có lịch sử chạy test cho version này.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
       <style jsx>{`
         .scrollbar-hide {
           -ms-overflow-style: none;
@@ -1269,6 +1447,19 @@ export function QCReviewForm({
         }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #334155;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #475569;
         }
       `}</style>
     </div>
