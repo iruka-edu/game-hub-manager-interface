@@ -11,6 +11,21 @@ export interface GetGamesParams {
   limit?: number;
   mine?: boolean;
   include_deleted?: boolean;
+  // New filters
+  level?: string;
+  skills?: string[];
+  themes?: string[];
+  status?: string;
+  publishState?: string;
+  title?: string;
+  gameId?: string;
+  ownerId?: string;
+  createdFrom?: Date;
+  createdTo?: Date;
+  updatedFrom?: Date;
+  updatedTo?: Date;
+  sortBy?: string;
+  sortOrder?: string;
 }
 
 /**
@@ -20,12 +35,32 @@ export interface GetGamesParams {
 export async function getGames(
   params?: GetGamesParams,
 ): Promise<GamesListResponse> {
-  return apiGet<GamesListResponse>("/api/v1/games/list", {
+  // Convert Dates to ISO string if present
+  const queryParams: Record<string, any> = {
     skip: params?.skip,
     limit: params?.limit,
     mine: params?.mine,
     include_deleted: params?.include_deleted,
-  });
+    level: params?.level,
+    skills: params?.skills,
+    themes: params?.themes,
+    status: params?.status,
+    publishState: params?.publishState,
+    title: params?.title,
+    gameId: params?.gameId,
+    ownerId: params?.ownerId,
+    sortBy: params?.sortBy,
+    sortOrder: params?.sortOrder,
+  };
+
+  if (params?.createdFrom)
+    queryParams.createdFrom = params.createdFrom.toISOString();
+  if (params?.createdTo) queryParams.createdTo = params.createdTo.toISOString();
+  if (params?.updatedFrom)
+    queryParams.updatedFrom = params.updatedFrom.toISOString();
+  if (params?.updatedTo) queryParams.updatedTo = params.updatedTo.toISOString();
+
+  return apiGet<GamesListResponse>("/api/v1/games/list", queryParams);
 }
 
 /**

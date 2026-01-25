@@ -34,4 +34,7 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 
-.kiro
+/.kiro
+/.agent
+/.opencode
+/.agents

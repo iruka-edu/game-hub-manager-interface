@@ -69,13 +69,13 @@ export async function updateSelfQA(
 
 /**
  * QC Review (pass/fail)
- * POST /api/v1/games/{game_id}/qc-review
+ * POST /api/v1/qc/decision
  */
 export async function qcReview(
-  gameId: string,
+  gameId: string, // Kept for compatibility but not used in new URL
   payload: QCReviewPayload,
 ): Promise<void> {
-  await apiPost<void>(`/api/v1/games/${gameId}/qc-review`, payload);
+  await apiPost<void>("/api/v1/qc/decision", payload);
 }
 
 /**
@@ -109,6 +109,14 @@ export async function publishGame(
   payload?: PublishPayload,
 ): Promise<void> {
   await apiPost<void>(`/api/v1/release/${gameId}/publish`, payload);
+}
+
+/**
+ * Unpublish game
+ * POST /api/v1/release/{game_id}/unpublish
+ */
+export async function unpublishGame(gameId: string): Promise<void> {
+  await apiPost<void>(`/api/v1/release/${gameId}/unpublish`);
 }
 
 /**

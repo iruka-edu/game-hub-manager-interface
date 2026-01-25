@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { StatusChip } from "@/components/ui/StatusChip";
 import {
   SUBJECT_MAP,
@@ -381,9 +382,13 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
                   Desktop (308×211)
                 </dt>
                 <dd>
-                  <img
-                    src={game.thumbnailDesktop || game.metadata?.thumbnailUrl}
+                  <Image
+                    src={
+                      game.thumbnailDesktop || game.metadata?.thumbnailUrl || ""
+                    }
                     alt="Desktop thumbnail"
+                    width={308}
+                    height={211}
                     className="w-full max-w-[200px] h-auto border border-slate-200 rounded"
                   />
                 </dd>
@@ -395,9 +400,11 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
                   Mobile (343×170)
                 </dt>
                 <dd>
-                  <img
+                  <Image
                     src={game.thumbnailMobile}
                     alt="Mobile thumbnail"
+                    width={343}
+                    height={170}
                     className="w-full max-w-[200px] h-auto border border-slate-200 rounded"
                   />
                 </dd>

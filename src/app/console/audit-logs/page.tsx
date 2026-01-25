@@ -2,10 +2,16 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/features/auth";
-import { useAuditLogs, useAuditLogFilterActions } from "@/features/audit-logs";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import {
+  useAuditLogs,
+  useAuditLogFilterActions,
+  useAuditLogFilters,
+} from "@/features/audit-logs";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { AuditLogEntry } from "@/features/audit-logs/types";
+import { useState } from "react";
+import type { ActionType } from "@/lib/audit-types";
 
 // Action display names
 const actionLabels: Record<string, { label: string; color: string }> = {
@@ -21,11 +27,30 @@ const actionLabels: Record<string, { label: string; color: string }> = {
     label: "Duyệt game",
     color: "bg-emerald-100 text-emerald-800",
   },
+  GAME_REJECT: { label: "Từ chối game", color: "bg-red-100 text-red-800" },
   GAME_PUBLISH: { label: "Xuất bản", color: "bg-indigo-100 text-indigo-800" },
+  GAME_UNPUBLISH: {
+    label: "Gỡ xuất bản",
+    color: "bg-orange-100 text-orange-800",
+  },
   GAME_ARCHIVE: { label: "Lưu trữ", color: "bg-slate-100 text-slate-800" },
   USER_LOGIN: { label: "Đăng nhập", color: "bg-cyan-100 text-cyan-800" },
   USER_LOGOUT: { label: "Đăng xuất", color: "bg-gray-100 text-gray-800" },
-  // Fallback default
+  USER_CREATE: { label: "Tạo User", color: "bg-blue-100 text-blue-800" },
+  USER_UPDATE: { label: "Cập nhật User", color: "bg-blue-100 text-blue-800" },
+  USER_ROLE_CHANGE: {
+    label: "Đổi Role",
+    color: "bg-purple-100 text-purple-800",
+  },
+  USER_STATE_CHANGE: {
+    label: "Đổi Trạng thái",
+    color: "bg-orange-100 text-orange-800",
+  },
+  QC_ISSUE_CREATE: { label: "Tạo Issue QC", color: "bg-red-100 text-red-800" },
+  QC_ISSUE_UPDATE: {
+    label: "Cập nhật Issue",
+    color: "bg-yellow-100 text-yellow-800",
+  },
   DEFAULT: { label: "Hành động", color: "bg-gray-100 text-gray-800" },
 };
 
@@ -33,7 +58,10 @@ export default function AuditLogsPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: sessionLoading } = useSession();
   const { logs, pagination, isLoading, isError } = useAuditLogs();
-  const { setPage } = useAuditLogFilterActions();
+  const { setPage, setUserId, setAction, setIp, setStartDate, setEndDate } =
+    useAuditLogFilterActions();
+  const filters = useAuditLogFilters();
+  const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
 
   // Authorization check
   useEffect(() => {
@@ -105,6 +133,75 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">
+            User (Email/ID)
+          </label>
+          <input
+            type="text"
+            className="w-full px-3 py-2 border border-slate-300 rounded text-sm"
+            placeholder="Tìm user..."
+            value={filters.userId}
+            onChange={(e) => setUserId(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">
+            Hành động
+          </label>
+          <select
+            className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white"
+            value={filters.action}
+            onChange={(e) => setAction(e.target.value as ActionType | "")}
+          >
+            <option value="">Tất cả</option>
+            {Object.keys(actionLabels)
+              .filter((k) => k !== "DEFAULT")
+              .map((key) => (
+                <option key={key} value={key}>
+                  {actionLabels[key].label}
+                </option>
+              ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">
+            IP Address
+          </label>
+          <input
+            type="text"
+            className="w-full px-3 py-2 border border-slate-300 rounded text-sm"
+            placeholder="127.0.0.1"
+            value={filters.ip || ""}
+            onChange={(e) => setIp(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">
+            Từ ngày
+          </label>
+          <input
+            type="date"
+            className="w-full px-3 py-2 border border-slate-300 rounded text-sm"
+            value={filters.startDate || ""}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">
+            Đến ngày
+          </label>
+          <input
+            type="date"
+            className="w-full px-3 py-2 border border-slate-300 rounded text-sm"
+            value={filters.endDate || ""}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+      </div>
+
       {/* Logs Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -125,6 +222,9 @@ export default function AuditLogsPage() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   IP
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  Chi tiết
                 </th>
               </tr>
             </thead>
@@ -177,6 +277,14 @@ export default function AuditLogsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">
                         {log.actor?.ip || "N/A"}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => setSelectedLog(log)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Chi tiết
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
@@ -212,6 +320,124 @@ export default function AuditLogsPage() {
           </div>
         )}
       </div>
+
+      {/* Detail Modal */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity"
+              aria-hidden="true"
+            >
+              <div
+                className="absolute inset-0 bg-gray-500 opacity-75"
+                onClick={() => setSelectedLog(null)}
+              ></div>
+            </div>
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Chi tiết Audit Log
+                </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="block text-gray-500 text-xs uppercase">
+                        Thời gian
+                      </span>
+                      <span className="font-medium">
+                        {new Date(selectedLog.createdAt).toLocaleString(
+                          "vi-VN",
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-gray-500 text-xs uppercase">
+                        Hành động
+                      </span>
+                      <span className="font-medium">{selectedLog.action}</span>
+                    </div>
+                    <div>
+                      <span className="block text-gray-500 text-xs uppercase">
+                        Người thực hiện
+                      </span>
+                      <span className="font-medium">
+                        {selectedLog.actor?.email} ({selectedLog.actor?.role})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-gray-500 text-xs uppercase">
+                        IP Address
+                      </span>
+                      <span className="font-medium">
+                        {selectedLog.actor?.ip || "N/A"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">
+                      Metadata
+                    </h4>
+                    <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
+                      {JSON.stringify(selectedLog.metadata, null, 2)}
+                    </pre>
+                  </div>
+
+                  {selectedLog.changes && selectedLog.changes.length > 0 && (
+                    <div className="border-t border-gray-100 pt-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">
+                        Thay đổi
+                      </h4>
+                      <div className="space-y-2">
+                        {selectedLog.changes.map((change, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-gray-50 p-2 rounded text-xs"
+                          >
+                            <div className="font-semibold text-gray-700">
+                              {change.field}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              <div
+                                className="text-red-600 truncate"
+                                title={String(change.oldValue)}
+                              >
+                                - {JSON.stringify(change.oldValue)}
+                              </div>
+                              <div
+                                className="text-green-600 truncate"
+                                title={String(change.newValue)}
+                              >
+                                + {JSON.stringify(change.newValue)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={() => setSelectedLog(null)}
+                  className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

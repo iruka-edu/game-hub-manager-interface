@@ -2,8 +2,8 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "@/features/auth";
-import { useGameDetail } from "@/features/games";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGameDetail } from "@/features/games/hooks/useGames";
 import { GamePlayer } from "./GamePlayer";
 import { SerializedGame, SerializedVersion } from "@/features/games/types";
 
@@ -64,15 +64,8 @@ export default function PlayGamePage() {
   // --- LOGIC TẠO URL (Updated) ---
   let gameUrl = "";
 
-  // 1. Ưu tiên gcs_path nếu có (Admin cấu hình cứng)
-  if (game.gcs_path) {
-    const cleanPath = game.gcs_path.startsWith("/")
-      ? game.gcs_path.slice(1)
-      : game.gcs_path;
-    gameUrl = `${CDN_BASE}/${cleanPath}/index.html`;
-  }
-  // 2. Logic chuẩn: games/{id}/{version}/index.html
-  else if (game.game_id) {
+  // 1. Logic chuẩn: games/{id}/{version}/index.html
+  if (game.game_id) {
     const basePath = `${CDN_BASE}/games/${game.game_id}`;
 
     // Logic xử lý Version:
@@ -82,6 +75,13 @@ export default function PlayGamePage() {
     const cleanVersion = rawVersion.replace(/^v-/, "");
 
     gameUrl = `${basePath}/${cleanVersion}/index.html`;
+  }
+  // 2. Fallback gcs_path nếu có (Admin cấu hình cứng)
+  else if (game.gcs_path) {
+    const cleanPath = game.gcs_path.startsWith("/")
+      ? game.gcs_path.slice(1)
+      : game.gcs_path;
+    gameUrl = `${CDN_BASE}/${cleanPath}/index.html`;
   }
 
   if (!gameUrl) {
@@ -112,7 +112,7 @@ export default function PlayGamePage() {
     ownerId: game.owner_id,
     teamId: game.team_id,
     latestVersionId: game.last_version_id,
-    liveVersionId: game.live_version_id,
+    liveVersionId: game.live_version_id ?? "1.0.0",
     status: (game.meta_data?.status as any) || "published",
     isDeleted: false,
     subject: game.meta_data?.subject,

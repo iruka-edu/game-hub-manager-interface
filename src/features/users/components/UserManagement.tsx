@@ -15,6 +15,7 @@ import {
   useCloseModal,
   useSetSearch,
   useUserFilters,
+  useUserFilterActions,
 } from "../stores/useUserStore";
 import type { User, CreateUserPayload, UpdateUserPayload } from "../types";
 import type { Role } from "@/types/user-types";
@@ -47,7 +48,7 @@ export function UserManagement({
   const openAddModal = useOpenAddModal();
   const openEditModal = useOpenEditModal();
   const closeModal = useCloseModal();
-  const setSearch = useSetSearch();
+  const { setSearch, setRoleFilter, setStatusFilter } = useUserFilterActions();
 
   // Mutations
   const createUserMutation = useCreateUser();
@@ -180,21 +181,48 @@ export function UserManagement({
     <div className="space-y-4">
       {/* Header with Search and Add Button */}
       <div className="flex justify-between items-center gap-4">
-        <div className="flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Tìm kiếm người dùng..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={filters.search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-2">
+            <input
+              type="text"
+              placeholder="Tìm kiếm người dùng..."
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={filters.search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div>
+            <select
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              value={filters.roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as any)}
+            >
+              <option value="all">Tất cả vai trò</option>
+              {availableRoles.map((role) => (
+                <option key={role} value={role}>
+                  {roleLabels[role]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              value={filters.statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Vô hiệu hóa</option>
+            </select>
+          </div>
         </div>
         {canManageUsers && (
           <button
             onClick={handleOpenAddModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium whitespace-nowrap"
           >
-            Thêm người dùng mới
+            + Thêm User
           </button>
         )}
       </div>
@@ -210,8 +238,14 @@ export function UserManagement({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Email
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Vai trò
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Ngày tạo
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Đăng nhập cuối
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Trạng thái
@@ -245,6 +279,18 @@ export function UserManagement({
                       </span>
                     ))}
                   </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                  {user.created_at
+                    ? new Date(user.created_at).toLocaleDateString("vi-VN")
+                    : "N/A"}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                  {(user as any).last_login_at // Casting as temporary fix until type is updated
+                    ? new Date((user as any).last_login_at).toLocaleString(
+                        "vi-VN",
+                      )
+                    : "Chưa đăng nhập"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
@@ -408,24 +454,26 @@ export function UserManagement({
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Vai trò
                       </label>
-                      <div className="grid grid-cols-2 gap-2">
+                      <select
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                        value={formData.roles[0] || ""}
+                        onChange={(e) => {
+                          const val = e.target.value as Role;
+                          setFormData({ ...formData, roles: [val] });
+                        }}
+                      >
+                        <option value="" disabled>
+                          Chọn vai trò
+                        </option>
                         {availableRoles.map((role) => (
-                          <label
-                            key={role}
-                            className="inline-flex items-center"
-                          >
-                            <input
-                              type="checkbox"
-                              className="form-checkbox h-4 w-4 text-blue-600"
-                              checked={formData.roles.includes(role)}
-                              onChange={() => toggleRole(role)}
-                            />
-                            <span className="ml-2 text-sm text-gray-700">
-                              {roleLabels[role]}
-                            </span>
-                          </label>
+                          <option key={role} value={role}>
+                            {roleLabels[role]}
+                          </option>
                         ))}
-                      </div>
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500">
+                        * Mỗi người dùng chỉ được gán một vai trò duy nhất.
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@/models/User";
 import { LogoutButton } from "./LogoutButton";
+import { hasPermission, PERMISSIONS } from "@/lib/rbac";
 
 // Serialized user type for client components
 interface SerializedUser {
@@ -41,20 +42,13 @@ const roleLabels: Record<Role, string> = {
 };
 
 function getMenuItems(user: SerializedUser): MenuItem[] {
-  const hasRole = (role: Role) => user.roles?.includes(role) ?? false;
-  const isAdmin = hasRole("admin");
-  const isDev = hasRole("dev");
-  const isQC = hasRole("qc");
-  const isCTO = hasRole("cto");
-  const isCEO = hasRole("ceo");
-  const canApprove = isCTO || isCEO || isAdmin;
-  const canPublish = isAdmin;
+  const userRoles = user.roles as any[]; // Cast to match rbac type
 
   const items: MenuItem[] = [
     { id: "dashboard", label: "Dashboard", icon: "home", href: "/console" },
   ];
 
-  if (isDev || isAdmin) {
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_MY_GAMES)) {
     items.push({
       id: "my-games",
       label: "Game của tôi",
@@ -63,7 +57,7 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
-  if (isQC || isAdmin) {
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_QC_INBOX)) {
     items.push({
       id: "qc-inbox",
       label: "QC Inbox",
@@ -72,7 +66,7 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
-  if (canApprove) {
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_REVIEW_QUEUE)) {
     items.push({
       id: "approval",
       label: "Chờ duyệt",
@@ -81,7 +75,7 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
-  if (canPublish) {
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_PUBLISH_QUEUE)) {
     items.push({
       id: "publish",
       label: "Xuất bản",
@@ -90,20 +84,25 @@ function getMenuItems(user: SerializedUser): MenuItem[] {
     });
   }
 
-  items.push({
-    id: "library",
-    label: "Thư viện Game",
-    icon: "grid",
-    href: "/console/library",
-  });
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_GAME_LIBRARY)) {
+    items.push({
+      id: "library",
+      label: "Thư viện Game",
+      icon: "grid",
+      href: "/console/library",
+    });
+  }
 
-  if (isAdmin || isCTO || isCEO) {
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_AUDIT_LOGS)) {
     items.push({
       id: "audit-logs",
       label: "Audit Logs",
       icon: "clipboard-list",
       href: "/console/audit-logs",
     });
+  }
+
+  if (hasPermission(userRoles, PERMISSIONS.VIEW_USERS)) {
     items.push({
       id: "users",
       label: "Quản lý User",

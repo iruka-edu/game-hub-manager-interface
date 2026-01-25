@@ -1,7 +1,25 @@
 "use client";
 
-import { useSession } from "@/features/auth";
-import { UserManagement } from "@/features/users/components/UserManagement";
+import dynamic from "next/dynamic";
+import { useSession } from "@/features/auth/hooks/useAuth";
+
+const UserManagement = dynamic(
+  () =>
+    import("@/features/users/components/UserManagement").then((mod) => ({
+      default: mod.UserManagement,
+    })),
+  {
+    loading: () => (
+      <div className="p-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-slate-200 rounded w-48 mb-4"></div>
+          <div className="h-64 bg-slate-200 rounded"></div>
+        </div>
+      </div>
+    ),
+    ssr: true,
+  },
+);
 
 export default function UsersPage() {
   const { user, isLoading } = useSession();

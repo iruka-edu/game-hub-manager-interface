@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import {
   ResponsiveLayout,
@@ -192,10 +193,10 @@ export function ResponsiveUploadPage({
         actionBar={
           <AdaptiveActionBar
             primaryActions={uploadActions.filter(
-              (a) => a.variant === "primary"
+              (a) => a.variant === "primary",
             )}
             secondaryActions={uploadActions.filter(
-              (a) => a.variant === "secondary"
+              (a) => a.variant === "secondary",
             )}
             position="sticky-bottom"
           />
@@ -238,7 +239,7 @@ export function ResponsiveUploadPage({
         <AdaptiveActionBar
           primaryActions={uploadActions.filter((a) => a.variant === "primary")}
           secondaryActions={uploadActions.filter(
-            (a) => a.variant === "secondary"
+            (a) => a.variant === "secondary",
           )}
           position="sticky-bottom"
         />
@@ -647,7 +648,7 @@ function ManifestEditor({
             onChange={(e) => {
               const selectedOptions = Array.from(
                 e.target.selectedOptions,
-                (option) => option.value
+                (option) => option.value,
               );
               onFormChange({ ...formData, skills: selectedOptions });
             }}
@@ -685,7 +686,7 @@ function ManifestEditor({
             onChange={(e) => {
               const selectedOptions = Array.from(
                 e.target.selectedOptions,
-                (option) => option.value
+                (option) => option.value,
               );
               onFormChange({ ...formData, themes: selectedOptions });
             }}
@@ -774,9 +775,11 @@ function GamePreview({ formData }: { formData: UploadFormData }) {
           <div className="gh-preview-card">
             <div className="gh-preview-thumbnail">
               {formData.thumbnailDesktop ? (
-                <img
+                <Image
                   src={formData.thumbnailDesktop}
                   alt="Game thumbnail"
+                  width={308}
+                  height={211}
                   className="gh-preview-image"
                 />
               ) : (

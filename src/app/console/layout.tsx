@@ -1,7 +1,7 @@
 "use client";
 
 import { ConsoleLayoutClient } from "@/components/console/ConsoleLayoutClient";
-import { useSession } from "@/features/auth";
+import { useSession } from "@/features/auth/hooks/useAuth";
 
 export default function ConsoleLayout({
   children,

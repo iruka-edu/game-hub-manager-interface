@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { useSession } from "@/features/auth";
-import { useGames } from "@/features/games";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGames } from "@/features/games/hooks/useGames";
 
 export default function ConsoleDashboard() {
   // Note: Route protection is handled by Middleware, no need for useEffect redirect

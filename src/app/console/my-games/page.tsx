@@ -1,13 +1,31 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useSession } from "@/features/auth";
-import { useGames } from "@/features/games";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGames } from "@/features/games/hooks/useGames";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { GCSManagement } from "@/features/gcs/components/GCSManagement";
+
+const GCSManagement = dynamic(
+  () =>
+    import("@/features/gcs/components/GCSManagement").then((mod) => ({
+      default: mod.GCSManagement,
+    })),
+  {
+    loading: () => (
+      <div className="p-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-slate-200 rounded w-48 mb-4"></div>
+          <div className="h-64 bg-slate-200 rounded"></div>
+        </div>
+      </div>
+    ),
+    ssr: false, // GCS management likely uses browser APIs
+  },
+);
 
 // Status configurations
 const STATUS_LABELS: Record<string, string> = {

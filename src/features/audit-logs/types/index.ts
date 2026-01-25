@@ -53,6 +53,9 @@ export interface AuditLogsParams {
   userId?: string;
   action?: ActionType;
   targetId?: string;
+  ip?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 /**
@@ -64,4 +67,7 @@ export interface AuditLogFilters {
   userId: string;
   action: ActionType | "";
   targetId: string;
+  ip: string;
+  startDate: string;
+  endDate: string;
 }

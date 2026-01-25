@@ -102,6 +102,16 @@ export interface QASummary {
 }
 
 /**
+ * Game Status Enum
+ */
+export type GameStatus = "draft" | "qc" | "review" | "approved";
+
+/**
+ * Publish State Enum
+ */
+export type PublishState = "published" | "unpublished";
+
+/**
  * Game list item (lightweight)
  * Matches GameListItem schema
  */
@@ -112,9 +122,12 @@ export interface GameListItem {
   description?: string | null;
   owner_id: string;
   disabled: boolean;
+  status?: GameStatus | string;
+  publish_state?: PublishState | string;
   live_version_id?: string | null;
   published_at?: string | null;
   created_at: string;
+  updated_at?: string | null;
 }
 
 /**
@@ -134,6 +147,8 @@ export interface Game {
   gcs_path?: string | null;
   disabled: boolean;
   rolloutPercentage: number;
+  status: GameStatus | string;
+  publish_state?: PublishState | string;
   published_at?: string | null;
   meta_data?: GameMetaData | null;
   last_meta_date_update?: string | null;
@@ -154,6 +169,7 @@ export interface GameVersion {
   game_id: string;
   version: string;
   status?: string | null;
+  is_locked: boolean;
   is_deleted: boolean;
   build_data?: BuildData | null;
   qc_summary?: QASummary | null;
@@ -183,6 +199,7 @@ export interface SerializedGame extends Record<string, unknown> {
   grade?: string;
   gameType?: string;
   status: string;
+  publishState?: string;
   disabled?: boolean;
   isDeleted: boolean;
   createdAt: string;
@@ -305,18 +322,36 @@ export interface SelfQAResponse {
 }
 
 /**
+ * UI Valid Status for Filtering
+ */
+export type FilterStatus = GameStatus | "all";
+
+/**
+ * UI Valid Publish State for Filtering
+ */
+export type FilterPublishState = PublishState | "all";
+
+/**
  * UI Filter state for games list
  * Note: status, ownerId, subject, grade are for client-side filtering
  * API only supports: skip, limit, mine, include_deleted
  */
 export interface GameFilters {
   search: string;
-  status: string | "all";
+  status: FilterStatus;
+  publishState: FilterPublishState;
   ownerId: string | "all";
   subject: string | "all";
   grade: string | "all";
+  level: string | "all";
+  skills: string[] | "all";
+  themes: string[] | "all";
   includeDeleted: boolean;
   mine: boolean;
+  sortBy?: "created_at" | "updated_at" | "title";
+  sortOrder?: "asc" | "desc";
+  createdFrom?: Date | null;
+  createdTo?: Date | null;
 }
 
 /**

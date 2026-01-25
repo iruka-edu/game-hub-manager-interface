@@ -16,6 +16,9 @@ interface AuditLogStoreState {
   setUserId: (userId: string) => void;
   setAction: (action: ActionType | "") => void;
   setTargetId: (targetId: string) => void;
+  setIp: (ip: string) => void;
+  setStartDate: (date: string) => void;
+  setEndDate: (date: string) => void;
   resetFilters: () => void;
 }
 
@@ -25,6 +28,9 @@ const initialFilters: AuditLogFilters = {
   userId: "",
   action: "",
   targetId: "",
+  ip: "",
+  startDate: "",
+  endDate: "",
 };
 
 export const useAuditLogStore = create<AuditLogStoreState>((set) => ({
@@ -55,6 +61,21 @@ export const useAuditLogStore = create<AuditLogStoreState>((set) => ({
       filters: { ...state.filters, targetId, page: 1 },
     })),
 
+  setIp: (ip) =>
+    set((state) => ({
+      filters: { ...state.filters, ip, page: 1 },
+    })),
+
+  setStartDate: (startDate) =>
+    set((state) => ({
+      filters: { ...state.filters, startDate, page: 1 },
+    })),
+
+  setEndDate: (endDate) =>
+    set((state) => ({
+      filters: { ...state.filters, endDate, page: 1 },
+    })),
+
   resetFilters: () =>
     set(() => ({
       filters: initialFilters,
@@ -75,6 +96,9 @@ export const useAuditLogFilterActions = () =>
       setUserId: state.setUserId,
       setAction: state.setAction,
       setTargetId: state.setTargetId,
+      setIp: state.setIp,
+      setStartDate: state.setStartDate,
+      setEndDate: state.setEndDate,
       resetFilters: state.resetFilters,
     })),
   );

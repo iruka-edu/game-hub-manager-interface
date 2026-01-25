@@ -8,6 +8,7 @@ import {
   approveGame,
   rejectGame,
   publishGame,
+  unpublishGame,
   qcReview,
   uploadBuild,
   uploadThumbnail,
@@ -161,6 +162,20 @@ export function usePublishGame() {
     mutationFn: (payload: { gameId: string; payload: any }) =>
       publishGame(payload.gameId, payload.payload),
     onSuccess: (_, { gameId }) => {
+      queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
+    },
+  });
+}
+
+/**
+ * Hook for unpublishing a game
+ */
+export function useUnpublishGame() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gameId: string) => unpublishGame(gameId),
+    onSuccess: (_, gameId) => {
       queryClient.invalidateQueries({ queryKey: gamesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });
     },

@@ -4,7 +4,18 @@ import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useDeleteGame } from "@/features/games";
+import {
+  useDeleteGame,
+  useGameFilters,
+  useGameFilterActions,
+} from "@/features/games";
+import {
+  GRADE_MAP,
+  DIFFICULTY_MAP, // mapped to level
+  SKILL_MAP,
+  THEME_MAP,
+  SUBJECT_MAP,
+} from "@/lib/game-constants";
 
 interface SerializedGame extends Record<string, unknown> {
   _id: string;
@@ -50,24 +61,16 @@ interface GameLibraryClientProps {
 
 const STATUS_COLORS = {
   draft: "bg-slate-100 text-slate-700",
-  uploaded: "bg-blue-100 text-blue-700",
-  qc_processing: "bg-yellow-100 text-yellow-700",
-  qc_passed: "bg-green-100 text-green-700",
-  qc_failed: "bg-red-100 text-red-700",
+  qc: "bg-yellow-100 text-yellow-700",
+  review: "bg-blue-100 text-blue-700",
   approved: "bg-purple-100 text-purple-700",
-  published: "bg-emerald-100 text-emerald-700",
-  archived: "bg-gray-100 text-gray-700",
 };
 
 const STATUS_LABELS = {
   draft: "Nháp",
-  uploaded: "Đã gửi QC",
-  qc_processing: "Đang QC",
-  qc_passed: "QC đạt",
-  qc_failed: "QC không đạt",
-  approved: "Đã duyệt",
-  published: "Đã xuất bản",
-  archived: "Đã lưu trữ",
+  qc: "Đang QC",
+  review: "Chờ Duyệt",
+  approved: "Đã Duyệt",
 };
 
 export function GameLibraryClient({
@@ -76,9 +79,18 @@ export function GameLibraryClient({
   userRoles,
 }: GameLibraryClientProps) {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  // Store filters
+  const filters = useGameFilters();
+  const {
+    setSearch,
+    setStatus,
+    setSubject,
+    setPublishState,
+    setGrade,
+    setLevel,
+    setSkills,
+    setThemes,
+  } = useGameFilterActions();
 
   // Selection state
   const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(
@@ -100,42 +112,10 @@ export function GameLibraryClient({
     userRoles.includes("cto") ||
     userRoles.includes("ceo");
 
-  // Filter games based on search and filters
-  const filteredGames = useMemo(() => {
-    return initialGames.filter((item) => {
-      const { game, latestVersion } = item;
+  // Games are now filtered server-side passed via props
+  const filteredGames = initialGames;
 
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-          game.title.toLowerCase().includes(searchLower) ||
-          game.gameId.toLowerCase().includes(searchLower) ||
-          (game.description &&
-            game.description.toLowerCase().includes(searchLower));
-
-        if (!matchesSearch) return false;
-      }
-
-      // Status filter
-      if (statusFilter !== "all") {
-        if (!latestVersion || latestVersion.status !== statusFilter) {
-          return false;
-        }
-      }
-
-      // Subject filter
-      if (subjectFilter !== "all") {
-        if (game.subject !== subjectFilter) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [initialGames, searchTerm, statusFilter, subjectFilter]);
-
-  // Get unique subjects for filter
+  // Get unique subjects for filter (optional, maybe from API or pass unique from fetched games)
   const subjects = useMemo(() => {
     const subjectSet = new Set<string>();
     initialGames.forEach((item) => {
@@ -253,366 +233,568 @@ export function GameLibraryClient({
 
   return (
     <div className="space-y-6">
-      {/* Selection Mode Bar */}
-      {isSelectionMode && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-indigo-700 font-medium">
-              Đã chọn {selectedGameIds.size} game
-            </span>
-            <button
-              onClick={selectAll}
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              Chọn tất cả (
-              {
-                filteredGames.filter((item) =>
-                  canDeleteGame(item.game, item.latestVersion),
-                ).length
-              }
-              )
-            </button>
-            <button
-              onClick={clearSelection}
-              className="text-sm text-slate-600 hover:text-slate-800"
-            >
-              Bỏ chọn
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            {selectedGameIds.size > 0 && (
-              <button
-                onClick={handleDeleteSelected}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Sidebar Filters */}
+        <div className="w-full md:w-64 space-y-6 shrink-0">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sticky top-6">
+            <h3 className="font-semibold text-slate-900 mb-4 pb-2 border-b border-slate-100">
+              Bộ lọc
+            </h3>
+
+            <div className="space-y-4">
+              {/* Search */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Tìm kiếm
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Tên game, ID..."
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-colors"
                   />
-                </svg>
-                Xóa ({selectedGameIds.size})
-              </button>
-            )}
-            <button
-              onClick={exitSelectionMode}
-              className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition-colors"
-            >
-              Hủy
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Search */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Tìm kiếm
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tên game, Game ID..."
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Trạng thái
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="all">Tất cả</option>
-              <option value="draft">Nháp</option>
-              <option value="uploaded">Đã gửi QC</option>
-              <option value="qc_processing">Đang QC</option>
-              <option value="qc_passed">QC đạt</option>
-              <option value="qc_failed">QC không đạt</option>
-              <option value="approved">Đã duyệt</option>
-              <option value="published">Đã xuất bản</option>
-              <option value="archived">Đã lưu trữ</option>
-            </select>
-          </div>
-
-          {/* Subject Filter */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Môn học
-            </label>
-            <select
-              value={subjectFilter}
-              onChange={(e) => setSubjectFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="all">Tất cả</option>
-              {subjects.map((subject) => (
-                <option key={subject} value={subject}>
-                  {subject}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Selection Mode Toggle */}
-          <div className="flex items-end">
-            {!isSelectionMode ? (
-              <button
-                onClick={() => setIsSelectionMode(true)}
-                className="w-full px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
-                </svg>
-                Chọn nhiều
-              </button>
-            ) : (
-              <div className="w-full text-center text-sm text-slate-500">
-                Chế độ chọn đang bật
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Results Count */}
-      <div className="text-sm text-slate-600">
-        Hiển thị {filteredGames.length} / {initialGames.length} game
-        {isAdmin && (
-          <span className="ml-2 text-indigo-600">
-            (Admin: có thể xóa tất cả)
-          </span>
-        )}
-      </div>
-
-      {/* Games Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredGames.map((item) => {
-          const { game, latestVersion, owner } = item;
-          const isSelected = selectedGameIds.has(game._id);
-          const canDelete = canDeleteGame(game, latestVersion);
-
-          return (
-            <div
-              key={game._id}
-              className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all relative ${
-                isSelected
-                  ? "border-indigo-500 ring-2 ring-indigo-200"
-                  : "border-slate-200"
-              }`}
-            >
-              {/* Selection Checkbox */}
-              {isSelectionMode && canDelete && (
-                <div className="absolute top-3 left-3 z-10">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelection(game._id)}
-                      className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-                    />
-                  </label>
-                </div>
-              )}
-
-              {/* Thumbnail */}
-              <div
-                className={`aspect-308/211 bg-slate-100 rounded-t-xl overflow-hidden ${
-                  isSelectionMode ? "cursor-pointer" : ""
-                }`}
-                onClick={() =>
-                  isSelectionMode && canDelete && toggleSelection(game._id)
-                }
-              >
-                {game.thumbnailDesktop ? (
-                  <Image
-                    src={game.thumbnailDesktop}
-                    alt={game.title}
-                    width={308}
-                    height={211}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400">
-                    <svg
-                      className="w-12 h-12"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="p-4">
-                {/* Title & Status */}
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-slate-900 text-sm leading-tight">
-                    {game.title}
-                  </h3>
-                  {latestVersion && (
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full shrink-0 ml-2 ${
-                        STATUS_COLORS[
-                          latestVersion.status as keyof typeof STATUS_COLORS
-                        ] || "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {STATUS_LABELS[
-                        latestVersion.status as keyof typeof STATUS_LABELS
-                      ] || latestVersion.status}
-                    </span>
-                  )}
-                </div>
-
-                {/* Game ID */}
-                <p className="text-xs text-slate-500 font-mono mb-2">
-                  {game.gameId}
-                </p>
-
-                {/* Metadata */}
-                <div className="space-y-1 mb-3">
-                  {game.subject && (
-                    <div className="flex items-center text-xs text-slate-600">
-                      <span className="font-medium">Môn:</span>
-                      <span className="ml-1">{game.subject}</span>
-                      {game.grade && (
-                        <span className="ml-1">- Lớp {game.grade}</span>
-                      )}
-                    </div>
-                  )}
-                  {game.gameType && (
-                    <div className="flex items-center text-xs text-slate-600">
-                      <span className="font-medium">Loại:</span>
-                      <span className="ml-1">{game.gameType}</span>
-                    </div>
-                  )}
-                  {owner && (
-                    <div className="flex items-center text-xs text-slate-600">
-                      <span className="font-medium">Tác giả:</span>
-                      <span className="ml-1">
-                        {owner.name || owner.username || owner.email}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Version Info */}
-                {latestVersion && (
-                  <div className="text-xs text-slate-500 mb-3">
-                    <div>Version: {latestVersion.version}</div>
-                    <div>
-                      Cập nhật:{" "}
-                      {new Date(latestVersion.updatedAt).toLocaleDateString(
-                        "vi-VN",
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <Link
-                    href={`/console/games/${game._id}`}
-                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                  <svg
+                    className="w-4 h-4 text-slate-400 absolute left-3 top-2.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    Xem chi tiết
-                  </Link>
-
-                  <div className="flex items-center gap-2">
-                    {game.disabled && (
-                      <span className="text-xs text-red-600 font-medium">
-                        Đã tắt
-                      </span>
-                    )}
-
-                    {/* Delete button - only show if not in selection mode and can delete */}
-                    {!isSelectionMode && canDelete && (
-                      <button
-                        onClick={() => handleDeleteSingle(item)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="Xóa game"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
                 </div>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Trạng thái
+                </label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="draft">📝 Nháp</option>
+                  <option value="qc">🔍 Đang QC (Locked)</option>
+                  <option value="review">⚖️ Review (Locked)</option>
+                  <option value="approved">✅ Đã duyệt</option>
+                </select>
+              </div>
+
+              {/* Publish State Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Xuất bản
+                </label>
+                <select
+                  value={filters.publishState}
+                  onChange={(e) => setPublishState(e.target.value as any)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả</option>
+                  <option value="published">🚀 Đã xuất bản</option>
+                  <option value="unpublished">📁 Chưa xuất bản</option>
+                </select>
+              </div>
+
+              {/* Subject Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Môn học
+                </label>
+                <select
+                  value={filters.subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả môn học</option>
+                  {Object.entries(SUBJECT_MAP).map(([key, label]) => (
+                    <option key={key} value={label}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Grade Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Lớp / Khối
+                </label>
+                <select
+                  value={filters.grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả lớp</option>
+                  {Object.entries(GRADE_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Level / Difficulty Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Độ khó
+                </label>
+                <select
+                  value={filters.level}
+                  onChange={(e) => setLevel(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả độ khó</option>
+                  {Object.entries(DIFFICULTY_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Skills Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Kỹ năng
+                </label>
+                <select
+                  value={
+                    filters.skills === "all"
+                      ? "all"
+                      : filters.skills.length > 0
+                        ? filters.skills[0]
+                        : "all"
+                  }
+                  onChange={(e) =>
+                    setSkills(
+                      e.target.value === "all" ? "all" : [e.target.value],
+                    )
+                  }
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả kỹ năng</option>
+                  {Object.entries(SKILL_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Themes Filter */}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase">
+                  Chủ đề / Sở thích
+                </label>
+                <select
+                  value={
+                    filters.themes === "all"
+                      ? "all"
+                      : filters.themes.length > 0
+                        ? filters.themes[0]
+                        : "all"
+                  }
+                  onChange={(e) =>
+                    setThemes(
+                      e.target.value === "all" ? "all" : [e.target.value],
+                    )
+                  }
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
+                >
+                  <option value="all">Tất cả chủ đề</option>
+                  {Object.entries(THEME_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bulk Actions Toggle */}
+              <div className="pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => {
+                    if (isSelectionMode) exitSelectionMode();
+                    else setIsSelectionMode(true);
+                  }}
+                  className={`w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                    isSelectionMode
+                      ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {isSelectionMode ? (
+                    <>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                      Thoát chọn nhiều
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                      Chọn nhiều game
+                    </>
+                  )}
+                </button>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Empty State */}
-      {filteredGames.length === 0 && (
-        <div className="text-center py-12">
-          <svg
-            className="w-12 h-12 mx-auto text-slate-400 mb-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.08-2.33"
-            />
-          </svg>
-          <h3 className="text-lg font-medium text-slate-900 mb-2">
-            Không tìm thấy game nào
-          </h3>
-          <p className="text-slate-500">
-            Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
-          </p>
+          </div>
         </div>
-      )}
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* Stats Bar */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm font-medium text-slate-600">
+              Hiển thị{" "}
+              <span className="text-slate-900 font-bold">
+                {filteredGames.length}
+              </span>{" "}
+              kết quả
+              {isAdmin && (
+                <span className="ml-2 text-xs text-indigo-600 font-normal bg-indigo-50 px-2 py-0.5 rounded-full">
+                  Admin Access
+                </span>
+              )}
+            </div>
+
+            {/* Sort Controls (Placeholder for now as logic is in store but UI needed) */}
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span>Sắp xếp:</span>
+              <select
+                className="text-sm border-none bg-transparent font-medium text-slate-900 focus:ring-0 cursor-pointer p-0"
+                defaultValue="updated_at"
+              >
+                <option value="updated_at">Mới cập nhật</option>
+                <option value="created_at">Mới tạo</option>
+                <option value="title">Tên A-Z</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Selection Bar */}
+          {isSelectionMode && selectedGameIds.size > 0 && (
+            <div className="mb-4 bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-3">
+                <div className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg text-sm font-bold">
+                  {selectedGameIds.size}
+                </div>
+                <span className="text-sm text-indigo-800 font-medium">
+                  game đã chọn
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={selectAll}
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 px-2 py-1"
+                >
+                  Chọn tất cả
+                </button>
+                <div className="h-4 w-px bg-indigo-200 mx-1"></div>
+                <button
+                  onClick={handleDeleteSelected}
+                  className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1.5 shadow-sm shadow-red-200"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  Xóa
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Games Grid */}
+          {filteredGames.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredGames.map((item) => {
+                const { game, latestVersion, owner } = item;
+                const isSelected = selectedGameIds.has(game._id);
+                const canDelete = canDeleteGame(game, latestVersion);
+
+                // Determine status config
+                const statusKey = (latestVersion?.status ||
+                  "draft") as keyof typeof STATUS_COLORS;
+                const statusColor =
+                  STATUS_COLORS[statusKey] || STATUS_COLORS.draft;
+                const statusLabel =
+                  STATUS_LABELS[statusKey] || latestVersion?.status || "Nháp";
+
+                const isPublished = game.publishState === "published";
+                const isLocked =
+                  latestVersion?.status === "qc" ||
+                  latestVersion?.status === "review";
+
+                return (
+                  <div
+                    key={game._id}
+                    className={`group bg-white rounded-xl border shadow-sm hover:shadow-md transition-all relative flex flex-col h-full ${
+                      isSelected
+                        ? "border-indigo-500 ring-2 ring-indigo-200 z-10"
+                        : "border-slate-200"
+                    } ${!isPublished && !isLocked ? "opacity-90 hover:opacity-100" : ""}`}
+                  >
+                    {/* Selection Checkbox */}
+                    {isSelectionMode && canDelete && (
+                      <div className="absolute top-3 left-3 z-20">
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelection(game._id)}
+                            className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer shadow-sm"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Thumbnail Container */}
+                    <div
+                      className={`aspect-video bg-slate-100 rounded-t-xl overflow-hidden relative ${
+                        isSelectionMode ? "cursor-pointer" : ""
+                      }`}
+                      onClick={() =>
+                        isSelectionMode &&
+                        canDelete &&
+                        toggleSelection(game._id)
+                      }
+                    >
+                      {game.thumbnailDesktop ? (
+                        <Image
+                          src={game.thumbnailDesktop}
+                          alt={game.title}
+                          width={308}
+                          height={173}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50">
+                          <svg
+                            className="w-10 h-10 opacity-50"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                      )}
+
+                      {/* Status Badges Overlay */}
+                      <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
+                        {/* Locked Status */}
+                        {isLocked && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/75 text-white text-xs font-bold backdrop-blur-xs shadow-sm">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                              />
+                            </svg>
+                            Locked
+                          </span>
+                        )}
+
+                        {/* Publish State Badge */}
+                        {isPublished ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/90 text-white text-xs font-bold backdrop-blur-xs shadow-sm">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            Live
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-500/50 text-white text-xs font-medium backdrop-blur-xs shadow-sm">
+                            Unpublished
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-4 flex flex-col h-full">
+                      {/* Header */}
+                      <div className="mb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3
+                            className="font-bold text-slate-900 text-base leading-tight line-clamp-1 group-hover:text-indigo-600 transition-colors"
+                            title={game.title}
+                          >
+                            {game.title}
+                          </h3>
+                        </div>
+                        <div className="flex items-center mt-1.5 gap-2">
+                          <span
+                            className={`px-2 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider ${statusColor}`}
+                          >
+                            {statusLabel}
+                          </span>
+                          <span
+                            className="text-xs text-slate-400 font-mono truncate max-w-[80px]"
+                            title={game.gameId}
+                          >
+                            {game.gameId}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Metadata Grid */}
+                      <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <div className="col-span-2 flex items-center gap-1.5">
+                          <span className="text-slate-400">Ver:</span>
+                          <span className="font-mono text-slate-700 font-medium">
+                            {latestVersion?.version || "N/A"}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2 flex items-center gap-1.5 truncate">
+                          <span className="text-slate-400">G:</span>
+                          <span className="text-slate-700 truncate">
+                            {game.subject || "-"}{" "}
+                            {game.grade ? `(L${game.grade})` : ""}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2 flex items-center gap-1.5 truncate">
+                          <span className="text-slate-400">By:</span>
+                          <span className="text-slate-700 truncate">
+                            {owner?.name || owner?.username || "Unknown"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer / Actions */}
+                      <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <div className="text-xs text-slate-400">
+                          {new Date(game.updatedAt).toLocaleDateString(
+                            "vi-VN",
+                            { day: "2-digit", month: "2-digit" },
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {game.disabled && (
+                            <span
+                              className="w-2 h-2 rounded-full bg-red-500"
+                              title="Game Disabled"
+                            ></span>
+                          )}
+                          <Link
+                            href={`/console/games/${game._id}`}
+                            className="px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                          >
+                            Chi tiết
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                <svg
+                  className="w-8 h-8 text-slate-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">
+                Không tìm thấy game
+              </h3>
+              <p className="text-slate-500 text-sm max-w-xs text-center">
+                Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để tìm thấy kết quả.
+              </p>
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setStatus("all" as any);
+                  setPublishState("all" as any);
+                  setSubject("all");
+                }}
+                className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
+              >
+                Xóa bộ lọc
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

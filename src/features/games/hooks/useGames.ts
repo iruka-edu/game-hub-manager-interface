@@ -29,45 +29,37 @@ export const gamesKeys = {
 /**
  * Hook to fetch and filter games
  */
-export function useGames() {
+export function useGames(overrides?: Partial<GetGamesParams>) {
   const filters = useGameFilters();
 
-  // Build API params - only params supported by external API
+  // Build API params
   const apiParams: GetGamesParams = {
     mine: filters.mine ?? true,
     include_deleted: filters.includeDeleted ?? false,
+    status: filters.status !== "all" ? filters.status : undefined,
+    publishState:
+      filters.publishState !== "all" ? filters.publishState : undefined,
+    title: filters.search || undefined,
+    ownerId: filters.ownerId !== "all" ? filters.ownerId : undefined,
+    // Add date filters if needed
+    level: filters.level !== "all" ? filters.level : undefined,
+    skills: filters.skills !== "all" ? filters.skills : undefined,
+    themes: filters.themes !== "all" ? filters.themes : undefined,
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder,
+    ...overrides,
   };
 
   const query = useQuery({
     queryKey: gamesKeys.list(apiParams as Record<string, unknown>),
     queryFn: () => getGames(apiParams),
-    staleTime: 1 * 60 * 1000, // 1 minute
-    placeholderData: keepPreviousData, // Keep previous data while fetching
-  });
-
-  // Client-side filtering (API doesn't support all filters)
-  const filteredGames = (query.data ?? []).filter((game: GameListItem) => {
-    // Text search
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const matchesSearch =
-        game.title.toLowerCase().includes(searchLower) ||
-        game.game_id.toLowerCase().includes(searchLower) ||
-        (game.description?.toLowerCase().includes(searchLower) ?? false);
-      if (!matchesSearch) return false;
-    }
-
-    // Owner filter (client-side)
-    if (filters.ownerId !== "all" && game.owner_id !== filters.ownerId) {
-      return false;
-    }
-
-    return true;
+    staleTime: 1 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   return {
     ...query,
-    games: filteredGames,
+    games: query.data ?? [],
     allGames: query.data ?? [],
   };
 }

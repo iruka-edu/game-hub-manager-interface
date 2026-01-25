@@ -3,9 +3,11 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useSession } from "@/features/auth";
-import { useGames } from "@/features/games";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGames } from "@/features/games/hooks/useGames";
+import { usePublishGame, useUnpublishGame } from "@/features/games/hooks";
 import type { GameListItem } from "@/features/games/types";
+import { PERMISSIONS, hasPermission } from "@/lib/rbac";
 import { Suspense } from "react";
 
 interface GamePublishItem {
@@ -22,66 +24,70 @@ interface GamePublishItem {
 function PublishPageContent() {
   const searchParams = useSearchParams();
   const { user, isLoading: sessionLoading } = useSession();
-  const { allGames, isLoading: gamesLoading } = useGames();
-
   const statusFilter = searchParams.get("status") || "approved";
 
-  // Transform games data for display
+  // Fetch games by status for tabs and data
+  const { games: approvedGames, isLoading: approvedLoading } = useGames({
+    status: "approved",
+    publishState: "unpublished", // Waiting to be published
+    mine: false,
+    ownerId: "all",
+  });
+
+  const { games: publishedGames, isLoading: publishedLoading } = useGames({
+    publishState: "published",
+    mine: false,
+    ownerId: "all",
+  });
+
+  // For archived, we assuming disabled games or specifically unpublished ones that are not new
+  const { games: archivedGames, isLoading: archivedLoading } = useGames({
+    status: "approved", // or any?
+    publishState: "unpublished", // unpublished
+    // include_deleted: true?
+    mine: false,
+    ownerId: "all",
+  });
+
+  // Logic for display
   const gamesWithStatus: GamePublishItem[] = useMemo(() => {
-    return allGames.map((game: GameListItem) => ({
+    let sourceGames: GameListItem[] = [];
+    if (statusFilter === "approved") sourceGames = approvedGames;
+    else if (statusFilter === "published") sourceGames = publishedGames;
+    else if (statusFilter === "archived") sourceGames = archivedGames; // Todo: refine archived logic
+
+    return sourceGames.map((game: GameListItem) => ({
       _id: game.id,
       gameId: game.game_id,
       title: game.title,
-      // Logic for status is approximate based on live_version_id
-      // Ideally should come from API
-      versionStatus: game.live_version_id
-        ? "published"
-        : game.published_at // If has published_at but no live version currently?
-          ? "archived" // Just an assumption for now
-          : "approved",
+      versionStatus:
+        statusFilter === "published"
+          ? "published"
+          : statusFilter === "archived"
+            ? "archived"
+            : "approved",
       liveVersionId: game.live_version_id || undefined,
-      ownerName: "Developer",
-      rolloutPercentage: 100,
-      disabled: false,
+      ownerName: "Developer", // API doesn't return owner name
+      rolloutPercentage: 100, // game.rolloutPercentage
+      disabled: game.disabled,
     }));
-  }, [allGames]);
+  }, [statusFilter, approvedGames, publishedGames, archivedGames]);
 
   // Filter games by status
-  const filteredGames = useMemo(() => {
-    if (statusFilter === "approved") {
-      return gamesWithStatus.filter((g) => g.versionStatus === "approved");
-    } else if (statusFilter === "published") {
-      return gamesWithStatus.filter((g) => g.versionStatus === "published");
-    } else if (statusFilter === "archived") {
-      return gamesWithStatus.filter((g) => g.versionStatus === "archived");
-    }
-    return [];
-  }, [gamesWithStatus, statusFilter]);
+  const filteredGames = gamesWithStatus;
 
-  const approvedCount = gamesWithStatus.filter(
-    (g) => g.versionStatus === "approved",
-  ).length;
-  const publishedCount = gamesWithStatus.filter(
-    (g) => g.versionStatus === "published",
-  ).length;
-  const archivedCount = gamesWithStatus.filter(
-    (g) => g.versionStatus === "archived",
-  ).length;
+  const approvedCount = approvedGames.length;
+  const publishedCount = publishedGames.length;
+  const archivedCount = 0; // archivedGames.length; // Placeholder since archived definition is fuzzy
 
   // Loading state
-  if (sessionLoading || gamesLoading) {
+  if (sessionLoading || approvedLoading || publishedLoading) {
     return (
       <div className="p-8">
         <div className="animate-pulse">
-          <div className="h-6 bg-slate-200 rounded w-32 mb-6"></div>
-          <div className="h-8 bg-slate-200 rounded w-48 mb-2"></div>
+          <div className="h-8 bg-slate-200 rounded w-48 mb-4"></div>
           <div className="h-4 bg-slate-200 rounded w-64 mb-8"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-slate-200 rounded-xl"></div>
-            ))}
-          </div>
-          <div className="h-64 bg-slate-200 rounded-xl"></div>
+          <div className="h-64 bg-slate-200 rounded"></div>
         </div>
       </div>
     );
@@ -93,10 +99,8 @@ function PublishPageContent() {
   }
 
   // Check if user has permission to access publish page
-  const userRoles = user.roles as string[];
-  const hasPermission = userRoles.includes("admin");
-
-  if (!hasPermission) {
+  const userRoles = user.roles as any[];
+  if (!hasPermission(userRoles, PERMISSIONS.VIEW_PUBLISH_QUEUE)) {
     return (
       <div className="p-8">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -104,8 +108,14 @@ function PublishPageContent() {
             Không có quyền truy cập
           </h2>
           <p className="text-red-600 mt-2">
-            Bạn không có quyền truy cập trang này.
+            Bạn không được quyền xuất bản game.
           </p>
+          <Link
+            href="/console"
+            className="inline-block mt-4 text-sm text-red-600 underline"
+          >
+            Quay về Console
+          </Link>
         </div>
       </div>
     );

@@ -11,6 +11,8 @@ export interface QCDecisionPayload {
   versionId: string;
   decision: "pass" | "fail";
   notes?: string | null;
+  qaSummary?: Record<string, any> | null;
+  reviewerName?: string | null;
 }
 
 /**
@@ -102,3 +104,40 @@ export interface QCRunResponse {
 export type QCDecision = QCDecisionPayload;
 export type TestRunResult = QCRunPayload;
 export type TestRunResponse = QCRunResponse;
+
+/**
+ * QC Issue Status Enum
+ */
+export type QCIssueStatus = "open" | "resolved" | "closed";
+
+/**
+ * QC Issue Schema
+ */
+export interface QCIssue {
+  id: string;
+  version_id: string;
+  title: string;
+  description?: string;
+  status: QCIssueStatus;
+  priority: "low" | "medium" | "high";
+  assigned_to?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Payload for closing an issue
+ */
+export interface CloseIssuePayload {
+  issueId: string;
+  notes?: string;
+}
+
+/**
+ * Payload for assigning an issue
+ */
+export interface AssignIssuePayload {
+  issueId: string;
+  assigneeId: string;
+}

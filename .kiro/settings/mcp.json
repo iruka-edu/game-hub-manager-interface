@@ -1,5 +1,7 @@
 {
   "mcpServers": {
-    
+    "fetch": {
+      "url": "https://remote.mcpservers.org/fetch/mcp"
+    }
   }
 }

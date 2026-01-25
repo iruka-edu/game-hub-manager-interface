@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/features/auth";
-import { useGames } from "@/features/games";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGames } from "@/features/games/hooks/useGames";
 import { GameLibraryClient } from "./GameLibraryClient";
 
 // Transform games from external API format to GameLibraryClient format
@@ -23,6 +23,8 @@ interface GameForLibrary {
     isDeleted: boolean;
     createdAt: string;
     updatedAt: string;
+    status?: string;
+    publishState?: string;
   };
   latestVersion?: {
     _id: string;
@@ -100,42 +102,50 @@ export default function GameLibraryPage() {
   }
 
   // Transform games to match GameLibraryClient expected format
-  // Note: Using 'any' because external API GameListItem is lightweight
-  const gamesWithVersions = (games as any[]).map((game) => ({
-    game: {
-      _id: game.id,
-      gameId: game.game_id,
-      title: game.title,
-      description: game.description ?? undefined,
-      thumbnailDesktop: game.thumbnail_desktop ?? undefined,
-      thumbnailMobile: game.thumbnail_mobile ?? undefined,
-      ownerId: game.owner_id,
-      subject: game.subject ?? undefined,
-      grade: game.grade ?? undefined,
-      gameType: game.game_type ?? undefined,
-      disabled: game.disabled ?? false,
-      isDeleted: game.is_deleted ?? false,
-      createdAt: game.created_at ?? new Date().toISOString(),
-      updatedAt: game.updated_at ?? new Date().toISOString(),
-    },
-    latestVersion: game.latest_version
-      ? {
-          _id: game.latest_version.id,
-          version: game.latest_version.version,
-          status: game.latest_version.status,
-          createdAt: game.latest_version.created_at ?? new Date().toISOString(),
-          updatedAt: game.latest_version.updated_at ?? new Date().toISOString(),
-        }
-      : undefined,
-    owner: game.owner
-      ? {
-          _id: game.owner.id,
-          name: game.owner.name,
-          email: game.owner.email,
-          username: game.owner.username,
-        }
-      : undefined,
-  }));
+  const gamesWithVersions = (games as any[]).map((game) => {
+    const status = game.status || "draft";
+    const publishState = game.publish_state;
+
+    // Construct mock latestVersion if needed, or use existing if API returns it
+    // The new API structure puts status on the game object
+    const latestVersion = game.latest_version || {
+      _id: game.last_version_id || "unknown",
+      version: game.version || "1.0.0", // Fallback if no version info
+      status: status,
+      createdAt: game.updated_at || new Date().toISOString(),
+      updatedAt: game.updated_at || new Date().toISOString(),
+    };
+
+    return {
+      game: {
+        _id: game.id,
+        gameId: game.game_id,
+        title: game.title,
+        description: game.description ?? undefined,
+        thumbnailDesktop: game.thumbnail_desktop ?? undefined,
+        thumbnailMobile: game.thumbnail_mobile ?? undefined,
+        ownerId: game.owner_id,
+        subject: game.subject ?? undefined,
+        grade: game.grade ?? undefined,
+        gameType: game.game_type ?? undefined,
+        disabled: game.disabled ?? false,
+        isDeleted: game.is_deleted ?? false,
+        createdAt: game.created_at ?? new Date().toISOString(),
+        updatedAt: game.updated_at ?? new Date().toISOString(),
+        status,
+        publishState,
+      },
+      latestVersion,
+      owner: game.owner
+        ? {
+            _id: game.owner.id,
+            name: game.owner.name,
+            email: game.owner.email,
+            username: game.owner.username,
+          }
+        : undefined,
+    };
+  });
 
   return (
     <div className="space-y-6">

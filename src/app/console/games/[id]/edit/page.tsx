@@ -3,8 +3,8 @@
 import { Suspense } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "@/features/auth";
-import { useGameDetail } from "@/features/games";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGameDetail } from "@/features/games/hooks/useGames";
 import { GameEditForm } from "@/features/games/components/GameEditForm";
 
 function GameEditContent() {

@@ -3,8 +3,8 @@
 import { Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "@/features/auth";
-import { useGameDetail } from "@/features/games";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGameDetail } from "@/features/games/hooks/useGames";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { QCReviewForm } from "@/features/games/components/QCReviewForm";

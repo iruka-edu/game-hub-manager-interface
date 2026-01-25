@@ -19,5 +19,8 @@ export async function getAuditLogs(
     userId: params?.userId,
     action: params?.action,
     targetId: params?.targetId,
+    ip: params?.ip,
+    startDate: params?.startDate,
+    endDate: params?.endDate,
   });
 }

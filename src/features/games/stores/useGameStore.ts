@@ -8,18 +8,34 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { GameStatus } from "@/models/Game";
-import type { Game, GameFilters, GameModalState } from "../types";
+import type {
+  Game,
+  GameFilters,
+  GameModalState,
+  FilterStatus,
+  FilterPublishState,
+} from "../types";
+
+// GameFilters is imported from ../types
 
 interface GameStoreState {
   // Filters
   filters: GameFilters;
   setSearch: (search: string) => void;
-  setStatus: (status: GameStatus | "all") => void;
+  setStatus: (status: FilterStatus) => void;
+  setPublishState: (state: FilterPublishState) => void;
   setOwnerId: (ownerId: string | "all") => void;
   setSubject: (subject: string | "all") => void;
   setGrade: (grade: string | "all") => void;
+  setLevel: (level: string | "all") => void; // New
+  setSkills: (skills: string[] | "all") => void; // New
+  setThemes: (themes: string[] | "all") => void; // New
   setIncludeDeleted: (includeDeleted: boolean) => void;
   setMine: (mine: boolean) => void;
+  setSortBy: (sortBy: "created_at" | "updated_at" | "title") => void;
+  setSortOrder: (sortOrder: "asc" | "desc") => void;
+  setCreatedFrom: (date: Date | null) => void;
+  setCreatedTo: (date: Date | null) => void;
   resetFilters: () => void;
 
   // Modal state
@@ -40,11 +56,19 @@ interface GameStoreState {
 const initialFilters: GameFilters = {
   search: "",
   status: "all",
+  publishState: "all",
   ownerId: "all",
   subject: "all",
   grade: "all",
+  level: "all",
+  skills: "all",
+  themes: "all",
   includeDeleted: false,
   mine: true,
+  sortBy: "updated_at",
+  sortOrder: "desc",
+  createdFrom: null,
+  createdTo: null,
 };
 
 const initialModal: GameModalState = {
@@ -67,6 +91,11 @@ export const useGameStore = create<GameStoreState>((set) => ({
       filters: { ...state.filters, status },
     })),
 
+  setPublishState: (publishState) =>
+    set((state) => ({
+      filters: { ...state.filters, publishState },
+    })),
+
   setOwnerId: (ownerId) =>
     set((state) => ({
       filters: { ...state.filters, ownerId },
@@ -82,6 +111,21 @@ export const useGameStore = create<GameStoreState>((set) => ({
       filters: { ...state.filters, grade },
     })),
 
+  setLevel: (level) =>
+    set((state) => ({
+      filters: { ...state.filters, level },
+    })),
+
+  setSkills: (skills) =>
+    set((state) => ({
+      filters: { ...state.filters, skills },
+    })),
+
+  setThemes: (themes) =>
+    set((state) => ({
+      filters: { ...state.filters, themes },
+    })),
+
   setIncludeDeleted: (includeDeleted) =>
     set((state) => ({
       filters: { ...state.filters, includeDeleted },
@@ -90,6 +134,26 @@ export const useGameStore = create<GameStoreState>((set) => ({
   setMine: (mine) =>
     set((state) => ({
       filters: { ...state.filters, mine },
+    })),
+
+  setSortBy: (sortBy) =>
+    set((state) => ({
+      filters: { ...state.filters, sortBy },
+    })),
+
+  setSortOrder: (sortOrder) =>
+    set((state) => ({
+      filters: { ...state.filters, sortOrder },
+    })),
+
+  setCreatedFrom: (createdFrom) =>
+    set((state) => ({
+      filters: { ...state.filters, createdFrom },
+    })),
+
+  setCreatedTo: (createdTo) =>
+    set((state) => ({
+      filters: { ...state.filters, createdTo },
     })),
 
   resetFilters: () =>
@@ -170,11 +234,19 @@ export const useGameFilterActions = () =>
     useShallow((state) => ({
       setSearch: state.setSearch,
       setStatus: state.setStatus,
+      setPublishState: state.setPublishState,
       setOwnerId: state.setOwnerId,
       setSubject: state.setSubject,
       setGrade: state.setGrade,
+      setLevel: state.setLevel,
+      setSkills: state.setSkills,
+      setThemes: state.setThemes,
       setIncludeDeleted: state.setIncludeDeleted,
       setMine: state.setMine,
+      setSortBy: state.setSortBy,
+      setSortOrder: state.setSortOrder,
+      setCreatedFrom: state.setCreatedFrom,
+      setCreatedTo: state.setCreatedTo,
       resetFilters: state.resetFilters,
     })),
   );

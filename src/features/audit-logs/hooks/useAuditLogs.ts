@@ -32,6 +32,9 @@ export function useAuditLogs() {
       userId: filters.userId || undefined,
       action: filters.action || undefined,
       targetId: filters.targetId || undefined,
+      ip: filters.ip || undefined,
+      startDate: filters.startDate || undefined,
+      endDate: filters.endDate || undefined,
     }),
     queryFn: () =>
       getAuditLogs({
@@ -40,6 +43,9 @@ export function useAuditLogs() {
         userId: filters.userId || undefined,
         action: filters.action || undefined,
         targetId: filters.targetId || undefined,
+        ip: filters.ip || undefined,
+        startDate: filters.startDate || undefined,
+        endDate: filters.endDate || undefined,
       }),
     staleTime: 30 * 1000, // 30 seconds
     placeholderData: keepPreviousData,

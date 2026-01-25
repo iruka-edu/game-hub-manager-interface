@@ -3,14 +3,15 @@
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/features/auth";
+import { useSession } from "@/features/auth/hooks/useAuth";
+import { useGames } from "@/features/games/hooks/useGames";
 import {
-  useGames,
   useApproveGame,
   useRejectGame,
   usePublishGame,
-} from "@/features/games";
+} from "@/features/games/hooks";
 import { GameListItem } from "@/features/games/types";
+import { PERMISSIONS, hasPermission } from "@/lib/rbac";
 import { StatusChip } from "@/components/ui/StatusChip";
 
 interface GameApprovalItem {
@@ -24,7 +25,21 @@ interface GameApprovalItem {
 export default function ApprovalPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: sessionLoading } = useSession();
-  const { games, isLoading: gamesLoading, isError } = useGames();
+  const {
+    games,
+    isLoading: gamesLoading,
+    isError,
+  } = useGames({
+    status: "review",
+    mine: false,
+    ownerId: "all",
+  });
+  // Separate query for published count stats (optional optimization: remove if too heavy)
+  const { games: publishedGames } = useGames({
+    publishState: "published",
+    mine: false,
+    ownerId: "all",
+  });
   const approveMutation = useApproveGame();
   const rejectMutation = useRejectGame();
   const publishMutation = usePublishGame();
@@ -42,31 +57,28 @@ export default function ApprovalPage() {
         user.roles.includes("ceo") ||
         user.roles.includes("admin");
       if (!canApprove) {
-        router.push("/console");
+        // This useEffect handles redirection for non-authorized users,
+        // but the component also renders an access denied message.
+        // The access denied message is preferred for a clearer UX.
+        // router.push("/console");
       }
     }
   }, [user, isAuthenticated, sessionLoading, router]);
 
-  // Filter games that need approval (have qc_passed status)
-  // Note: Current API doesn't return version status in list, so we approximate
-  // Filter games that need approval (have qc_passed status)
-  // Note: Current API doesn't return version status in list, so we approximate
+  // Transform to GameApprovalItem
   const gamesWithOwner: GameApprovalItem[] = useMemo(() => {
-    // For now, show games without live version as pending approval
-    return games
-      .filter((g: GameListItem) => !g.live_version_id)
-      .map((game: GameListItem) => ({
-        _id: game.id,
-        gameId: game.game_id,
-        title: game.title,
-        ownerName: "Developer", // API doesn't include owner info in list
-        updatedAt: game.created_at,
-      }));
+    return games.map((game: GameListItem) => ({
+      _id: game.id,
+      gameId: game.game_id,
+      title: game.title,
+      ownerName: "Developer", // API doesn't return owner name yet
+      updatedAt: game.updated_at || game.created_at,
+    }));
   }, [games]);
 
   // Stats
-  const approvedCount = 0; // Would need version status
-  const publishedThisMonth = games.filter((g) => {
+  const approvedCount = 0; // Need separate query for 'approved' but not 'published' if needed
+  const publishedThisMonth = publishedGames.filter((g) => {
     if (!g.published_at) return false;
     const pubDate = new Date(g.published_at);
     const now = new Date();
@@ -103,8 +115,40 @@ export default function ApprovalPage() {
     }
   };
 
-  // Loading state
-  if (sessionLoading || gamesLoading) {
+  // Loading state for session
+  if (sessionLoading) {
+    return (
+      <div className="p-8">
+        <div className="animate-pulse h-8 bg-slate-200 rounded w-48 mb-8"></div>
+      </div>
+    );
+  }
+
+  const userRoles = user?.roles as any[];
+  if (
+    !isAuthenticated ||
+    !hasPermission(userRoles, PERMISSIONS.VIEW_REVIEW_QUEUE)
+  ) {
+    return (
+      <div className="p-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <h2 className="text-lg font-semibold text-red-700">
+            Không có quyền truy cập
+          </h2>
+          <p className="text-red-600 mt-2">Bạn không được quyền duyệt game.</p>
+          <Link
+            href="/console"
+            className="inline-block mt-4 text-sm text-red-600 underline"
+          >
+            Quay về Console
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state for games data
+  if (gamesLoading) {
     return (
       <div className="p-8">
         <nav className="flex items-center gap-2 text-sm mb-6">

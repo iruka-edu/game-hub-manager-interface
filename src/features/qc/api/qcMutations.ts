@@ -9,6 +9,8 @@ import type {
   QCDecisionResponse,
   QCRunPayload,
   QCRunResponse,
+  CloseIssuePayload,
+  AssignIssuePayload,
 } from "../types";
 
 /**
@@ -29,4 +31,22 @@ export async function submitTestRun(
   testRun: QCRunPayload,
 ): Promise<QCRunResponse> {
   return apiPost<QCRunResponse>("/api/v1/qc/run", testRun);
+}
+
+/**
+ * Close QC Issue
+ * POST /api/v1/qc/issues/close
+ */
+export async function closeQCIssue(payload: CloseIssuePayload): Promise<void> {
+  return apiPost<void>("/api/v1/qc/issues/close", payload);
+}
+
+/**
+ * Assign QC Issue
+ * POST /api/v1/qc/issues/assign
+ */
+export async function assignQCIssue(
+  payload: AssignIssuePayload,
+): Promise<void> {
+  return apiPost<void>("/api/v1/qc/issues/assign", payload);
 }
