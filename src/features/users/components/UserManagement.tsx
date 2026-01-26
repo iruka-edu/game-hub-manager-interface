@@ -399,13 +399,14 @@ export function UserManagement({
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Tên
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">
+                        Họ và Tên
                       </label>
                       <input
                         type="text"
                         required
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="Nguyễn Văn A"
+                        className="mt-1 block w-full border border-slate-300 rounded-xl shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition-all"
                         value={formData.full_name}
                         onChange={(e) =>
                           setFormData({
@@ -417,16 +418,19 @@ export function UserManagement({
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Email
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">
+                        Email liên kết
                       </label>
-                      <div className="mt-1 flex rounded-md shadow-sm">
+                      <div
+                        className={`mt-1 flex rounded-xl shadow-sm overflow-hidden border ${modal.mode === "edit" ? "bg-slate-50 border-slate-200" : "bg-white border-slate-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all"}`}
+                      >
                         <input
                           type="text"
                           required
+                          readOnly={modal.mode === "edit"}
                           pattern="[a-zA-Z0-9._\-]+"
                           placeholder="son.nguyen"
-                          className="block w-full border border-gray-300 rounded-l-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className={`block w-full py-2.5 px-3 text-sm focus:outline-none bg-transparent ${modal.mode === "edit" ? "text-slate-500 cursor-not-allowed" : "text-slate-900"}`}
                           value={formData.email.replace("@iruka.com", "")}
                           onChange={(e) => {
                             const username = e.target.value.replace(/@/g, "");
@@ -436,24 +440,32 @@ export function UserManagement({
                             });
                           }}
                         />
-                        <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                        <span className="inline-flex items-center px-4 border-l border-slate-200 bg-slate-50 text-slate-500 text-xs font-bold font-mono">
                           @iruka.com
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Nhập tên người dùng (vd: son.nguyen)
-                      </p>
+                      {modal.mode === "add" ? (
+                        <p className="mt-1.5 text-[10px] text-slate-500 font-medium">
+                          Nhập tên người dùng IRUKA (vd: son.nguyen). Đây sẽ là
+                          định danh đăng nhập duy nhất.
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 text-[10px] text-amber-600 font-bold uppercase tracking-tight">
+                          Email không thể thay đổi sau khi tạo tài khoản
+                        </p>
+                      )}
                     </div>
 
                     {modal.mode === "add" && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Mật khẩu
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">
+                          Mật khẩu khởi tạo
                         </label>
                         <input
                           type="password"
                           required
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          placeholder="••••••••"
+                          className="mt-1 block w-full border border-slate-300 rounded-xl shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition-all"
                           value={formData.password}
                           onChange={(e) =>
                             setFormData({

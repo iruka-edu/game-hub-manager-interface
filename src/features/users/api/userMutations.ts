@@ -3,7 +3,7 @@
  * Calling backend API at NEXT_PUBLIC_BASE_API_URL
  */
 
-import { apiPost } from "@/lib/api-fetch";
+import { apiPost, apiPut } from "@/lib/api-fetch";
 import type {
   User,
   CreateUserPayload,
@@ -22,25 +22,13 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
 
 /**
  * Update user information
- * Note: API doesn't have a dedicated update endpoint
- * This function uses status update for now - extend when API supports full user updates
+ * PUT /api/v1/users/{user_id}
  */
 export async function updateUser(
   userId: string,
   payload: UpdateUserPayload,
 ): Promise<User> {
-  // For now, we can only update status via the API
-  // If the payload includes is_active (from UpdateUserPayload), use status update
-  // TODO: Add full user update when API supports it
-  if (payload.roles) {
-    // Cannot update roles via current API - throw a meaningful error
-    throw new Error("Cập nhật vai trò người dùng chưa được API hỗ trợ");
-  }
-
-  // Fall back to updating status if no other fields
-  return apiPost<User>(`/api/v1/users/${userId}/status`, {
-    is_active: true, // Default to keeping active
-  });
+  return apiPut<User>(`/api/v1/users/${userId}`, payload);
 }
 
 /**
