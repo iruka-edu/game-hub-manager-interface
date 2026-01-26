@@ -77,8 +77,8 @@ export async function getGameById(gameId: string): Promise<GameDetailResponse> {
  */
 export async function checkDuplicateGameId(
   gameId: string,
-): Promise<{ duplicate: boolean }> {
-  return apiGet<{ duplicate: boolean }>("/api/v1/games/check-duplicate", {
+): Promise<{ exists: boolean }> {
+  return apiGet<{ exists: boolean }>("/api/v1/games/check-duplicate", {
     gameId,
   });
 }

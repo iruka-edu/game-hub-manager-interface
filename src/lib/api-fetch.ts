@@ -40,32 +40,55 @@ export class APIError extends Error {
 /**
  * Convert axios error to APIError
  */
+function pickErrorMessage(error: any, errorData: any): string {
+  const candidates = [
+    errorData?.error,
+    errorData?.message,
+    error?.message,
+  ];
+
+  for (const c of candidates) {
+    if (!c) continue;
+    if (typeof c === "string") return c;
+    try {
+      return JSON.stringify(c);
+    } catch {
+      return String(c);
+    }
+  }
+
+  // fallback cuối
+  try {
+    return JSON.stringify(errorData);
+  } catch {
+    return "Đã xảy ra lỗi từ server";
+  }
+}
+
 function handleAxiosError(error: any): never {
   if (error.response) {
-    // Server responded with error status
     const errorData = error.response.data || {};
     throw new APIError(
-      errorData.error || error.message || "Đã xảy ra lỗi từ server",
+      pickErrorMessage(error, errorData),
       error.response.status,
       errorData.code,
       errorData.details,
     );
   } else if (error.request) {
-    // Network error
     throw new APIError(
       "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.",
       0,
       "NETWORK_ERROR",
     );
   } else {
-    // Other error
     throw new APIError(
-      error.message || "Đã xảy ra lỗi không xác định",
+      typeof error?.message === "string" ? error.message : "Đã xảy ra lỗi không xác định",
       0,
       "UNKNOWN_ERROR",
     );
   }
 }
+
 
 /**
  * GET request helper with error handling

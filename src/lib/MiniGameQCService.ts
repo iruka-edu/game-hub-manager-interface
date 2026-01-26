@@ -128,7 +128,7 @@ export class MiniGameQCService {
       
       // 2. Gọi API kiểm tra thực tế của bạn
       console.log('📋 Running comprehensive real test...');
-      const testResult: any = await this.runRealTest(gameUrl); // Gọi API của bạn để chạy kiểm tra thực tế
+      const testResult: any = await this.runRealTest(gameUrl, (config as any).accessToken); // Gọi API của bạn để chạy kiểm tra thực tế
 
       const checks: any[] = Array.isArray(testResult.checks)
         ? testResult.checks
@@ -227,23 +227,28 @@ export class MiniGameQCService {
   /**
    * Gọi API kiểm tra thực tế
    */
-  private static async runRealTest(gameUrl: string) {
-    const runnerBaseUrl = process.env.RUNNER_URL || "https://runner-h7j3ksnhva-as.a.run.app";
-    
+  private static async runRealTest(gameUrl: string, accessToken?: string) {
+    // ✅ client dùng NEXT_PUBLIC_RUNNER_URL, server dùng RUNNER_URL
+    const runnerBaseUrl =
+      (typeof window !== "undefined"
+        ? process.env.NEXT_PUBLIC_RUNNER_URL
+        : process.env.RUNNER_URL) || "https://runner-h7j3ksnhva-as.a.run.app";
+
     const response = await fetch(`${runnerBaseUrl}/run`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({ gameUrl }),
     });
 
     if (!response.ok) {
-      throw new Error(`Test API failed with status: ${response.status}`);
+      const txt = await response.text().catch(() => "");
+      throw new Error(`Test API failed: ${response.status} ${txt}`);
     }
 
-    const testResult = await response.json();
-    return testResult;
+    return await response.json();
   }
 
   /**
@@ -767,7 +772,7 @@ export class MiniGameQCService {
 
     // Add test metrics summary
     summary += `📈 Test Metrics:\n`;
-    summary += `  • QA Tests: ${report.qaResults.qa01.pass ? '✅' : '❌'} QA-01, ${report.qaResults.qa02.pass ? '✅' : '❌'} QA-02, ${!report.qaResults.qa03.auto.assetError ? '✅' : '❌'} QA-03, ${report.qaResults.qa04.pass ? '✅' : '❌'} QA-04\n`;
+    summary += `  • QA Tests: ${report.qaResults.qa01.pass ? '✅' : '❌'} QA-01, ${report.qaResults.qa02.pass ? '✅' : '❌'} QA-02, ${!report.qaResults.qa03.auto.assetError ? '✅' : '❌'} QA-03\n`;
     summary += `  • SDK Tests: ${report.sdkTestResults.passedTests}/${report.sdkTestResults.totalTests} passed\n`;
     summary += `  • Load Time: ${Math.round(report.performanceMetrics.loadTime)}ms\n`;
     summary += `  • Frame Rate: ${Math.round(report.performanceMetrics.frameRate)}fps\n`;

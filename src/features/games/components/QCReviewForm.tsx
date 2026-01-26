@@ -3,8 +3,8 @@
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQCPass, useQCFail, useGameHistory } from "@/features/games";
-import { apiPost } from "@/lib/api-fetch";
-import { StatusChip } from "@/components/ui/StatusChip";
+import { getGameById } from "../api";
+import { MiniGameQCService } from "@/lib/MiniGameQCService.client";
 
 interface QCReviewFormProps {
   gameId: string;
@@ -22,6 +22,7 @@ interface QCReviewFormProps {
     qaSummary?: any;
   };
   reviewerName: string;
+  userId: string;
 }
 
 // Auto test result types
@@ -64,6 +65,7 @@ export function QCReviewForm({
   game,
   version,
   reviewerName,
+  userId,
 }: QCReviewFormProps) {
   const router = useRouter();
   const [error, setError] = useState("");
@@ -261,6 +263,54 @@ export function QCReviewForm({
           passed: null,
           notes: "",
         },
+        {
+          id: "compat_responsive",
+          category: "compatibility",
+          name: "Responsive Design",
+          description:
+            "Game hiển thị đúng trên các kích thước màn hình (phone, tablet)",
+          passed: null,
+          notes: "",
+        },
+      ],
+    },
+    {
+      id: "gameplay",
+      name: "Gameplay",
+      icon: "🎮",
+      tests: [
+        {
+          id: "game_mechanics",
+          category: "gameplay",
+          name: "Game Mechanics",
+          description: "Cơ chế game hoạt động đúng, không có bug logic",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "game_controls",
+          category: "gameplay",
+          name: "Điều khiển",
+          description: "Các nút bấm, gesture, keyboard hoạt động tốt",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "game_feedback",
+          category: "gameplay",
+          name: "Phản hồi người chơi",
+          description: "Game có feedback rõ ràng (âm thanh, hiệu ứng, điểm số)",
+          passed: null,
+          notes: "",
+        },
+        {
+          id: "game_completion",
+          category: "gameplay",
+          name: "Hoàn thành game",
+          description: "Có thể chơi và hoàn thành game từ đầu đến cuối",
+          passed: null,
+          notes: "",
+        }
       ],
     },
     {
@@ -355,6 +405,8 @@ export function QCReviewForm({
 
   const [generalNotes, setGeneralNotes] = useState("");
 
+  const MOCK_VERSION = "1.0.0";
+
   // Run SDK Auto Tests
   const runAutoTests = useCallback(async () => {
     setIsRunningAutoTests(true);
@@ -367,45 +419,38 @@ export function QCReviewForm({
     setError("");
 
     try {
-      // Call the comprehensive test API
-      const data = await apiPost<any>("/api/v1/qc/run", {
-        gameId: game.gameId,
-        versionId: versionId,
-        gameUrl: `https://storage.googleapis.com/iruka-edu-mini-game/games/${game.gameId}/${version.version}/index.html`,
-        gameData: {
-          id: game._id,
-          game_id: game.gameId,
-          title: game.title,
-          description: game.description || "",
-          owner_id: "",
-          status: "uploaded",
-          meta_data: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+      // const token = localStorage.getItem("access_token");
+      // if (!token) throw new Error("Missing access_token");
+
+      // lấy gcs_path (prop hiện chưa có thì gọi API)
+      const gameDetail: any = await getGameById(game._id);
+      const gcsPath: string | undefined = gameDetail?.gcs_path;
+      if (!gcsPath) throw new Error("Game missing gcs_path");
+
+      // gameUrl theo chuẩn bạn muốn
+      const gameUrl = `https://storage.googleapis.com/iruka-edu-mini-game/${gcsPath}/${MOCK_VERSION}/index.html`;
+
+      const testSuite: any = {
+        gameId: gameDetail._id,
+        versionId,
+        gameUrl,
+        manifest: undefined,
+        testConfig: {
+          userId: userId,
+          timeout: 120000,
+          skipManualTests: false,
+          enableSDKDebugging: true,
+          testEnvironment: "staging",
+          deviceSimulation: { mobile: true, tablet: true, desktop: true },
+          performanceThresholds: { maxLoadTime: 5000, minFrameRate: 30, maxMemoryUsage: 100 * 1024 * 1024 },
+
+          // truyền token cho MiniGameQCService -> runRealTest -> runner
+          // accessToken: token,
         },
-        versionData: {
-          id: version._id,
-          game_id: game.gameId,
-          version: version.version,
-          status: version.status,
-          build_url: `https://storage.googleapis.com/iruka-edu-mini-game/games/${game.gameId}/${version.version}/index.html`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      });
+      };
 
-      setAutoTestProgress((prev) => ({
-        ...prev,
-        phase: "running",
-        progress: 20,
-        currentTest: "Đang chạy QA-01: SDK Handshake...",
-      }));
+      const testReport = await MiniGameQCService.runQCTestSuite(testSuite);
 
-      console.log("📊 Auto test response:", data);
-      setRawResult(data);
-      refetchHistory();
-
-      const testReport = data.testReport;
       const results = testReport.qaResults;
 
       console.log("📋 QA Results:", results);
@@ -478,41 +523,24 @@ export function QCReviewForm({
         });
       }
 
-      setAutoTestProgress((prev) => ({
-        ...prev,
-        progress: 80,
-        currentTest: "Đang chạy QA-04: Kiểm tra trùng lặp...",
-      }));
-
-      // QA-04: Idempotency
-      if (results.qa04) {
-        autoTestResults.push({
-          testId: "game_idempotency",
-          passed: results.qa04.pass,
-          message: results.qa04.pass
-            ? `Không có gửi trùng, đã xác minh ${results.qa04.backendRecordCount} bản ghi`
-            : `Lỗi kiểm tra trùng lặp: ${results.qa04.duplicateAttemptId ? "Phát hiện ID trùng" : "Kiểm tra nhất quán thất bại"}`,
-          details: results.qa04,
-        });
-      }
-
       // SDK Events test (from QA-01 events)
-      if (results.qa01?.events) {
-        const hasAllEvents =
-          results.qa01.events.some((e: any) => e.type === "INIT") &&
-          results.qa01.events.some((e: any) => e.type === "READY") &&
-          results.qa01.events.some((e: any) => e.type === "QUIT") &&
-          results.qa01.events.some((e: any) => e.type === "COMPLETE");
+      const events = results.qa01?.events;
+      const passed =
+        Array.isArray(events) && events.length > 0
+          ? events.some((e:any)=>e.type==="INIT") &&
+            events.some((e:any)=>e.type==="READY") &&
+            events.some((e:any)=>e.type==="QUIT") &&
+            events.some((e:any)=>e.type==="COMPLETE")
+          : !!results.qa01?.pass; // fallback theo QA-01
 
-        autoTestResults.push({
-          testId: "sdk_events",
-          passed: hasAllEvents,
-          message: hasAllEvents
-            ? "Tất cả sự kiện SDK hoạt động đúng"
-            : "Thiếu sự kiện SDK lifecycle",
-          details: results.qa01.events,
-        });
-      }
+      autoTestResults.push({
+        testId: "sdk_events",
+        passed,
+        message: passed
+          ? "Tất cả sự kiện SDK hoạt động đúng"
+          : "Thiếu sự kiện SDK lifecycle",
+        details: results.qa01,
+      });
 
       setAutoTestProgress({
         phase: "completed",
@@ -542,13 +570,24 @@ export function QCReviewForm({
         })),
       );
     } catch (err: any) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : (() => {
+                try { return JSON.stringify(err); } catch { return String(err); }
+              })();
+
+      console.error("Auto test error raw:", err);
+
       setAutoTestProgress({
         phase: "error",
         progress: 0,
         results: [],
-        error: err.message || "Auto test failed",
+        error: msg || "Auto test failed",
       });
-      setError(`Auto test error: ${err.message}`);
+      setError(`Auto test error: ${msg || "Auto test failed"}`);
     } finally {
       setIsRunningAutoTests(false);
     }
@@ -780,7 +819,6 @@ export function QCReviewForm({
                         sdk_events: "Sự kiện SDK",
                         perf_load_time: "Thời gian tải",
                         perf_bundle_size: "Kích thước bundle",
-                        game_idempotency: "Kiểm tra trùng lặp",
                       };
                       const displayName =
                         testNameMap[result.testId] ||

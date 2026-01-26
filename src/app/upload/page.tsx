@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/features/auth";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { CloseButton } from "@/components/ui/CloseButton";
@@ -10,8 +10,10 @@ import { UploadMetaForm } from "@/features/games/components/UploadMetaForm";
 import { MetadataSummary } from "@/features/games/components/MetadataSummary";
 
 function UploadPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading } = useSession();
+  const isEdit = searchParams.get("edit") === "1";
 
   // Parse metadata from URL params
   const skills = searchParams.getAll("skill");
@@ -28,6 +30,7 @@ function UploadPageContent() {
     skills,
     themes,
     github: searchParams.get("github") || "",
+    title: searchParams.get("title") || "",
   };
 
   // Check if metadata is ready for upload - require essential fields including difficulty and lessonNo
@@ -52,6 +55,7 @@ function UploadPageContent() {
     themes: meta.themes,
     linkGithub: meta.github,
     quyenSach: meta.quyenSach,
+    title: meta.title,
   };
 
   const breadcrumbItems = [
@@ -82,6 +86,33 @@ function UploadPageContent() {
   const userRoles = user.roles as string[];
   const canUpload = userRoles.includes("dev") || userRoles.includes("admin");
 
+  const handleMetaNext = (payload: any) => {
+    const sp = new URLSearchParams(searchParams.toString());
+
+    // set lại toàn bộ field theo payload
+    sp.set("lop", payload.lop);
+    sp.set("mon", payload.mon);
+    sp.set("quyenSach", payload.quyenSach);
+    sp.set("lessonNo", payload.lessonNo);
+    sp.set("level", payload.level);
+    sp.set("game", payload.game);
+    sp.set("gameId", payload.gameId);
+    sp.set("github", payload.github);
+    sp.set("title", payload.title || "");
+
+    // multi
+    sp.delete("skill");
+    (payload.skills || []).forEach((s: string) => sp.append("skill", s));
+
+    sp.delete("theme");
+    (payload.themes || []).forEach((t: string) => sp.append("theme", t));
+
+    // ✅ quan trọng: bỏ edit
+    sp.delete("edit");
+
+    router.replace(`/upload?${sp.toString()}`);
+  };
+
   if (!canUpload) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -106,13 +137,13 @@ function UploadPageContent() {
           <CloseButton href="/console" title="Đóng" />
         </header>
 
-        {metaReady ? (
+        {metaReady && !isEdit ? (
           <>
             <MetadataSummary meta={meta} />
             <GameUploadForm meta={gameMeta} />
           </>
         ) : (
-          <UploadMetaForm values={meta} />
+          <UploadMetaForm values={meta} onNext={handleMetaNext}/>
         )}
       </div>
     </div>

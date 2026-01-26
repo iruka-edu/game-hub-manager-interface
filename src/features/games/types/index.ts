@@ -254,6 +254,9 @@ export interface CreateGamePayload {
   gcsPath?: string | null;
   gameType?: string | null;
   priority?: string | null;
+  subject?: string;
+  ageBand?: string;
+  track?: string;
   lessonIds?: string[];
   skillIds?: string[];
   themeIds?: string[];
