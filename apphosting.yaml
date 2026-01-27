@@ -10,11 +10,11 @@ env:
   - variable: GAME_HUB_MANAGER_GCLOUD_BUCKET_NAME
     value: iruka-edu-mini-game
   - variable: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL
-    secret: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL@latest
+    secret: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL
   - variable: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY
-    secret: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY@latest
+    secret: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY
   - variable: GAME_HUB_MANAGER_GITHUB_TOKEN
-    secret: GAME_HUB_MANAGER_GITHUB_TOKEN@latest
+    secret: GAME_HUB_MANAGER_GITHUB_TOKEN
   - variable: NEXT_PUBLIC_BASE_API_URL
     value: https://iruka-gamehub-api-1037337851453.asia-southeast1.run.app
   - variable: NEXT_PUBLIC_GAME_LESSON_API_URL
