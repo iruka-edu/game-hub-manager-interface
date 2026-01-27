@@ -83,12 +83,13 @@ export async function checkDuplicateGameId(
   });
 }
 /**
- * Fetch QC Test History
- * GET /api/v1/qc/history
+ * Fetch QC Test History / Issues
+ * GET /api/v1/qc/issues/{version_id}
  */
 export async function getQCReports(
   gameId: string,
   versionId?: string,
 ): Promise<any[]> {
-  return apiGet<any[]>("/api/v1/qc/history", { gameId, versionId });
+  if (!versionId) return [];
+  return apiGet<any[]>(`/api/v1/qc/issues/${versionId}`);
 }

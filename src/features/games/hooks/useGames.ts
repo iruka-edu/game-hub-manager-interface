@@ -22,8 +22,8 @@ export const gamesKeys = {
   detail: (id: string) => [...gamesKeys.details(), id] as const,
   versions: (gameId: string) =>
     [...gamesKeys.detail(gameId), "versions"] as const,
-  history: (gameId: string) =>
-    [...gamesKeys.detail(gameId), "history"] as const,
+  history: (gameId: string, versionId?: string) =>
+    [...gamesKeys.detail(gameId), "history", versionId] as const,
 };
 
 /**
@@ -79,16 +79,16 @@ export function useGameDetail(gameId: string) {
   });
 }
 /**
- * Hook to fetch game QC history
+ * Hook to fetch game QC history / issues
  */
 export function useGameHistory(gameId: string, versionId?: string) {
   return useQuery({
-    queryKey: gamesKeys.history(gameId),
+    queryKey: gamesKeys.history(gameId, versionId),
     queryFn: async () => {
       const { getQCReports } = await import("../api/getGames");
       return getQCReports(gameId, versionId);
     },
-    enabled: !!gameId,
+    enabled: !!gameId && !!versionId,
     staleTime: 60 * 1000,
   });
 }

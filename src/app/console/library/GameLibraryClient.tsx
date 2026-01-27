@@ -466,7 +466,7 @@ export function GameLibraryClient({
                 >
                   <option value="all">Tất cả môn học</option>
                   {Object.entries(SUBJECT_MAP).map(([key, label]) => (
-                    <option key={key} value={label}>
+                    <option key={key} value={key}>
                       {label}
                     </option>
                   ))}
@@ -532,11 +532,13 @@ export function GameLibraryClient({
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
                 >
                   <option value="all">Tất cả kỹ năng</option>
-                  {Object.entries(SKILL_MAP).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(SKILL_MAP)
+                    .filter(([key]) => /^\d+$/.test(key))
+                    .map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -561,11 +563,13 @@ export function GameLibraryClient({
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white"
                 >
                   <option value="all">Tất cả chủ đề</option>
-                  {Object.entries(THEME_MAP).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(THEME_MAP)
+                    .filter(([key]) => /^\d+$/.test(key))
+                    .map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -760,6 +764,7 @@ export function GameLibraryClient({
                         width={308}
                         height={173}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        unoptimized
                         onError={(e) => {
                           // Fallback to placeholder if image load fails
                           e.currentTarget.style.display = "none";

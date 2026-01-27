@@ -5,17 +5,21 @@ run:
   maxInstances: 10
 
 env:
-  - variable: GCLOUD_PROJECT_ID
+  - variable: GAME_HUB_MANAGER_GCLOUD_PROJECT_ID
     value: noted-aloe-474810-u1
-  - variable: GCLOUD_BUCKET_NAME
+  - variable: GAME_HUB_MANAGER_GCLOUD_BUCKET_NAME
     value: iruka-edu-mini-game
-  - variable: GCLOUD_CLIENT_EMAIL
-    secret: MANAGER_GCLOUD_CLIENT_EMAIL@latest
-  - variable: GCLOUD_PRIVATE_KEY
-    secret: MANAGER_GCLOUD_PRIVATE_KEY@latest
-  - variable: GITHUB_TOKEN
-    secret: SHARED_GITHUB_TOKEN@latest
+  - variable: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL
+    secret: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL@latest
+  - variable: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY
+    secret: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY@latest
+  - variable: GAME_HUB_MANAGER_GITHUB_TOKEN
+    secret: GAME_HUB_MANAGER_GITHUB_TOKEN@latest
   - variable: NEXT_PUBLIC_BASE_API_URL
     value: https://iruka-gamehub-api-1037337851453.asia-southeast1.run.app
   - variable: NEXT_PUBLIC_GAME_LESSON_API_URL
     value: https://iruka-api-1037337851453.asia-southeast1.run.app
+  - variable: MANAGER_GCLOUD_CLIENT_EMAIL
+    secret: MANAGER_GCLOUD_CLIENT_EMAIL
+  - variable: SHARED_GITHUB_TOKEN
+    secret: SHARED_GITHUB_TOKEN

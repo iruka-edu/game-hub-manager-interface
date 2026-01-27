@@ -13,6 +13,21 @@ import { SelfQAChecklist } from "@/features/games/components/SelfQAChecklist";
 import { GameActions } from "@/features/games/components/GameActions";
 import { WorkflowTimeline } from "@/features/games/components/WorkflowTimeline";
 
+const extractName = (data: any): string => {
+  if (!data) return "";
+  if (typeof data === "string") return data;
+  if (typeof data === "object") {
+    return data.name || data.title || data.label || data.id || "";
+  }
+  return String(data);
+};
+
+const extractArrayNames = (data: any): string[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data.map(extractName);
+  return [extractName(data)];
+};
+
 function GameDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -171,20 +186,22 @@ function GameDetailContent() {
     gameId: game.game_id,
     title: game.title || "",
     description: game.description || "",
-    subject: game.meta_data?.subject || "",
-    grade: game.meta_data?.grade || "",
-    unit: game.meta_data?.unit || "",
-    gameType: game.meta_data?.gameType || "",
+    subject: extractName(game.meta_data?.subject),
+    grade: extractName(
+      game.meta_data?.grade || (game.meta_data as any)?.ageBand,
+    ),
+    unit: extractName(game.meta_data?.unit),
+    gameType: extractName(game.meta_data?.gameType),
     teamId: game.team_id || "",
     thumbnailDesktop:
       game.meta_data?.thumbnail || (game as any).thumbnailDesktop || "",
     thumbnailMobile: (game as any).thumbnailMobile || "",
     priority: game.meta_data?.priority || "",
     tags: game.meta_data?.tags || [],
-    lesson: game.meta_data?.lesson || [],
-    level: game.meta_data?.level || "",
-    skills: game.meta_data?.skills || [],
-    themes: game.meta_data?.themes || [],
+    lesson: extractArrayNames(game.meta_data?.lesson),
+    level: extractName(game.meta_data?.level),
+    skills: extractArrayNames(game.meta_data?.skills),
+    themes: extractArrayNames(game.meta_data?.themes),
     linkGithub: game.github_link || "",
     quyenSach: game.meta_data?.quyenSach || "",
     metadata: game.meta_data as any,
@@ -283,12 +300,15 @@ function GameDetailContent() {
             },
             {
               label: "Môn học",
-              value: game.meta_data?.subject || "N/A",
+              value: extractName(game.meta_data?.subject) || "N/A",
               color: "bg-indigo-50 text-indigo-700",
             },
             {
               label: "Khối lớp",
-              value: game.meta_data?.grade || "N/A",
+              value:
+                extractName(
+                  game.meta_data?.grade || (game.meta_data as any)?.ageBand,
+                ) || "N/A",
               color: "bg-sky-50 text-sky-700",
             },
             {

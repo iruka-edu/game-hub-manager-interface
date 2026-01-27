@@ -74,8 +74,15 @@ function QCReviewContent() {
 
   // Mock version data (placeholder until API supports version details)
   const versionData = {
-    _id: versionId || game.last_version_id || "v-latest",
-    version: "1.0.0",
+    // If URL has no versionId or invalid versionId, try to use game's last_version_id
+    // But be careful: defaults to "v-latest" causes issues if backend demands UUID.
+    // If we have game.last_version_id, use it. If not, we might be in trouble or need to handle "no version".
+    // For now, let's prefer game.last_version_id if available.
+    _id:
+      versionId && versionId !== "v-latest"
+        ? versionId
+        : game.last_version_id || (game as any).version?.id || "",
+    version: (game as any).version?.version || "1.0.0",
     status: "uploaded" as any, // Assumption so review is allowed
     buildSize: 0,
     selfQAChecklist: null,
@@ -134,14 +141,26 @@ function QCReviewContent() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <QCReviewForm
-            gameId={game.id}
-            versionId={versionData._id}
-            game={gameData}
-            version={versionData}
-            reviewerName={user.full_name || user.email || "QC"}
-            userId={user.id}
-          />
+          {versionData._id ? (
+            <QCReviewForm
+              gameId={game.id}
+              versionId={versionData._id}
+              game={gameData}
+              version={versionData}
+              reviewerName={user.full_name || user.email || "QC"}
+              userId={user.id}
+            />
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+              <h3 className="text-yellow-800 font-semibold">
+                Không tìm thấy phiên bản để review
+              </h3>
+              <p className="text-yellow-700 mt-2">
+                Game chưa có phiên bản nào được upload hoặc đang ở trạng thái
+                nháp.
+              </p>
+            </div>
+          )}
         </div>
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 p-6">
