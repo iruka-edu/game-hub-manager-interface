@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { 
   useSubjects, 
   useLevels, 
@@ -19,15 +21,40 @@ interface MetadataSummaryProps {
     skills: string[];
     themes: string[];
     github: string;
+    title?: string;
   };
 }
 
 export function MetadataSummary({ meta }: MetadataSummaryProps) {
+  const router = useRouter();
+
   // Fetch data from game-lessons API
   const { data: subjects } = useSubjects();
   const { data: levels } = useLevels();
   const { data: skills } = useSkills();
   const { data: themes } = useThemes();
+
+  const editHref = useMemo(() => {
+    const params = new URLSearchParams();
+
+    if (meta.lop) params.set("lop", meta.lop);
+    if (meta.mon) params.set("mon", meta.mon);
+    if (meta.quyenSach) params.set("quyenSach", meta.quyenSach);
+    if (meta.lessonNo) params.set("lessonNo", meta.lessonNo);
+    if (meta.level) params.set("level", meta.level);
+    if (meta.game) params.set("game", meta.game);
+    if (meta.gameId) params.set("gameId", meta.gameId);
+    if (meta.github) params.set("github", meta.github);
+    if (meta.title) params.set("title", meta.title);
+
+    (meta.skills ?? []).forEach((id) => params.append("skill", id));
+    (meta.themes ?? []).forEach((id) => params.append("theme", id));
+
+    // 👉 quan trọng: thêm edit=1 để page biết cần quay lại form
+    params.set("edit", "1");
+
+    return `/upload?${params.toString()}`;
+  }, [meta]);
 
   // Helper functions to get names from API data
   const getSubjectName = (subjectId: string) => {
@@ -112,15 +139,16 @@ export function MetadataSummary({ meta }: MetadataSummaryProps) {
           )}
         </div>
 
-        <a
-          href="/upload"
+        <button
+          type="button"
+          onClick={() => router.push(editHref)}
           className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 bg-white rounded-lg border border-slate-300 hover:border-slate-400 transition-all shadow-sm hover:shadow"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
           Sửa
-        </a>
+        </button>
       </div>
     </div>
   );

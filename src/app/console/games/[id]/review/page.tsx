@@ -140,6 +140,7 @@ function QCReviewContent() {
             game={gameData}
             version={versionData}
             reviewerName={user.full_name || user.email || "QC"}
+            userId={user.id}
           />
         </div>
         <div className="space-y-6">

@@ -15,6 +15,7 @@ import {
   useSkills, 
   useThemes 
 } from "@/features/game-lessons/hooks/useGameLessons";
+import { checkDuplicateGameId as apiCheckDuplicateGameId } from "@/features/games/api";
 
 interface GameMeta {
   grade: string;
@@ -27,6 +28,7 @@ interface GameMeta {
   themes: string[];
   linkGithub: string;
   quyenSach: string;
+  title: string;
 }
 
 interface GameUploadFormProps {
@@ -138,7 +140,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
   // Game ID edit mode
   const [isEditingGameId, setIsEditingGameId] = useState(false);
-  const [editedGameId, setEditedGameId] = useState(meta.backendGameId || "");
+  const [editedGameId, setEditedGameId] = useState(meta.gameId || manifest.gameId || "");
   const [gameIdError, setGameIdError] = useState("");
 
   // Auto-detect SDK and check for duplicates
@@ -185,34 +187,28 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
   // Check for duplicate gameId
   const checkDuplicateGameId = async (gameId: string) => {
-    if (!gameId || gameId.length < 3) return;
+    const id = gameId.trim();
+    if (!id || id.length < 3) return;
 
-    setDuplicateCheck({
-      checking: true,
-      exists: false,
-      message: "Đang kiểm tra...",
-    });
+    setDuplicateCheck({ checking: true, exists: false, message: "Đang kiểm tra..." });
 
     try {
-      const response = await fetch(
-        `/api/games/check-duplicate?gameId=${encodeURIComponent(gameId)}`,
-      );
-      const data = await response.json();
+      const res = await apiCheckDuplicateGameId(id); // { duplicate: boolean }
 
-      if (data.exists) {
+      if (res.exists) {
         setDuplicateCheck({
           checking: false,
           exists: true,
-          message: `Game ID "${gameId}" đã tồn tại. Bạn có thể upload version mới hoặc chọn ID khác.`,
+          message: `Game ID "${id}" đã tồn tại. Bạn có thể upload version mới hoặc chọn ID khác.`,
         });
       } else {
         setDuplicateCheck({
           checking: false,
           exists: false,
-          message: `Game ID "${gameId}" có thể sử dụng.`,
+          message: `Game ID "${id}" có thể sử dụng.`,
         });
       }
-    } catch (error) {
+    } catch {
       setDuplicateCheck({
         checking: false,
         exists: false,
@@ -220,6 +216,20 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
       });
     }
   };
+
+  useEffect(() => {
+    const id = manifest.gameId?.trim();
+    if (!id || id.length < 3) {
+      setDuplicateCheck({ checking: false, exists: false, message: "" });
+      return;
+    }
+
+    const t = setTimeout(() => {
+      checkDuplicateGameId(id);
+    }, 400);
+
+    return () => clearTimeout(t);
+  }, [manifest.gameId]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 B";
@@ -310,6 +320,23 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
   };
 
   const handlePublish = async () => {
+    const id = manifest.gameId?.trim();
+    if (!id || id.length < 3) {
+      setError("Game ID không hợp lệ");
+      return;
+    }
+
+    if (duplicateCheck.checking) {
+      setError("Đang kiểm tra Game ID, vui lòng thử lại sau vài giây");
+      return;
+    }
+
+    if (duplicateCheck.exists) {
+      setError(`Game ID "${id}" đã tồn tại. Vui lòng chọn ID khác hoặc upload version mới.`);
+      setIsEditingGameId(true);
+      return;
+    }
+
     if (!uploadedFile) {
       setError("Vui lòng chọn file ZIP game");
       return;
@@ -326,12 +353,15 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
       const createPayload = {
         id: meta.backendGameId,
-        title: manifest.gameId,
+        title: meta.title,
         gameId: manifest.gameId,
         description: `Game được tải lên từ ${meta.linkGithub}`,
         githubLink: meta.linkGithub,
         gameType: "html5",
         priority: "medium",
+        subject: meta.subject,
+        ageBand: meta.grade,
+        track: meta.quyenSach,
         lessonIds: [meta.lessonNo],
         skillIds: meta.skills,
         themeIds: meta.themes,
@@ -403,28 +433,22 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
 
       // Success - redirect to game detail
       setTimeout(() => {
-        router.push(`/console/games/${createData.game?.id}`);
+        router.push(`/console/games/${createData.game?.id}?autotest=1`);
       }, 500);
     } catch (err: any) {
       // Handle duplicate game ID error
-      if (
-        err.message?.includes("already exists") ||
-        err.message?.includes("đã tồn tại")
-      ) {
-        setGameIdError(
-          `Game ID "${manifest.gameId}" đã tồn tại. Vui lòng chọn ID khác hoặc thêm version mới.`,
-        );
-        setIsEditingGameId(true);
-      } else {
-        setError(err.message || "Có lỗi xảy ra");
-      }
+      setError(err.message || "Có lỗi xảy ra");
       setUploadStep("");
     } finally {
       setUploading(false);
     }
   };
 
-  const canSubmit = uploadedFile && manifest.version;
+  const canSubmit =
+  !!uploadedFile &&
+  !!manifest.version &&
+  !duplicateCheck.checking &&
+  !duplicateCheck.exists;
 
   return (
     <div className="space-y-6">
@@ -913,6 +937,7 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                           return;
                         }
                         setManifest({ ...manifest, gameId: editedGameId });
+                        checkDuplicateGameId(editedGameId.trim());
                         setGameIdError("");
                         setIsEditingGameId(false);
                       }}
@@ -1019,6 +1044,19 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
               <code className="px-2 py-0.5 bg-slate-100 rounded text-slate-900 font-mono text-xs">
                 {manifest.gameId}
               </code>
+              {(duplicateCheck.checking || duplicateCheck.message) && (
+                <div
+                  className={`mt-2 text-xs font-medium ${
+                    duplicateCheck.checking
+                      ? "text-slate-500"
+                      : duplicateCheck.exists
+                        ? "text-red-600"
+                        : "text-green-600"
+                  }`}
+                >
+                  {duplicateCheck.message}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-slate-500">Lớp:</span>
@@ -1038,10 +1076,10 @@ export function GameUploadForm({ meta }: GameUploadFormProps) {
                     : "🔥 Thử thách")}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <span className="text-slate-500">Tuổi:</span>
               <span className="font-medium text-slate-900">{manifest.targetAge}</span>
-            </div>
+            </div> */}
             {meta.skills.length > 0 && (
               <div className="col-span-2 flex items-start gap-2">
                 <span className="text-slate-500 shrink-0">Kỹ năng:</span>

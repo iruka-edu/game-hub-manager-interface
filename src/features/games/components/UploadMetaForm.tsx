@@ -48,6 +48,7 @@ interface UploadMetaFormProps {
     skills: string[];
     themes: string[];
     github: string;
+    title: string;
   };
   onNext?: (payload: UploadMetaFormProps["values"]) => void;
 }
@@ -402,6 +403,7 @@ export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
   const [quyenSach, setQuyenSach] = useState(values.quyenSach ?? "");
   const [lessonNo, setLessonNo] = useState(values.lessonNo ?? "");
   const [game, setGame] = useState(values.game ?? "");
+
   const [gameId, setGameId] = useState(values.gameId ?? "");
   const [level, setLevel] = useState(values.level ?? "");
   const [skill, setSkill] = useState<string[]>(Array.isArray(values.skills) ? values.skills : []);
@@ -413,6 +415,43 @@ export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
   const [lessons, setLessons] = useState<Option[]>([]);
   const [games, setGames] = useState<Option[]>([]);
   const [skills, setSkills] = useState<Option[]>([]);
+
+  const hydratingRef = useRef(true);
+
+  useEffect(() => {
+    hydratingRef.current = true;
+
+    setLop(values.lop ?? "");
+    setMon(values.mon ?? "");
+    setQuyenSach(values.quyenSach ?? "");
+    setLessonNo(values.lessonNo ?? "");
+    setGame(values.game ?? "");
+
+    setGameId(values.gameId ?? "");
+    setLevel(values.level ?? "");
+    setSkill(Array.isArray(values.skills) ? values.skills : []);
+    setTheme(Array.isArray(values.themes) ? values.themes : []);
+    setGithub(values.github ?? "");
+
+    const t = setTimeout(() => (hydratingRef.current = false), 0);
+    return () => clearTimeout(t);
+  }, [
+    values.lop,
+    values.mon,
+    values.quyenSach,
+    values.lessonNo,
+    values.game,
+    values.gameId,
+    values.level,
+    values.github,
+    JSON.stringify(values.skills ?? []),
+    JSON.stringify(values.themes ?? []),
+  ]);
+
+  const title = useMemo(() => {
+    const opt = games.find((o) => o.value === game);
+    return opt?.label ?? "";
+  }, [games, game]);
 
   // loading per dependent
   const [loading, setLoading] = useState({
@@ -488,13 +527,15 @@ export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
 
   // ---- chain loaders using existing API functions ----
   useEffect(() => {
-    // reset downstream
-    setQuyenSach("");
-    setLessonNo("");
-    setGame("");
-    setTracks([]);
-    setLessons([]);
-    setGames([]);
+    // reset downstream CHỈ khi user đổi tay
+    if (!hydratingRef.current) {
+      setQuyenSach("");
+      setLessonNo("");
+      setGame("");
+      setTracks([]);
+      setLessons([]);
+      setGames([]);
+    }
 
     if (!lop || !mon) return;
 
@@ -526,10 +567,13 @@ export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
   }, [lop, mon]);
 
   useEffect(() => {
-    setLessonNo("");
-    setGame("");
-    setLessons([]);
-    setGames([]);
+    // reset downstream CHỈ khi user đổi tay
+    if (!hydratingRef.current) {
+      setLessonNo("");
+      setGame("");
+      setLessons([]);
+      setGames([]);
+    }
 
     if (!quyenSach) return;
 
@@ -545,8 +589,10 @@ export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
   }, [quyenSach]);
 
   useEffect(() => {
-    setGame("");
-    setGames([]);
+    if (!hydratingRef.current) {
+      setGame("");
+      setGames([]);
+    }
 
     if (!lessonNo) return;
 
@@ -631,6 +677,7 @@ export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
         skills: skill,
         themes: theme,
         github,
+        title,
       } as any);
     };
 
@@ -649,6 +696,7 @@ export function UploadMetaForm({ values , onNext }: UploadMetaFormProps) {
           </p>
         </div>
       </div>
+      <input type="hidden" name="title" value={title} />
 
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
         {fields.map((f) => {
