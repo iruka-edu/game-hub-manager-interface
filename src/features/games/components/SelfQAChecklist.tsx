@@ -66,8 +66,6 @@ export function SelfQAChecklist({
   };
 
   const handleSave = () => {
-    if (!versionId) return;
-
     // Transform flat checklist to API expected format
     const items: SelfQAItem[] = checklistItems.map((item) => ({
       id: item.id,
