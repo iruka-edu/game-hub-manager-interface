@@ -19,7 +19,3 @@ env:
     value: https://iruka-gamehub-api-1037337851453.asia-southeast1.run.app
   - variable: NEXT_PUBLIC_GAME_LESSON_API_URL
     value: https://iruka-api-1037337851453.asia-southeast1.run.app
-  - variable: MANAGER_GCLOUD_CLIENT_EMAIL
-    secret: MANAGER_GCLOUD_CLIENT_EMAIL
-  - variable: SHARED_GITHUB_TOKEN
-    secret: SHARED_GITHUB_TOKEN
