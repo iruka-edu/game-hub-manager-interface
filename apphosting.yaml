@@ -1,21 +1,48 @@
-run:
-  cpu: 1
-  memoryMiB: 1024
+# Settings for Backend (on Cloud Run).
+# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
+runConfig:
+  # Tăng lên 1 để tránh "Cold Start" (người dùng đầu tiên phải chờ server bật)
   minInstances: 1
+
+  # Giới hạn max để tránh thủng ví nếu bị DDoS
   maxInstances: 10
 
+  # Cloud Run thế hệ 2 cho phép request đồng thời, 80 là số chuẩn.
+  concurrency: 80
+
+  # Next.js khá ngốn CPU khi render SSR
+  cpu: 1
+  memoryMiB: 1024
+
+# Environment variables
 env:
+  # Plain values (non-secret)
   - variable: GAME_HUB_MANAGER_GCLOUD_PROJECT_ID
     value: noted-aloe-474810-u1
+
   - variable: GAME_HUB_MANAGER_GCLOUD_BUCKET_NAME
     value: iruka-edu-mini-game
-  - variable: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL
-    secret: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL
-  - variable: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY
-    secret: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY
-  - variable: GAME_HUB_MANAGER_GITHUB_TOKEN
-    secret: GAME_HUB_MANAGER_GITHUB_TOKEN
+
   - variable: NEXT_PUBLIC_BASE_API_URL
     value: https://iruka-gamehub-api-1037337851453.asia-southeast1.run.app
+
   - variable: NEXT_PUBLIC_GAME_LESSON_API_URL
     value: https://iruka-api-1037337851453.asia-southeast1.run.app
+
+  # Secrets
+  - variable: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL
+    secret: GAME_HUB_MANAGER_GCLOUD_CLIENT_EMAIL
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY
+    secret: GAME_HUB_MANAGER_GCLOUD_PRIVATE_KEY
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: GAME_HUB_MANAGER_GITHUB_TOKEN
+    secret: GAME_HUB_MANAGER_GITHUB_TOKEN
+    availability:
+      - BUILD
