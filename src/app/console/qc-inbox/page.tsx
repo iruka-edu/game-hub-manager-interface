@@ -13,7 +13,7 @@ export default function QCInboxPage() {
 
   // Fetch all games across system for QC management
   const { games: allGamesData, isLoading: gamesLoading } = useGames({
-    status: undefined, // Fetch all statuses
+    status: "qc", // Fetch all statuses
     mine: false, // All games, not just mine
     ownerId: "all",
   });

@@ -657,7 +657,7 @@ export function QCReviewForm({
 
     // Check if failed tests have notes
     // const failedWithoutNotes = failedTests.filter((test) => !test.notes.trim());
-    if (generalNotes === "") {
+    if (finalDecision === "fail" && generalNotes === "") {
       setError("Vui lòng ghi chú nhận xét chung cho tất cả các test bị fail.");
       return;
     }
