@@ -44,7 +44,7 @@ interface GameForLibrary {
 export default function GameLibraryPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: sessionLoading } = useSession();
-  const { games, isLoading: gamesLoading, isError } = useGames();
+  const { games, isLoading: gamesLoading, isError } = useGames({ mine: false });
 
   // Authorization check
   useEffect(() => {

@@ -6,21 +6,18 @@ interface WorkflowTimelineProps {
 
 const workflowSteps = [
   { id: "draft", label: "Nháp", icon: "📝" },
-  { id: "uploaded", label: "Chờ QC", icon: "📤" },
-  { id: "qc_processing", label: "Đang QC", icon: "🔍" },
-  { id: "qc_passed", label: "QC Đạt", icon: "✅" },
+  { id: "qc", label: "QC", icon: "📤" },
+  { id: "review", label: "Chờ duyệt", icon: "🔍" },
   { id: "approved", label: "Đã duyệt", icon: "👍" },
   { id: "published", label: "Xuất bản", icon: "🚀" },
 ];
 
 const statusOrder: Record<string, number> = {
   draft: 0,
-  uploaded: 1,
-  qc_processing: 2,
-  qc_passed: 3,
-  qc_failed: 2, // Same level as qc_processing
-  approved: 4,
-  published: 5,
+  qc: 1,
+  review: 2,
+  approved: 3,
+  published: 4,
   archived: 5,
 };
 

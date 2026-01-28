@@ -202,7 +202,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
           </h4>
           <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
             <InfoItem
-              label="Game ID"
+              label="Game ID (GCS)"
               value={game.gameId}
               mono
               icon={
@@ -222,7 +222,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
               }
             />
             <InfoItem
-              label="Tiêu đề"
+              label="Tên game"
               value={game.title}
               icon={
                 <svg
@@ -431,7 +431,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
           </h4>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
             <InfoItem
-              label="Kỹ năng"
+              label="Skills"
               value={getSkillText(game.skills)}
               icon={
                 <svg
@@ -450,7 +450,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
               }
             />
             <InfoItem
-              label="Chủ đề"
+              label="Themes"
               icon={
                 <svg
                   className="w-3.5 h-3.5"
@@ -542,7 +542,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
             />
             <InfoItem
               label="Độ khó"
-              value={getDifficultyText(game.metadata?.difficulty_levels)}
+              value={game.level || getDifficultyText(game.metadata?.difficulty_levels)}
               icon={
                 <svg
                   className="w-3.5 h-3.5"
@@ -617,7 +617,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
         </div>
 
         {/* Tags and Categories */}
-        <div className="mb-10">
+        {/* <div className="mb-10">
           <h4 className="text-sm font-bold text-indigo-600 mb-6 flex items-center gap-2">
             <svg
               className="w-4 h-4"
@@ -704,7 +704,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
               }
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Thumbnails */}
         {(game.thumbnailDesktop ||

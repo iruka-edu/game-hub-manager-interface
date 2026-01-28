@@ -129,8 +129,7 @@ function GameDetailContent() {
   }
 
   // Get current status from game data
-  const currentStatus = (game as any).status ?? "draft";
-
+  const currentStatus = game.version.status ?? "draft";
   // Role checks
   const userRoles = user.roles as string[];
   const isOwner = game.owner_id === user.id;
