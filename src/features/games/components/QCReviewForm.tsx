@@ -648,7 +648,7 @@ export function QCReviewForm({
   };
 
   const handleSubmit = async (finalDecision: "pass" | "fail") => {
-    if (!manualTestsCompleted) {
+    if (finalDecision === "pass" && !manualTestsCompleted) {
       setError(
         "Vui lòng hoàn thành tất cả các mục kiểm tra thủ công (Manual Tests) trước khi submit.",
       );
@@ -656,9 +656,9 @@ export function QCReviewForm({
     }
 
     // Check if failed tests have notes
-    const failedWithoutNotes = failedTests.filter((test) => !test.notes.trim());
-    if (failedWithoutNotes.length > 0) {
-      setError("Vui lòng ghi chú lý do cho tất cả các test bị fail.");
+    // const failedWithoutNotes = failedTests.filter((test) => !test.notes.trim());
+    if (generalNotes === "") {
+      setError("Vui lòng ghi chú nhận xét chung cho tất cả các test bị fail.");
       return;
     }
 
@@ -1294,7 +1294,7 @@ export function QCReviewForm({
         <button
           type="button"
           onClick={() => handleSubmit("fail")}
-          disabled={!manualTestsCompleted || isSubmitting}
+          disabled={isSubmitting}
           className="flex-1 px-4 sm:px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm text-sm sm:text-base"
         >
           {isSubmitting ? "Đang gửi..." : "✗ Từ chối (Fail QC)"}

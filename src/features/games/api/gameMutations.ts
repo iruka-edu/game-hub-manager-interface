@@ -75,7 +75,7 @@ export async function qcReview(
   gameId: string, // Kept for compatibility but not used in new URL
   payload: QCReviewPayload,
 ): Promise<void> {
-  await apiPost<void>("/api/v1/qc/decision", payload);
+  await apiPost<void>(`/api/v1/games/${gameId}/qc-review`, payload);
 }
 
 /**

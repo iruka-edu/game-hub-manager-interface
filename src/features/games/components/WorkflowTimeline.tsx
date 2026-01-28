@@ -7,7 +7,7 @@ interface WorkflowTimelineProps {
 const workflowSteps = [
   { id: "draft", label: "Nháp", icon: "📝" },
   { id: "qc", label: "QC", icon: "📤" },
-  { id: "review", label: "Chờ duyệt", icon: "🔍" },
+  { id: "review", label: "Review", icon: "🔍" },
   { id: "approved", label: "Đã duyệt", icon: "👍" },
   { id: "published", label: "Xuất bản", icon: "🚀" },
 ];
