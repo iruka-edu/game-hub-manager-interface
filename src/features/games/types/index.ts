@@ -32,7 +32,7 @@ export interface GameMetaData {
   subject?: string;
   grade?: string;
   unit?: string;
-  quyenSach?: string;
+  track?: string;
 }
 
 // API expects this

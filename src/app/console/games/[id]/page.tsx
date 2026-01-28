@@ -202,7 +202,7 @@ function GameDetailContent() {
     skills: extractArrayNames(game.meta_data?.skills),
     themes: extractArrayNames(game.meta_data?.themes),
     linkGithub: game.github_link || "",
-    quyenSach: game.meta_data?.quyenSach || "",
+    quyenSach: extractName(game.meta_data?.track) || "",
     metadata: game.meta_data as any,
     // version: game?.version?.version,
     metadataCompleteness: completeness,

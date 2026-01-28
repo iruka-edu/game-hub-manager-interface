@@ -386,7 +386,7 @@ export function GameInfoSection({ game, canEdit }: GameInfoSectionProps) {
             </div>
 
             <InfoItem
-              label="Bài học & Game"
+              label="Bài học"
               value={
                 game.metadata?.lessonNo
                   ? `Bài ${game.metadata.lessonNo}`
