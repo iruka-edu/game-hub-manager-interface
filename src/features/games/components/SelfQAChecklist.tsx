@@ -1,11 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUpdateSelfQA } from "@/features/games";
-import type {
-  SelfQAChecklist as SelfQAChecklistType,
-  SelfQAItem,
-} from "@/features/games/types";
 
 interface SelfQA {
   testedDevices: boolean;
@@ -17,7 +13,7 @@ interface SelfQA {
 
 interface SelfQAChecklistProps {
   gameId: string;
-  versionId?: string;
+  version?: any; // version.build_data.selfQAChecklist
   selfQa: SelfQA;
   canEdit: boolean;
 }
@@ -41,81 +37,97 @@ const checklistItems = [
   {
     id: "contentVerified",
     label: "Nội dung chính xác",
-    description:
-      "Đã kiểm tra text, câu hỏi, đáp án theo đúng yêu cầu chuyên môn",
+    description: "Đã kiểm tra text, câu hỏi, đáp án theo đúng yêu cầu chuyên môn",
   },
-];
+] as const;
 
 export function SelfQAChecklist({
   gameId,
-  versionId,
+  version,
   selfQa,
   canEdit,
 }: SelfQAChecklistProps) {
-  const [checklist, setChecklist] = useState<SelfQA>(selfQa);
-  const [note, setNote] = useState(selfQa.note || "");
-
   const { mutate: saveSelfQA, isPending: saving } = useUpdateSelfQA();
+
+  // ✅ Lấy checklist ưu tiên từ version.build_data.selfQAChecklist nếu có
+  const sourceChecklist: SelfQA = useMemo(() => {
+    const vChecklist = version?.build_data?.selfQAChecklist;
+
+    if (vChecklist) {
+      return {
+        testedDevices: !!vChecklist.testedDevices,
+        testedAudio: !!vChecklist.testedAudio,
+        gameplayComplete: !!vChecklist.gameplayComplete,
+        contentVerified: !!vChecklist.contentVerified,
+        note: vChecklist.note ?? "",
+      };
+    }
+
+    // fallback: dùng selfQa prop
+    return {
+      testedDevices: !!selfQa?.testedDevices,
+      testedAudio: !!selfQa?.testedAudio,
+      gameplayComplete: !!selfQa?.gameplayComplete,
+      contentVerified: !!selfQa?.contentVerified,
+      note: selfQa?.note ?? "",
+    };
+  }, [version, selfQa]);
+
+  const [checklist, setChecklist] = useState<SelfQA>(sourceChecklist);
+  const [note, setNote] = useState(sourceChecklist.note || "");
+
+  // ✅ Quan trọng: khi version/selfQa đổi -> tự fill lại UI
+  useEffect(() => {
+    setChecklist(sourceChecklist);
+    setNote(sourceChecklist.note || "");
+  }, [sourceChecklist]);
 
   const handleCheckChange = (itemId: keyof SelfQA) => {
     if (!canEdit) return;
     setChecklist((prev) => ({
       ...prev,
-      [itemId]: !prev[itemId], // Toggle boolean value
+      [itemId]: !prev[itemId],
     }));
   };
 
   const handleSave = () => {
-    // Transform flat checklist to API expected format
-    const items: SelfQAItem[] = checklistItems.map((item) => ({
-      id: item.id,
-      label: item.label,
-      checked: !!checklist[item.id as keyof SelfQA],
-      checked_at: checklist[item.id as keyof SelfQA]
-        ? new Date().toISOString()
-        : undefined,
-    }));
-
-    const payload: SelfQAChecklistType = {
-      items,
+    const payload = {
+      testedDevices: checklist.testedDevices,
+      testedAudio: checklist.testedAudio,
+      gameplayComplete: checklist.gameplayComplete,
+      contentVerified: checklist.contentVerified,
       note,
-      versionId,
     };
 
     saveSelfQA(
       { gameId, checklist: payload },
       {
         onSuccess: (data) => {
-          // Update state from response data
-          if (data && data.buildData && data.buildData.selfQAChecklist) {
-            const responseChecklist = data.buildData.selfQAChecklist;
-            const newChecklistState = { ...checklist };
+          // ✅ ưu tiên đọc đúng theo response thực tế của bạn nếu có
+          const saved =
+            (data as any)?.version?.build_data?.selfQAChecklist ??
+            (data as any)?.buildData?.selfQAChecklist ??
+            (data as any)?.build_data?.selfQAChecklist ??
+            (data as any)?.selfQAChecklist;
 
-            // Map items array back to flat state
-            if (
-              responseChecklist.items &&
-              Array.isArray(responseChecklist.items)
-            ) {
-              responseChecklist.items.forEach((item) => {
-                // Check if item.id exists in our known keys
-                if (checklistItems.some((i) => i.id === item.id)) {
-                  (newChecklistState as any)[item.id] = item.checked;
-                }
-              });
-            }
-
-            setChecklist(newChecklistState);
-            if (responseChecklist.note) {
-              setNote(responseChecklist.note);
-            }
+          if (saved) {
+            setChecklist((prev) => ({
+              ...prev,
+              testedDevices: !!saved.testedDevices,
+              testedAudio: !!saved.testedAudio,
+              gameplayComplete: !!saved.gameplayComplete,
+              contentVerified: !!saved.contentVerified,
+            }));
+            setNote(saved.note ?? "");
           }
+
           alert("Lưu checklist thành công!");
         },
         onError: (error: any) => {
           console.error("Error saving self-QA:", error);
           alert("Có lỗi xảy ra khi lưu. Vui lòng thử lại.");
         },
-      },
+      }
     );
   };
 
@@ -155,7 +167,11 @@ export function SelfQAChecklist({
                 isChecked
                   ? "border-emerald-100 bg-emerald-50/20"
                   : "border-slate-50 bg-slate-50/50"
-              } ${canEdit ? "cursor-pointer hover:border-indigo-100 hover:bg-white hover:shadow-md hover:-translate-y-1" : ""}`}
+              } ${
+                canEdit
+                  ? "cursor-pointer hover:border-indigo-100 hover:bg-white hover:shadow-md hover:-translate-y-1"
+                  : ""
+              }`}
             >
               <div className="relative flex items-center mt-1">
                 <input
@@ -168,7 +184,9 @@ export function SelfQAChecklist({
               </div>
               <div>
                 <span
-                  className={`font-bold block text-sm mb-1 ${isChecked ? "text-slate-900" : "text-slate-600"}`}
+                  className={`font-bold block text-sm mb-1 ${
+                    isChecked ? "text-slate-900" : "text-slate-600"
+                  }`}
                 >
                   {item.label}
                 </span>
@@ -186,6 +204,7 @@ export function SelfQAChecklist({
           <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
             Ghi chú cho QC
           </label>
+
           <div className="relative group">
             <textarea
               value={note}

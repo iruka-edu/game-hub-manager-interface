@@ -35,6 +35,15 @@ export interface GameMetaData {
   quyenSach?: string;
 }
 
+// API expects this
+export interface SelfQAFlat {
+  testedDevices: boolean;
+  testedAudio: boolean;
+  gameplayComplete: boolean;
+  contentVerified: boolean;
+  note?: string;
+}
+
 /**
  * Self QA checklist item
  */
@@ -64,7 +73,7 @@ export interface BuildData {
   entryUrl?: string | null;
   extractedFiles?: string[] | null;
   filesCount?: number | null;
-  selfQAChecklist?: SelfQAChecklist | null;
+  selfQAChecklist?: SelfQAFlat | null;
   releaseNote?: string | null;
 }
 
@@ -151,6 +160,7 @@ export interface Game {
   publish_state?: PublishState | string;
   published_at?: string | null;
   meta_data?: GameMetaData | null;
+  version?: any;
   last_meta_date_update?: string | null;
   is_deleted: boolean;
   delete_at?: string | null;

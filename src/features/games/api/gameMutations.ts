@@ -11,9 +11,9 @@ import type {
   UpdateGamePayload,
   ApprovePayload,
   PublishPayload,
-  SelfQAChecklist,
   QCReviewPayload,
   SelfQAResponse,
+  SelfQAFlat,
 } from "../types";
 
 /**
@@ -62,7 +62,7 @@ export async function submitToQC(gameId: string): Promise<void> {
  */
 export async function updateSelfQA(
   gameId: string,
-  checklist: SelfQAChecklist,
+  checklist: SelfQAFlat,
 ): Promise<SelfQAResponse> {
   return apiPost<SelfQAResponse>(`/api/v1/games/${gameId}/self-qa`, checklist);
 }

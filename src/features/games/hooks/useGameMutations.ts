@@ -17,9 +17,7 @@ import { gamesKeys } from "./useGames";
 import type {
   CreateGamePayload,
   UpdateGamePayload,
-  SelfQAChecklist,
-  QCReviewPayload,
-  SelfQAResponse,
+  SelfQAFlat,
 } from "../types";
 
 /**
@@ -97,7 +95,7 @@ export function useUpdateSelfQA() {
       checklist,
     }: {
       gameId: string;
-      checklist: SelfQAChecklist;
+      checklist: SelfQAFlat;
     }) => updateSelfQA(gameId, checklist),
     onSuccess: (_, { gameId }) => {
       queryClient.invalidateQueries({ queryKey: gamesKeys.detail(gameId) });

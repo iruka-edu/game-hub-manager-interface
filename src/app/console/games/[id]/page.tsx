@@ -43,23 +43,30 @@ function GameDetailContent() {
     error: gameError,
   } = useGameDetail(id);
 
+  const savedChecklist = game?.version?.build_data?.selfQAChecklist;
+
+  const isSelfQaChecklistComplete = !!(
+    savedChecklist?.testedDevices &&
+    savedChecklist?.testedAudio &&
+    savedChecklist?.gameplayComplete &&
+    savedChecklist?.contentVerified
+  );
+
   // Calculate completeness and status derived from game data
   const { completeness, isSelfQaComplete } = useMemo(() => {
     if (!game) return { completeness: 0, isSelfQaComplete: false };
 
     let score = 0;
-    const totalWeight = 100;
 
     // Basic Info (20%)
     if (game.title && game.description) score += 20;
 
-    // Edu Info (30%) - Subject, Grade, Unit/Level
-    // meta_data fields: subject, grade, unit, level
+    // Edu Info (30%)
     const hasSubject = !!game.meta_data?.subject;
     const hasGrade = !!game.meta_data?.grade;
     if (hasSubject && hasGrade) score += 30;
 
-    // Assets (20%) - Thumbnails
+    // Assets (20%)
     const hasThumb =
       !!game.meta_data?.thumbnail ||
       !!(game as any).thumbnailDesktop ||
@@ -68,26 +75,18 @@ function GameDetailContent() {
 
     // Classification (20%)
     const hasGameType = !!game.meta_data?.gameType;
-    const hasSkills =
-      game.meta_data?.skills && game.meta_data.skills.length > 0;
+    const hasSkills = game.meta_data?.skills && game.meta_data.skills.length > 0;
     if (hasGameType && hasSkills) score += 20;
 
-    // Self QA (10%)
-    // Since we don't have direct access to SelfQA status in Game object yet,
-    // we might assume it's done if other metadata is complete or check a specific field if available.
-    // For now, let's assume if score >= 90, we enable QC submit (temporarily).
-    // User requested: "Sau khi self-qc xong thì cập nhật độ hoàn thiện... để có thể Gửi QC".
-    // This implies we should track it.
-    // If the API returns 'selfQAChecklist' in some way (e.g. game.selfQAChecklist or inside meta_data), we use it.
-    // If not, we will default to treating score >= 90 as "Complete enough".
-    // Actually, let's check if 'isSelfQaComplete' can be derived.
-    if (score >= 90) score += 10;
+    // Self QA (10%) - ✅ dùng checklist đã lưu thật
+    const selfQaScore = isSelfQaChecklistComplete ? 10 : 0;
+    score += selfQaScore;
 
     return {
       completeness: score,
-      isSelfQaComplete: score >= 100, // Enable QC if 100%
+      isSelfQaComplete: score >= 100, // hoặc: (score === 100)
     };
-  }, [game]);
+  }, [game, isSelfQaChecklistComplete]);
 
   // Loading state
   if (sessionLoading || gameLoading) {
@@ -130,7 +129,7 @@ function GameDetailContent() {
   }
 
   // Get current status from game data
-  const currentStatus = game.last_version_id ? "published" : "draft";
+  const currentStatus = (game as any).status ?? "draft";
 
   // Role checks
   const userRoles = user.roles as string[];
@@ -143,7 +142,7 @@ function GameDetailContent() {
 
   // Action permissions
   const canEdit = isOwner || isAdmin;
-  const canSubmitQC = (isOwner || isDev || isAdmin) && isSelfQaComplete; // Logic update
+  const canSubmitQC = isOwner || isDev || isAdmin; // Logic update
   const canReview = isQC || isAdmin;
   const canApprove = isCTO || isCEO || isAdmin;
   const canPublish = isAdmin;
@@ -151,12 +150,11 @@ function GameDetailContent() {
   // Local SelfQA State Construction (Mock/Transform)
   // We try to extract from game if possible, otherwise empty default
   const selfQaData = {
-    testedDevices: false,
-    testedAudio: false,
-    gameplayComplete: false,
-    contentVerified: false,
-    note: "",
-    // ... we might try to map from game.meta_data if backend stores it there
+    testedDevices: !!savedChecklist?.testedDevices,
+    testedAudio: !!savedChecklist?.testedAudio,
+    gameplayComplete: !!savedChecklist?.gameplayComplete,
+    contentVerified: !!savedChecklist?.contentVerified,
+    note: savedChecklist?.note ?? "",
   };
 
   const errorMessage =
@@ -194,8 +192,9 @@ function GameDetailContent() {
     gameType: extractName(game.meta_data?.gameType),
     teamId: game.team_id || "",
     thumbnailDesktop:
-      game.meta_data?.thumbnail || (game as any).thumbnailDesktop || "",
-    thumbnailMobile: (game as any).thumbnailMobile || "",
+      game.meta_data?.thumbnail?.desktop || (game as any).thumbnailDesktop || "",
+    thumbnailMobile: 
+      game.meta_data?.thumbnail?.mobile || (game as any).thumbnailMobile || "",
     priority: game.meta_data?.priority || "",
     tags: game.meta_data?.tags || [],
     lesson: extractArrayNames(game.meta_data?.lesson),
@@ -205,6 +204,7 @@ function GameDetailContent() {
     linkGithub: game.github_link || "",
     quyenSach: game.meta_data?.quyenSach || "",
     metadata: game.meta_data as any,
+    // version: game?.version?.version,
     metadataCompleteness: completeness,
     createdAt: game.created_at || "",
     updatedAt: game.updated_at || "",
@@ -282,7 +282,7 @@ function GameDetailContent() {
                 canReview={canReview}
                 canApprove={canApprove}
                 canPublish={canPublish}
-                isSelfQaComplete={isSelfQaComplete}
+                isSelfQaComplete={isSelfQaChecklistComplete}
                 isLocked={currentStatus !== "draft"}
                 isLive={!!game.live_version_id}
               />
@@ -362,7 +362,7 @@ function GameDetailContent() {
               <GameInfoSection game={gameData} canEdit={canEdit} />
               <SelfQAChecklist
                 gameId={id}
-                versionId={game.last_version_id || ""}
+                version={game.version}
                 selfQa={selfQaData}
                 canEdit={canEdit}
               />
