@@ -15,9 +15,13 @@ function QCReviewContent() {
   const gameId = params.id as string;
   const versionId = searchParams.get("versionId");
   const router = useRouter();
+  const id = params.id as string;
 
   const { user, isLoading: sessionLoading } = useSession();
   const { data: game, isLoading: gameLoading } = useGameDetail(gameId);
+
+  const entryUrl = (game as any)?.version?.build_data?.entryUrl || "";
+
 
   // Loading
   if (sessionLoading || gameLoading) {
@@ -194,6 +198,59 @@ function QCReviewContent() {
                 </dd>
               </div>
             </dl>
+          </div>
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Thao tác</h3>
+            <div className="space-y-2">
+              <Link
+                href={`/play/${id}`}
+                target="_blank"
+                className="flex items-center gap-2 p-3 rounded-lg hover:bg-slate-50 text-slate-700"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Chơi thử game
+              </Link>
+              {entryUrl ? (
+                <Link
+                  href={`/hub-simulator/${id}?gameUrl=${encodeURIComponent(entryUrl)}&gameId=${encodeURIComponent(
+                    game.game_id || "",
+                  )}&gameVersion=${encodeURIComponent(
+                    (game as any)?.version?.version || versionData.version || "",
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 p-3 rounded-lg hover:bg-slate-50 text-slate-700"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 014-4h6M7 7h10M7 11h6M7 15h2" />
+                  </svg>
+                  Chơi game kiểm tra dữ liệu
+                </Link>
+              ) : (
+                <div className="p-3 rounded-lg bg-slate-50 text-slate-400 text-sm">
+                  Chơi game kiểm tra dữ liệu (thiếu entryUrl)
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
