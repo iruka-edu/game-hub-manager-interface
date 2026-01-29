@@ -124,7 +124,7 @@ export default function GameLibraryPage() {
         description: game.description ?? undefined,
         thumbnailDesktop: game.thumbnail_desktop ?? undefined,
         thumbnailMobile: game.thumbnail_mobile ?? undefined,
-        ownerId: game.owner_id,
+        ownerId: game.owner.id,
         subject: game.subject ?? undefined,
         grade: game.grade ?? undefined,
         gameType: game.game_type ?? undefined,

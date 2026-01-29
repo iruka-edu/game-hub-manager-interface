@@ -181,7 +181,7 @@ function QCReviewContent() {
               <div className="flex justify-between">
                 <dt className="text-slate-500">Người tạo</dt>
                 <dd className="text-slate-900 truncate max-w-[150px]">
-                  {game.owner_id}
+                  {game.owner.name}
                 </dd>
               </div>
             </dl>

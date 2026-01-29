@@ -87,7 +87,7 @@ export default function QCInboxPage() {
       status: (game.status || "draft") as any,
       createdAt: game.created_at,
       updatedAt: game.updated_at,
-      ownerName: game.owner_displayName || game.owner_id || "Developer",
+      ownerName: game.owner.name || "Developer",
       qcIssues: game.qc_issues || [],
       tags: {
         level: game.level,

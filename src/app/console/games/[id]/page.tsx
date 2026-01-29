@@ -132,7 +132,7 @@ function GameDetailContent() {
   const currentStatus = game.version.status ?? "draft";
   // Role checks
   const userRoles = user.roles as string[];
-  const isOwner = game.owner_id === user.id;
+  const isOwner = game.owner.id === user.id;
   const isDev = userRoles.includes("dev");
   const isQC = userRoles.includes("qc");
   const isCTO = userRoles.includes("cto");

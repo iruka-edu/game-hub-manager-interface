@@ -120,6 +120,12 @@ export type GameStatus = "draft" | "qc" | "review" | "approved";
  */
 export type PublishState = "published" | "unpublished";
 
+export interface Owner {
+  id: string;
+  name: string;
+  email: string;
+}
+
 /**
  * Game list item (lightweight)
  * Matches GameListItem schema
@@ -129,7 +135,7 @@ export interface GameListItem {
   game_id: string;
   title: string;
   description?: string | null;
-  owner_id: string;
+  owner: Owner;
   disabled: boolean;
   status?: GameStatus | string;
   publish_state?: PublishState | string;
@@ -148,7 +154,7 @@ export interface Game {
   game_id: string;
   title: string;
   description?: string | null;
-  owner_id: string;
+  owner: Owner;
   team_id?: string | null;
   last_version_id?: string | null;
   live_version_id?: string | null;

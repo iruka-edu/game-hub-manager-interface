@@ -56,7 +56,7 @@ function GameEditContent() {
     );
   }
 
-  const isOwner = game.owner_id === user.id;
+  const isOwner = game.owner.id === user.id;
   const isAdmin = user.roles?.includes("admin");
 
   if (!isOwner && !isAdmin) {

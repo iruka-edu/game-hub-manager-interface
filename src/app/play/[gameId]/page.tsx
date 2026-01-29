@@ -109,7 +109,7 @@ export default function PlayGamePage() {
     description: game.description || "",
     thumbnailDesktop: game.meta_data?.thumbnail as any,
     thumbnailMobile: undefined,
-    ownerId: game.owner_id,
+    ownerId: game.owner.id,
     teamId: game.team_id,
     latestVersionId: game.last_version_id,
     liveVersionId: game.live_version_id ?? "1.0.0",
@@ -131,7 +131,7 @@ export default function PlayGamePage() {
     changelog: "",
     createdAt: game.updated_at || new Date().toISOString(),
     updatedAt: game.updated_at || new Date().toISOString(),
-    createdBy: game.owner_id,
+    createdBy: game.owner.id,
   };
 
   return (
